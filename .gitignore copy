@@ -1,0 +1,107 @@
+# ========================================
+# Node / Frontend (existing)
+# ========================================
+node_modules
+.pnp
+.pnp.js
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Testing
+coverage
+
+# Turbo
+.turbo
+
+# Vercel
+.vercel
+
+# Build Outputs
+.next/
+out/
+build
+dist
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
+.DS_Store
+*.pem
+
+# ========================================
+# Python / FastAPI backend
+# ========================================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyc.*
+*.so
+*.egg
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.venv.bak/
+
+# Python environment files
+apps/backend-fastapi/.env
+apps/backend-fastapi/.env.local
+apps/backend-fastapi/*.env
+
+
+# Python byte-compiled & cache
+*.log
+*.sqlite3
+db.sqlite3
+*.db
+
+# Pytest / Coverage
+htmlcov/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+
+# FastAPI / Uvicorn / Temp audio
+*.pid
+*.pid.lock
+tmp/
+*.mp3
+*.wav
+*.ogg
+*.flac
+
+# Editor junk
+.vscode/
+.idea/
+*.swp
+
+# Python migrations if any
+migrations/__pycache__/
+migrations/*.pyc
+migrations/*.py
+
+# Backend temp files
+apps/backend-fastapi/tmp/
+apps/backend-fastapi/app/tmp/songs/
+
+.venv/
+.venv/
+*.mp4
+*.zip
+*.bin
+
+

@@ -1,0 +1,26 @@
+{
+  "name": "business-app-starter-template",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "seed": "pnpm --filter api seed",
+    "check-health": "node scripts/check-health.js"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.27",
+    "nativewind": "^4.2.3",
+    "postcss": "^8.5.8",
+    "prettier": "^3.7.4",
+    "tailwindcss": "^4.2.2",
+    "turbo": "^2.8.20",
+    "typescript": "5.9.2"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18"
+  }
+}

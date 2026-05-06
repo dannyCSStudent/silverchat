@@ -1,0 +1,16 @@
+{
+  "name": "@repo/types",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "check-types": "../../node_modules/.bin/tsc --noEmit -p tsconfig.json"
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./client": "./client.ts"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "5.9.2"
+  }
+}
