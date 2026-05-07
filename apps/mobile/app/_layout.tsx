@@ -5,16 +5,15 @@ import 'react-native-reanimated';
 
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AuthProvider } from '@/lib/auth';
 import { ThemePreferenceProvider } from '@/lib/theme-preference';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
 
 export default function RootLayout() {
   return (
     <ThemePreferenceProvider>
-      <ThemedRootLayout />
+      <AuthProvider>
+        <ThemedRootLayout />
+      </AuthProvider>
     </ThemePreferenceProvider>
   );
 }
@@ -35,25 +34,8 @@ function ThemedRootLayout() {
             fontWeight: '700',
           },
         }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="modal"
-          options={{ presentation: 'modal', title: 'Quick Actions' }}
-        />
-        <Stack.Screen
-          name="actions/client"
-          options={{ presentation: 'modal', title: 'Create Client' }}
-        />
-        <Stack.Screen
-          name="actions/activity"
-          options={{ presentation: 'modal', title: 'Log Activity' }}
-        />
-        <Stack.Screen
-          name="actions/tags"
-          options={{ presentation: 'modal', title: 'Manage Tags' }}
-        />
-        <Stack.Screen name="client/[id]" options={{ title: 'Details' }} />
-        <Stack.Screen name="preferences" options={{ title: 'Preferences' }} />
+        <Stack.Screen name="(public)" options={{ headerShown: false }} />
+        <Stack.Screen name="(private)" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </ThemeProvider>

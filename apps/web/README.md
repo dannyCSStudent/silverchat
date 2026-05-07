@@ -1,4 +1,23 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Web Admin Notes
+
+## Required admin environment
+
+Create `apps/web/.env.local` with:
+
+```bash
+API_URL=http://127.0.0.1:8001
+ADMIN_API_TOKEN=...
+ADMIN_WEB_USERNAME=admin
+ADMIN_WEB_PASSWORD=change-me
+```
+
+`ADMIN_API_TOKEN` must match `apps/api/.env`.
+
+## Admin protection
+
+- `/moderation` is protected by HTTP Basic auth in `middleware.ts`
+- `/api/admin/*` proxy routes are protected by the same Basic auth boundary
+- Browser clients never receive the backend admin token directly
 
 ## Getting Started
 

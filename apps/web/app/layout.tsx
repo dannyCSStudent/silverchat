@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
+
 import "./globals.css";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -15,14 +16,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Northstar CRM",
-  description: "Client pipeline dashboard for the business app starter",
+  title: "SilverChat Admin",
+  description: "Safety-first video chat operations console for adults 40+",
 };
 
 const navigation = [
-  { href: "/", label: "Dashboard" },
-  { href: "/portfolio", label: "Portfolio" },
+  { href: "/", label: "Overview" },
   { href: "/health", label: "Health" },
+  { href: "/moderation", label: "Moderation" },
 ];
 
 export default function RootLayout({
@@ -42,13 +43,13 @@ export default function RootLayout({
             <div className="flex min-w-0 items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/45">
-                  Northstar
+                  SilverChat
                 </p>
                 <Link
                   href="/"
                   className="mt-3 block wrap-break-word text-2xl font-semibold tracking-tight"
                 >
-                  CRM
+                  Admin
                 </Link>
               </div>
 
@@ -59,9 +60,9 @@ export default function RootLayout({
 
             <div className="mt-8 rounded-[26px] border border-white/8 bg-white/6 p-4">
               <p className="text-xs uppercase tracking-[0.24em] text-white/45">Workspace</p>
-              <p className="mt-2 text-xl font-semibold text-white">Client Ops</p>
+              <p className="mt-2 text-xl font-semibold text-white">Trust + Onboarding</p>
               <p className="mt-2 text-sm leading-6 text-white/62">
-                Timeline-first workflow for keeping active accounts visible and calm.
+                Phase 1 foundation for profile readiness, safety signals, and backend health.
               </p>
             </div>
 
@@ -83,16 +84,15 @@ export default function RootLayout({
             <div className="mt-8 grid gap-3">
               <div className="rounded-3xl border border-white/8 bg-[linear-gradient(135deg,rgba(184,92,56,0.22),rgba(255,255,255,0.04))] p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-white/55">Focus</p>
-                <p className="mt-2 text-base font-semibold">Follow-up discipline</p>
+                <p className="mt-2 text-base font-semibold">Safety before scale</p>
                 <p className="mt-2 text-sm leading-6 text-white/68">
-                  Keep overdue work obvious without turning the dashboard into an alarm wall.
+                  Build auth and onboarding on top of a moderation-ready data model.
                 </p>
               </div>
               <div className="rounded-3xl border border-white/8 bg-white/6 p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-white/55">System</p>
                 <p className="mt-2 text-sm leading-6 text-white/68">
-                  Shared data model across web, mobile, and API. Design decisions here should scale
-                  to both surfaces.
+                  Supabase Auth + Postgres underneath, FastAPI as the typed application boundary.
                 </p>
               </div>
             </div>

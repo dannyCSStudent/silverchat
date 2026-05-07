@@ -7,7 +7,7 @@
   },
   "exports": {
     ".": "./index.ts",
-    "./client": "./client.ts"
+    "./silverchat": "./silverchat.ts"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",

@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "Northstar CRM",
-    "slug": "business-app-starter-template",
+    "name": "SilverChat",
+    "slug": "silverchat",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "northstarcrm",
+    "scheme": "silverchat",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.businessappstartertemplate.northstarcrm"
+      "bundleIdentifier": "com.silverchat.app"
     },
     "android": {
-      "package": "com.businessappstartertemplate.northstarcrm",
+      "package": "com.silverchat.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -40,7 +40,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,0 +1,195 @@
+import { Link } from 'expo-router';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image } from 'expo-image';
+
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAuth } from '@/lib/auth';
+
+export default function QueueScreen() {
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
+  const { joinQueue, loading, message, onboardingChecklist, profile, queueEligible } = useAuth();
+  const [localMessage, setLocalMessage] = useState<string | null>(null);
+  const [matchedProfile, setMatchedProfile] = useState<{
+    user_id: string;
+    display_name: string;
+    avatar_url?: string;
+    country_code?: string;
+  } | null>(null);
+
+  async function handleQueueAttempt() {
+    if (!queueEligible) {
+      setLocalMessage('Finish the remaining onboarding steps before joining the queue.');
+      return;
+    }
+
+    setLocalMessage(null);
+
+    try {
+      const response = await joinQueue();
+      setMatchedProfile(response.matched_profile ?? null);
+      setLocalMessage(
+        response.status === 'matched'
+          ? `Matched with ${response.matched_profile?.display_name ?? 'another member'}.`
+          : 'You are in queue. Stay available while we look for a conversation.',
+      );
+    } catch (error) {
+      setMatchedProfile(null);
+      setLocalMessage(error instanceof Error ? error.message : 'Unable to join matchmaking.');
+    }
+  }
+
+  const incompleteSteps = onboardingChecklist.filter((item) => !item.complete);
+
+  return (
+    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
+      <ThemedView style={styles.hero}>
+        <ThemedText style={styles.eyebrow}>Readiness</ThemedText>
+        <ThemedText type="title" style={styles.title}>
+          Matchmaking gate
+        </ThemedText>
+        <ThemedText style={styles.copy}>
+          This screen decides whether the current account can enter random video matchmaking.
+        </ThemedText>
+      </ThemedView>
+
+      <ThemedView style={styles.card}>
+        <ThemedText style={styles.cardLabel}>Eligibility</ThemedText>
+        <ThemedText style={styles.statusText}>
+          {queueEligible ? 'Ready for matchmaking' : 'Not ready yet'}
+        </ThemedText>
+        <ThemedText style={styles.cardCopy}>
+          Profile status: {profile?.profile_status ?? 'pending'}
+        </ThemedText>
+      </ThemedView>
+
+      <ThemedView style={styles.card}>
+        <ThemedText type="subtitle">Checklist</ThemedText>
+        <View style={styles.checklist}>
+          {onboardingChecklist.map((item) => (
+            <View key={item.id} style={styles.checklistRow}>
+              <View style={[styles.checkIndicator, item.complete && styles.checkIndicatorComplete]} />
+              <ThemedText style={styles.checkText}>{item.label}</ThemedText>
+            </View>
+          ))}
+        </View>
+      </ThemedView>
+
+      {!queueEligible ? (
+        <ThemedView style={styles.card}>
+          <ThemedText type="subtitle">Next actions</ThemedText>
+          {incompleteSteps.map((item) => (
+            <ThemedText key={item.id} style={styles.cardCopy}>
+              - {item.label}
+            </ThemedText>
+          ))}
+          <View style={styles.linkGroup}>
+            <Link href="/(private)/(tabs)/index" style={styles.secondaryButton}>
+              <ThemedText style={styles.secondaryButtonText}>Complete profile</ThemedText>
+            </Link>
+            <Link href="/(private)/(tabs)/setup" style={styles.secondaryButton}>
+              <ThemedText style={styles.secondaryButtonText}>Finish interests</ThemedText>
+            </Link>
+          </View>
+        </ThemedView>
+      ) : (
+        <ThemedView style={styles.card}>
+          <ThemedText type="subtitle">Queue unlock state</ThemedText>
+          <ThemedText style={styles.cardCopy}>
+            Your account passes the current client-side gate and can call the matchmaking join endpoint.
+          </ThemedText>
+        </ThemedView>
+      )}
+
+      {matchedProfile ? (
+        <ThemedView style={styles.card}>
+          <ThemedText type="subtitle">Latest match</ThemedText>
+          <View style={styles.matchCard}>
+            {matchedProfile.avatar_url ? (
+              <Image source={{ uri: matchedProfile.avatar_url }} style={styles.avatar} contentFit="cover" />
+            ) : (
+              <View style={styles.avatarFallback}>
+                <ThemedText style={styles.avatarFallbackText}>
+                  {matchedProfile.display_name.slice(0, 1).toUpperCase()}
+                </ThemedText>
+              </View>
+            )}
+            <View style={styles.matchCopy}>
+              <ThemedText style={styles.matchName}>{matchedProfile.display_name}</ThemedText>
+              <ThemedText style={styles.cardCopy}>
+                {matchedProfile.country_code ?? 'Country not set'}
+              </ThemedText>
+            </View>
+          </View>
+        </ThemedView>
+      ) : null}
+
+      <Pressable
+        disabled={loading}
+        onPress={() => void handleQueueAttempt()}
+        style={[styles.primaryButton, (!queueEligible || loading) && styles.primaryButtonMuted]}>
+        <ThemedText style={styles.primaryButtonText}>
+          {loading ? 'Joining...' : queueEligible ? 'Join queue' : 'Why can’t I join yet?'}
+        </ThemedText>
+      </Pressable>
+
+      {localMessage ? <ThemedText style={styles.successText}>{localMessage}</ThemedText> : null}
+      {message ? <ThemedText style={styles.successText}>{message}</ThemedText> : null}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  content: { padding: 20, gap: 18, paddingBottom: 36 },
+  hero: { borderRadius: 28, padding: 22, gap: 10 },
+  eyebrow: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.3, opacity: 0.62 },
+  title: { fontSize: 30, lineHeight: 34 },
+  copy: { fontSize: 16, lineHeight: 24, opacity: 0.8 },
+  card: { borderRadius: 24, padding: 18, gap: 12 },
+  cardLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, opacity: 0.62 },
+  cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
+  statusText: { fontSize: 22, fontWeight: '700' },
+  checklist: { gap: 12 },
+  checklistRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  checkIndicator: { width: 12, height: 12, borderRadius: 6, backgroundColor: 'rgba(183,68,68,0.7)' },
+  checkIndicatorComplete: { backgroundColor: '#1F7A61' },
+  checkText: { fontSize: 15, lineHeight: 22 },
+  matchCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  matchCopy: { flex: 1, gap: 4 },
+  matchName: { fontSize: 18, fontWeight: '700' },
+  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(24,33,43,0.08)' },
+  avatarFallback: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#27566B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarFallbackText: { color: '#FFF8F2', fontSize: 22, fontWeight: '700' },
+  linkGroup: { gap: 10 },
+  primaryButton: {
+    borderRadius: 999,
+    backgroundColor: '#1F7A61',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  primaryButtonMuted: { backgroundColor: '#62707F' },
+  primaryButtonText: { color: '#FFF8F2', fontWeight: '700' },
+  secondaryButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(39,86,107,0.24)',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  secondaryButtonText: { color: '#27566B', fontWeight: '700' },
+  successText: { color: '#1F7A61', fontSize: 14, lineHeight: 20 },
+});

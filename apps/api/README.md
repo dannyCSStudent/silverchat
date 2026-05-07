@@ -1,24 +1,43 @@
-# API Schema Notes
+# API Notes
 
-`schema.sql` is the current source of truth for the initial Supabase CRM schema.
+`schema.sql` is the source of truth for the SilverChat Phase 1 Supabase schema.
 
-## Seeding sample data
+## Current foundation
 
-If you want reproducible sample clients, tags, and activity to try out the dashboard, use the included seed script:
+The FastAPI app is aligned around:
+
+- Supabase Auth for identity
+- FastAPI JWT verification for protected routes
+- profile creation and onboarding state
+- interest selection
+- reports and blocks
+
+## Expected environment
+
+Create `apps/api/.env` with:
 
 ```bash
-cd apps/api
-uv run python seed.py
+SUPABASE_URL=...
+SUPABASE_SERVICE_KEY=...
+ADMIN_API_TOKEN=...
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8081
 ```
 
-Set `--drop` if you want to clear the existing CRM tables before inserting the sample rows.
+## Apply schema
 
-The script uses the same `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` that the FastAPI app expects, so ensure those are available in your environment before running it.
+Run `apps/api/schema.sql` in the Supabase SQL editor before local development.
 
-It inserts:
+## Auth boundary
 
-- three sample clients (Acorn Atelier, Blue Peak Logistics, Fern Harbor Dental)
-- three tags with assignments
-- four activity records that span the clients/tags
+Mobile and web clients should authenticate with Supabase directly.
+Protected FastAPI routes expect:
 
-Apply the script after running `schema.sql`, or run it repeatedly with `--drop` for a clean slate.
+```text
+Authorization: Bearer <supabase-access-token>
+```
+
+Admin moderation routes additionally expect:
+
+```text
+X-Admin-Token: <admin-api-token>
+```

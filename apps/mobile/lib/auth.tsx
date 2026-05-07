@@ -1,0 +1,537 @@
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import type { Session, User } from '@supabase/supabase-js';
+
+import { apiRequest } from '@/lib/api';
+import { supabase, supabaseEnvError } from '@/lib/supabase';
+
+type SessionState = {
+  user: {
+    id: string;
+    email?: string;
+    phone?: string;
+    email_confirmed_at?: string;
+  };
+  profile_exists: boolean;
+  onboarding_complete: boolean;
+};
+
+type ProfileRecord = {
+  user_id: string;
+  display_name: string;
+  date_of_birth: string;
+  bio?: string;
+  avatar_url?: string;
+  country_code?: string;
+  age_verified_status: 'pending' | 'self_attested' | 'verified' | 'rejected';
+  profile_status: 'pending' | 'active' | 'paused' | 'banned';
+  safety_notes?: string;
+  onboarding_completed_at?: string;
+};
+
+type InterestRecord = {
+  id: string;
+  name: string;
+  category?: string;
+};
+
+type UserInterestRecord = {
+  user_id: string;
+  interest_id: string;
+};
+
+type MatchJoinResponse = {
+  status: 'queued' | 'matched';
+  queue_entry?: {
+    user_id: string;
+    queued_at?: string;
+    last_active_at?: string;
+    preferred_language?: string;
+    country_code?: string;
+    is_available: boolean;
+  } | null;
+  session_id?: string | null;
+  matched_profile?: {
+    user_id: string;
+    display_name: string;
+    avatar_url?: string;
+    country_code?: string;
+  } | null;
+};
+
+type SaveProfileInput = {
+  display_name: string;
+  date_of_birth: string;
+  bio?: string;
+  avatar_url?: string;
+  country_code?: string;
+  age_verified_status?: 'pending' | 'self_attested' | 'verified' | 'rejected';
+  profile_status?: 'pending' | 'active' | 'paused' | 'banned';
+};
+
+type AuthContextValue = {
+  availableInterests: InterestRecord[];
+  emailAddress: string | null;
+  emailVerified: boolean;
+  envError: string | null;
+  hasCompletedInterests: boolean;
+  hasCompletedProfile: boolean;
+  initialized: boolean;
+  interests: string[];
+  loading: boolean;
+  message: string | null;
+  onboardingChecklist: Array<{
+    complete: boolean;
+    id: 'email' | 'profile' | 'interests' | 'onboarding';
+    label: string;
+  }>;
+  queueEligible: boolean;
+  profile: ProfileRecord | null;
+  session: Session | null;
+  sessionState: SessionState | null;
+  joinQueue: () => Promise<MatchJoinResponse>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  user: User | null;
+  clearMessage: () => void;
+  refreshData: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
+  saveInterests: (interestIds: string[]) => Promise<void>;
+  saveProfile: (payload: SaveProfileInput) => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+type AccountSnapshot = {
+  availableInterests: InterestRecord[];
+  interests: string[];
+  profile: ProfileRecord | null;
+  sessionState: SessionState | null;
+};
+
+async function authorizedRequest<T>(session: Session, path: string, options: RequestInit = {}) {
+  const headers = new Headers(options.headers);
+  headers.set('Authorization', `Bearer ${session.access_token}`);
+
+  if (options.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  return apiRequest<T>(path, {
+    ...options,
+    headers,
+  });
+}
+
+async function loadAccountSnapshot(nextSession: Session | null): Promise<AccountSnapshot> {
+  const availableInterests = await apiRequest<InterestRecord[]>('/interests/');
+
+  if (!nextSession) {
+    return {
+      availableInterests,
+      interests: [],
+      profile: null,
+      sessionState: null,
+    };
+  }
+
+  const [sessionState, profile, userInterests] = await Promise.all([
+    authorizedRequest<SessionState>(nextSession, '/auth/session'),
+    authorizedRequest<ProfileRecord | null>(nextSession, '/profiles/me'),
+    authorizedRequest<UserInterestRecord[]>(nextSession, '/interests/me'),
+  ]);
+
+  return {
+    availableInterests,
+    interests: userInterests.map((item) => item.interest_id),
+    profile,
+    sessionState,
+  };
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [availableInterests, setAvailableInterests] = useState<InterestRecord[]>([]);
+  const [initialized, setInitialized] = useState(false);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [profile, setProfile] = useState<ProfileRecord | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [sessionState, setSessionState] = useState<SessionState | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const emailAddress = user?.email ?? sessionState?.user.email ?? null;
+  const emailVerified = Boolean(
+    sessionState?.user.email_confirmed_at ?? (user as User & { email_confirmed_at?: string } | null)?.email_confirmed_at,
+  );
+  const hasCompletedProfile = Boolean(
+    profile &&
+      profile.display_name.trim() &&
+      profile.date_of_birth &&
+      profile.country_code?.trim(),
+  );
+  const hasCompletedInterests = interests.length > 0;
+  const onboardingChecklist: AuthContextValue['onboardingChecklist'] = [
+    { complete: emailVerified, id: 'email', label: 'Verified email address' },
+    { complete: hasCompletedProfile, id: 'profile', label: 'Completed profile basics' },
+    { complete: hasCompletedInterests, id: 'interests', label: 'Selected conversation interests' },
+    {
+      complete: Boolean(sessionState?.onboarding_complete && profile?.onboarding_completed_at),
+      id: 'onboarding',
+      label: 'Finished onboarding flow',
+    },
+  ];
+  const queueEligible =
+    onboardingChecklist.every((item) => item.complete) &&
+    profile?.profile_status === 'active';
+
+  async function refreshData(nextSession = session) {
+    try {
+      const snapshot = await loadAccountSnapshot(nextSession);
+      setAvailableInterests(snapshot.availableInterests);
+      setProfile(snapshot.profile);
+      setSessionState(snapshot.sessionState);
+      setInterests(snapshot.interests);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to refresh account data.');
+    }
+  }
+
+  useEffect(() => {
+    let active = true;
+
+    async function bootstrap() {
+      if (supabaseEnvError) {
+        try {
+          const snapshot = await loadAccountSnapshot(null);
+          if (active) {
+            setAvailableInterests(snapshot.availableInterests);
+          }
+        } catch {
+          // Ignore API bootstrap failures when auth env is not configured.
+        }
+
+        if (active) {
+          setInitialized(true);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase.auth.getSession();
+      if (!active) {
+        return;
+      }
+
+      if (error) {
+        setMessage(error.message);
+      }
+
+      const nextSession = data.session;
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+      try {
+        const snapshot = await loadAccountSnapshot(nextSession);
+        if (!active) {
+          return;
+        }
+        setAvailableInterests(snapshot.availableInterests);
+        setProfile(snapshot.profile);
+        setSessionState(snapshot.sessionState);
+        setInterests(snapshot.interests);
+      } catch (snapshotError) {
+        setMessage(
+          snapshotError instanceof Error
+            ? snapshotError.message
+            : 'Unable to refresh account data.',
+        );
+      }
+      if (active) {
+        setInitialized(true);
+      }
+    }
+
+    void bootstrap();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+      void refreshData(nextSession);
+      setInitialized(true);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  async function signUp(email: string, password: string) {
+    if (supabaseEnvError) {
+      throw new Error(supabaseEnvError);
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage('Account created. Check your email if confirmation is enabled.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function signIn(email: string, password: string) {
+    if (supabaseEnvError) {
+      throw new Error(supabaseEnvError);
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage('Signed in.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function signOut() {
+    if (supabaseEnvError) {
+      throw new Error(supabaseEnvError);
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw error;
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function requestPasswordReset(email: string) {
+    if (supabaseEnvError) {
+      throw new Error(supabaseEnvError);
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) {
+        throw error;
+      }
+
+      setMessage('Password reset email sent if the account exists.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function resendVerificationEmail() {
+    if (supabaseEnvError) {
+      throw new Error(supabaseEnvError);
+    }
+
+    if (!emailAddress) {
+      throw new Error('No email address is available for this account.');
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase.auth.resend({
+        email: emailAddress,
+        type: 'signup',
+      });
+      if (error) {
+        throw error;
+      }
+
+      setMessage('Verification email resent.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveProfile(payload: SaveProfileInput) {
+    if (!session) {
+      throw new Error('You must be signed in first.');
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      await authorizedRequest<ProfileRecord>(session, '/profiles/me', {
+        method: 'PUT',
+        body: JSON.stringify({
+          age_verified_status: payload.age_verified_status ?? 'self_attested',
+          avatar_url: payload.avatar_url || null,
+          bio: payload.bio || null,
+          country_code: payload.country_code || null,
+          date_of_birth: payload.date_of_birth,
+          display_name: payload.display_name,
+          profile_status: payload.profile_status ?? 'pending',
+        }),
+      });
+
+      await refreshData(session);
+      setMessage('Profile saved.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveInterests(interestIds: string[]) {
+    if (!session) {
+      throw new Error('You must be signed in first.');
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      await authorizedRequest<UserInterestRecord[]>(session, '/interests/me', {
+        method: 'PUT',
+        body: JSON.stringify({ interest_ids: interestIds }),
+      });
+
+      if (profile && interestIds.length > 0 && !profile.onboarding_completed_at) {
+        await authorizedRequest<ProfileRecord>(session, '/profiles/me', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            onboarding_completed_at: new Date().toISOString(),
+            profile_status: 'active',
+          }),
+        });
+      }
+
+      await refreshData(session);
+      setMessage('Interests saved.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function joinQueue() {
+    if (!session) {
+      throw new Error('You must be signed in first.');
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await authorizedRequest<MatchJoinResponse>(session, '/match/join', {
+        method: 'POST',
+        body: JSON.stringify({
+          country_code: profile?.country_code || null,
+        }),
+      });
+
+      setMessage(
+        response.status === 'matched'
+          ? `Match found with ${response.matched_profile?.display_name ?? 'another member'}.`
+          : 'You are now in the matchmaking queue.',
+      );
+      return response;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      availableInterests,
+      emailAddress,
+      emailVerified,
+      clearMessage: () => setMessage(null),
+      envError: supabaseEnvError,
+      hasCompletedInterests,
+      hasCompletedProfile,
+      initialized,
+      interests,
+      joinQueue,
+      loading,
+      message,
+      onboardingChecklist,
+      queueEligible,
+      profile,
+      refreshData,
+      requestPasswordReset,
+      resendVerificationEmail,
+      saveInterests,
+      saveProfile,
+      session,
+      sessionState,
+      signIn,
+      signOut,
+      signUp,
+      user,
+    }),
+    [
+      availableInterests,
+      emailAddress,
+      emailVerified,
+      hasCompletedInterests,
+      hasCompletedProfile,
+      initialized,
+      interests,
+      joinQueue,
+      loading,
+      message,
+      onboardingChecklist,
+      profile,
+      queueEligible,
+      session,
+      sessionState,
+      user,
+    ],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+
+  return context;
+}

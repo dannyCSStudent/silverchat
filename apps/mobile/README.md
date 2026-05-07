@@ -1,119 +1,106 @@
 # Mobile App Notes
 
-This Expo app talks to the FastAPI backend, not directly to Supabase.
+This Expo app should use:
+
+- Supabase Auth for sign-up, sign-in, and session restore
+- FastAPI for protected application routes like profiles, interests, reports, and blocks
 
 ## API Connection
 
 The mobile app resolves its API base URL in this order:
 
 1. Platform-specific override:
+   - `EXPO_PUBLIC_API_BASE_URL`
    - `EXPO_PUBLIC_API_URL_ANDROID`
    - `EXPO_PUBLIC_API_URL_IOS`
    - `EXPO_PUBLIC_API_URL_WEB`
 2. `EXPO_PUBLIC_API_URL`
-3. The Expo dev host, rewritten to `http://<your-machine-ip>:8000`
-4. Fallback: `http://127.0.0.1:8000`
-
-That means:
-
-- iOS simulator on the same Mac can often use `127.0.0.1:8000`
-- Android emulator usually needs `10.0.2.2:8000`
-- A physical phone needs your computer's LAN IP, for example `http://192.168.1.25:8000`
+3. Fallback: `http://127.0.0.1:8001`
 
 ## Recommended Local Setup
 
 Create `apps/mobile/.env`:
 
 ```bash
-EXPO_PUBLIC_API_URL_ANDROID=http://10.0.2.2:8000
-EXPO_PUBLIC_API_URL_WEB=http://localhost:8000
+EXPO_PUBLIC_API_BASE_URL=http://192.168.1.25:8001
+EXPO_PUBLIC_API_URL_ANDROID=http://10.0.2.2:8001
+EXPO_PUBLIC_API_URL_WEB=http://localhost:8001
+EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+EXPO_PUBLIC_SUPABASE_AVATAR_BUCKET=avatars
 ```
 
-For a physical phone, use your machine's LAN IP instead, for example:
+For a physical phone, use your machine's LAN IP instead:
 
 ```bash
-EXPO_PUBLIC_API_URL=http://192.168.1.25:8000
+EXPO_PUBLIC_API_URL=http://192.168.1.25:8001
 ```
 
 Then start the backend so it is reachable from your device:
 
 ```bash
 cd apps/api
-uv run fastapi dev app/main.py --host 0.0.0.0 --port 8000
+./venv/bin/python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 ```
 
-Or run your existing API workflow, as long as it listens on `0.0.0.0:8000` during device testing.
+## Phase 1 implementation order
 
-## Start Mobile
+1. Add Supabase client configuration to the Expo app.
+2. Build auth screens and session restore.
+3. Call `GET /auth/session` with the Supabase access token.
+4. Save onboarding data to `PUT /profiles/me`.
+5. Save interest selection to `PUT /interests/me`.
+6. Join the matchmaking queue with `POST /match/join`.
 
-```bash
-cd apps/mobile
-pnpm dev
-```
+The current scaffold now covers steps 1-6 at a basic level.
 
-If you change `EXPO_PUBLIC_API_URL`, restart Expo so the new public env var is picked up.
+## Verification gate
 
-## If You Still See Fallback Data
+The current flow requires:
 
-Check these in order:
+1. Sign up or sign in
+2. Verify the email address
+3. Enter the private onboarding flow
+4. Save profile data
+5. Save interests and complete onboarding
 
-1. Open `http://<your-api-host>:8000/health/` from the phone browser.
-2. Confirm the phone and laptop are on the same network.
-3. Confirm the API process is bound to `0.0.0.0`, not only `127.0.0.1`.
-4. Restart Expo after editing `.env`.
-5. If Android emulator is in use, try `EXPO_PUBLIC_API_URL_ANDROID=http://10.0.2.2:8000`.
-6. If Expo web is in use, try `EXPO_PUBLIC_API_URL_WEB=http://localhost:8000`.
+Private routes redirect back to `/(public)/verify-email` until the session reports a confirmed email.
+
+## Avatar storage
+
+The profile screen now uploads avatars to Supabase Storage.
+
+Recommended setup:
+
+1. Create a public bucket named `avatars`, or set `EXPO_PUBLIC_SUPABASE_AVATAR_BUCKET`.
+2. Add storage policies that allow authenticated uploads and public reads for avatar objects.
+3. Keep file paths scoped by user id, which the current app does automatically.
+
+## Matchmaking gate
+
+The app now derives queue readiness from the current account state.
+
+A user is eligible for matchmaking only when all of these are true:
+
+1. Email is verified
+2. Profile basics are complete
+3. At least one interest is selected
+4. Onboarding is marked complete
+5. Profile status is `active`
+
+The private Queue tab now calls `/match/join` and shows either a queued state or a basic match result.
+
+## Current route structure
+
+- `/(public)/login`: sign in
+- `/(public)/signup`: create account
+- `/(public)/forgot-password`: request password reset
+- `/(public)/verify-email`: resend verification and refresh email status
+- `/(private)/(tabs)/index`: account and profile setup
+- `/(private)/(tabs)/setup`: interests and onboarding completion
+- `/(private)/(tabs)/queue`: matchmaking readiness and queue gate
+- `/(private)/preferences`: theme preferences
 
 ## EAS / Expo Deploy Prep
 
-This app is now scaffolded for EAS builds with:
-
-- app name: `Northstar CRM`
-- slug: `northstar-crm`
-- scheme: `northstarcrm`
-- Android package: `com.businessappstartertemplate.northstarcrm`
-- iOS bundle identifier: `com.businessappstartertemplate.northstarcrm`
-- build profiles in `eas.json`
-
-Before your first hosted build:
-
-1. Install the Expo tools:
-
-```bash
-pnpm add -g eas-cli
-```
-
-2. Log in:
-
-```bash
-eas login
-```
-
-3. Initialize the project from `apps/mobile`:
-
-```bash
-cd apps/mobile
-eas project:init
-```
-
-4. Replace `REPLACE_WITH_EAS_PROJECT_ID` in `app.json` with the generated project id.
-
-5. Set your production API env var for builds:
-
-```bash
-eas env:create --name EXPO_PUBLIC_API_URL --value https://your-render-api.onrender.com
-```
-
-6. Build:
-
-```bash
-eas build --platform android --profile preview
-```
-
-Then later:
-
-```bash
-eas build --platform android --profile production
-```
-
-Use the same Render base URL for `EXPO_PUBLIC_API_URL`. You do not need the local Android/web overrides for hosted builds.
+Before production builds, replace the placeholder Supabase project values with your real environment configuration for each build profile.

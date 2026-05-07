@@ -5,6 +5,7 @@ load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+ADMIN_API_TOKEN = os.getenv("ADMIN_API_TOKEN")
 
 if not SUPABASE_URL:
     raise Exception("Missing SUPABASE_URL")

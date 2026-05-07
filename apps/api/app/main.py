@@ -1,20 +1,26 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 import os
-from app.routes.activity import router as activity_router
-from app.routes.client_tags import router as client_tags_router
-from app.routes.health import router as health_router
-from app.routes.clients import router as clients_router
-from app.routes.tags import router as tags_router
 
-app = FastAPI()
+from fastapi import FastAPI
+from fastapi.requests import Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from postgrest.exceptions import APIError
+
+from app.routes.auth import router as auth_router
+from app.routes.blocks import router as blocks_router
+from app.routes.health import router as health_router
+from app.routes.interests import router as interests_router
+from app.routes.matchmaking import router as matchmaking_router
+from app.routes.profiles import router as profiles_router
+from app.routes.reports import router as reports_router
+
+app = FastAPI(title="SilverChat API")
 
 default_allowed_origins = [
     "http://localhost:3000",
     "http://localhost:8081",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8081",
-    "https://business-app-starter-template-web.vercel.app",
 ]
 
 configured_allowed_origins = [
@@ -32,8 +38,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(activity_router)
-app.include_router(client_tags_router)
-app.include_router(clients_router)
+
+@app.exception_handler(APIError)
+async def handle_supabase_api_error(_request: Request, exc: APIError):
+    code = getattr(exc, "code", None)
+    message = getattr(exc, "message", str(exc))
+
+    if code == "PGRST205":
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": (
+                    "Supabase schema is not ready. Apply apps/api/schema.sql to the connected "
+                    "database, then retry."
+                )
+            },
+        )
+
+    return JSONResponse(status_code=502, content={"detail": message})
+
+app.include_router(auth_router)
+app.include_router(blocks_router)
 app.include_router(health_router)
-app.include_router(tags_router)
+app.include_router(interests_router)
+app.include_router(matchmaking_router)
+app.include_router(profiles_router)
+app.include_router(reports_router)
