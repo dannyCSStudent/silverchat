@@ -3,9 +3,17 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.admin_users import AdminUserSummary
+
 
 ReportReason = Literal["nudity", "harassment", "scam", "underage", "spam", "other"]
 ReportStatus = Literal["open", "reviewing", "resolved", "dismissed"]
+ModerationEnforcementAction = Literal[
+    "warning",
+    "verification_required",
+    "temporary_ban",
+    "permanent_ban",
+]
 
 
 class ReportCreate(BaseModel):
@@ -34,7 +42,13 @@ class ModerationNoteCreate(BaseModel):
 
 
 class ModerationAssignmentUpdate(BaseModel):
-    assignee: str | None = None
+    assignee_admin_user_id: str | None = None
+
+
+class ModerationEnforcementCreate(BaseModel):
+    action: ModerationEnforcementAction
+    duration_hours: int | None = None
+    note: str | None = None
 
 
 class ModerationProfileSummary(BaseModel):
@@ -67,9 +81,19 @@ class ModerationEventRecord(BaseModel):
     subject_user_id: str | None = None
     event_type: str
     payload: dict
+    actor_admin_user: AdminUserSummary | None = None
     created_at: datetime | None = None
 
     model_config = ConfigDict(extra="ignore")
+
+
+class ModerationEnforcementSummary(BaseModel):
+    action: ModerationEnforcementAction
+    duration_hours: int | None = None
+    note: str | None = None
+    actor_admin_user: AdminUserSummary | None = None
+    report_id: str | None = None
+    created_at: datetime | None = None
 
 
 class ModerationReportRecord(ReportRecord):
@@ -78,6 +102,9 @@ class ModerationReportRecord(ReportRecord):
     session: ModerationSessionSummary | None = None
     events: list[ModerationEventRecord] = []
     current_assignee: str | None = None
+    current_assignee_admin_user_id: str | None = None
+    current_assignee_admin_user: AdminUserSummary | None = None
+    latest_enforcement: ModerationEnforcementSummary | None = None
 
 
 class BlockCreate(BaseModel):

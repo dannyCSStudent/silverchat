@@ -18,7 +18,7 @@ export async function POST(
   const { reportId } = await params;
   const body = await request.text();
   const adminUsername = request.headers.get("x-admin-username");
-  const response = await fetch(`${apiBaseUrl}/reports/${reportId}/notes`, {
+  const response = await fetch(`${apiBaseUrl}/reports/${reportId}/enforcement`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

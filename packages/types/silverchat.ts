@@ -2,6 +2,12 @@ export type AgeVerifiedStatus = "pending" | "self_attested" | "verified" | "reje
 export type ProfileStatus = "pending" | "active" | "paused" | "banned"
 export type ReportReason = "nudity" | "harassment" | "scam" | "underage" | "spam" | "other"
 export type ReportStatus = "open" | "reviewing" | "resolved" | "dismissed"
+export type AdminRole = "moderator" | "lead" | "admin"
+export type ModerationEnforcementAction =
+  | "warning"
+  | "verification_required"
+  | "temporary_ban"
+  | "permanent_ban"
 
 export interface Profile {
   user_id: string
@@ -77,7 +83,27 @@ export interface ModerationEvent {
   subject_user_id?: string
   event_type: string
   payload: Record<string, unknown>
+  actor_admin_user?: AdminUser
   created_at?: string
+}
+
+export interface ModerationEnforcementSummary {
+  action: ModerationEnforcementAction
+  duration_hours?: number
+  note?: string
+  actor_admin_user?: AdminUser
+  report_id?: string
+  created_at?: string
+}
+
+export interface AdminUser {
+  id: string
+  username: string
+  display_name?: string
+  role: AdminRole
+  is_active: boolean
+  created_at?: string
+  updated_at?: string
 }
 
 export interface ModerationReport extends Report {
@@ -86,6 +112,9 @@ export interface ModerationReport extends Report {
   session?: ModerationSessionSummary
   events?: ModerationEvent[]
   current_assignee?: string
+  current_assignee_admin_user_id?: string
+  current_assignee_admin_user?: AdminUser
+  latest_enforcement?: ModerationEnforcementSummary
 }
 
 export interface ModerationBlock extends Block {

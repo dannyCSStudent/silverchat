@@ -3,6 +3,7 @@
 import { useDashboardAction } from "../use-dashboard-action";
 
 type ReportActionsProps = {
+  currentAdminRole?: "moderator" | "lead" | "admin";
   reportId: string;
   status?: "open" | "reviewing" | "resolved" | "dismissed";
 };
@@ -13,13 +14,16 @@ const STATUS_OPTIONS = [
   { label: "Dismiss", value: "dismissed" },
 ] as const;
 
-export function ReportActions({ reportId, status }: ReportActionsProps) {
+export function ReportActions({ currentAdminRole, reportId, status }: ReportActionsProps) {
   const { clearMessages, error, pendingKey, runAction, success } = useDashboardAction("");
+  const visibleOptions = STATUS_OPTIONS.filter((option) =>
+    option.value === "reviewing" ? true : currentAdminRole === "lead" || currentAdminRole === "admin",
+  );
 
   return (
     <div className="mt-4 space-y-3">
       <div className="flex flex-wrap gap-2">
-        {STATUS_OPTIONS.map((option) => {
+        {visibleOptions.map((option) => {
           const isCurrent = status === option.value;
           const actionKey = `${reportId}:${option.value}`;
 
@@ -49,6 +53,11 @@ export function ReportActions({ reportId, status }: ReportActionsProps) {
           );
         })}
       </div>
+      {currentAdminRole === "moderator" ? (
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Moderators can move cases into review. Lead and admin roles can resolve or dismiss.
+        </p>
+      ) : null}
 
       {success ? (
         <button

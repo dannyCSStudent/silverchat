@@ -13,6 +13,27 @@ ADMIN_WEB_PASSWORD=change-me
 
 `ADMIN_API_TOKEN` must match `apps/api/.env`.
 
+For multiple moderators, prefer:
+
+```bash
+ADMIN_WEB_CREDENTIALS_JSON={"alice":"password-1","bob":"password-2"}
+```
+
+`ADMIN_WEB_CREDENTIALS_JSON` overrides the single-user `ADMIN_WEB_USERNAME` / `ADMIN_WEB_PASSWORD` pair.
+
+The authenticated Basic-auth username must also exist in `public.admin_users` in Supabase. Example bootstrap:
+
+```sql
+insert into public.admin_users (username, display_name, role)
+values
+  ('alice', 'Alice Johnson', 'admin'),
+  ('bob', 'Bob Rivera', 'moderator')
+on conflict (username) do update
+set display_name = excluded.display_name,
+    role = excluded.role,
+    is_active = true;
+```
+
 ## Admin protection
 
 - `/moderation` is protected by HTTP Basic auth in `middleware.ts`

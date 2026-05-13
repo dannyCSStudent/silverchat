@@ -8,6 +8,7 @@ router = APIRouter(prefix="/health", tags=["Health"])
 
 REQUIRED_TABLES = [
     "profiles",
+    "admin_users",
     "interests",
     "user_interests",
     "match_queue",

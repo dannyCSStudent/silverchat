@@ -3,13 +3,18 @@
 import { useState } from "react";
 import { startTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { ModerationReport } from "@repo/types";
+import type { AdminUser, ModerationEnforcementSummary, ModerationEvent, ModerationReport } from "@repo/types";
 
 import { ReportActions } from "./report-actions";
 import { ReportAssignment } from "./report-assignment";
+import { ReportEnforcement } from "./report-enforcement";
 import { ReportNotes } from "./report-notes";
 
 type ReportFeedProps = {
+  adminUsers: AdminUser[];
+  currentAdminUserId?: string;
+  currentAdminRole?: "moderator" | "lead" | "admin";
+  currentAdminUsername?: string;
   reports: ModerationReport[];
 };
 
@@ -49,8 +54,82 @@ function formatEventLabel(eventType: string) {
   if (eventType === "report_assignment_changed") {
     return "Assignment changed";
   }
+  if (eventType === "enforcement_action_recorded") {
+    return "Enforcement recorded";
+  }
 
   return eventType.replaceAll("_", " ");
+}
+
+function formatActorSuffix(reportEvent: ModerationEvent) {
+  const actorLabel =
+    reportEvent.actor_admin_user?.display_name ||
+    reportEvent.actor_admin_user?.username;
+  if (actorLabel) {
+    return ` by ${actorLabel}`;
+  }
+
+  const actorUsername = reportEvent.payload.actor_username;
+  if (typeof actorUsername !== "string" || actorUsername.length === 0) {
+    return "";
+  }
+
+  return ` by ${actorUsername}`;
+}
+
+function formatEnforcementLabel(enforcement?: ModerationEnforcementSummary) {
+  if (!enforcement) {
+    return null;
+  }
+
+  if (enforcement.action === "verification_required") {
+    return "Verification required";
+  }
+  if (enforcement.action === "temporary_ban") {
+    return enforcement.duration_hours
+      ? `Temporary ban for ${enforcement.duration_hours}h`
+      : "Temporary ban";
+  }
+  if (enforcement.action === "permanent_ban") {
+    return "Permanent ban";
+  }
+
+  return "Warning issued";
+}
+
+function getEnforcementExpiryDate(enforcement?: ModerationEnforcementSummary) {
+  if (
+    enforcement?.action !== "temporary_ban" ||
+    !enforcement.created_at ||
+    !enforcement.duration_hours
+  ) {
+    return null;
+  }
+
+  const createdAt = new Date(enforcement.created_at);
+  if (Number.isNaN(createdAt.getTime())) {
+    return null;
+  }
+
+  return new Date(createdAt.getTime() + enforcement.duration_hours * 60 * 60 * 1000);
+}
+
+function formatEnforcementFollowUp(enforcement?: ModerationEnforcementSummary) {
+  const expiryDate = getEnforcementExpiryDate(enforcement);
+  if (!expiryDate) {
+    return null;
+  }
+
+  const now = Date.now();
+  const expiryTime = expiryDate.getTime();
+  if (expiryTime <= now) {
+    return `Expired ${formatDate(expiryDate.toISOString())}`;
+  }
+  if (expiryTime - now <= 24 * 60 * 60 * 1000) {
+    return `Expires ${formatDate(expiryDate.toISOString())}`;
+  }
+
+  return null;
 }
 
 const BULK_STATUS_OPTIONS = [
@@ -59,14 +138,27 @@ const BULK_STATUS_OPTIONS = [
   { label: "Dismiss", value: "dismissed" },
 ] as const;
 
-export function ReportFeed({ reports }: ReportFeedProps) {
+export function ReportFeed({
+  adminUsers,
+  currentAdminUserId,
+  currentAdminRole,
+  currentAdminUsername,
+  reports,
+}: ReportFeedProps) {
   const router = useRouter();
-  const [assignee, setAssignee] = useState("");
+  const [assigneeAdminUserId, setAssigneeAdminUserId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [success, setSuccess] = useState<string | null>(null);
   const selectedSet = new Set(selectedIds);
+  const canResolveOrDismiss =
+    currentAdminRole === "lead" || currentAdminRole === "admin";
+  const canManageOtherAssignees =
+    currentAdminRole === "lead" || currentAdminRole === "admin";
+  const bulkStatusOptions = BULK_STATUS_OPTIONS.filter((option) =>
+    option.value === "reviewing" ? true : canResolveOrDismiss,
+  );
 
   async function runBulkAction({
     actionKey,
@@ -157,7 +249,7 @@ export function ReportFeed({ reports }: ReportFeedProps) {
             >
               {selectedIds.length === reports.length && reports.length > 0 ? "Clear all" : "Select all"}
             </button>
-            {BULK_STATUS_OPTIONS.map((option) => (
+            {bulkStatusOptions.map((option) => (
               <button
                 key={option.value}
                 type="button"
@@ -180,24 +272,53 @@ export function ReportFeed({ reports }: ReportFeedProps) {
         </div>
 
         <div className="mt-4 flex flex-col gap-3 lg:flex-row">
-          <input
-            value={assignee}
-            onChange={(event) => setAssignee(event.target.value)}
-            placeholder="Assign selected reports..."
-            className="min-w-0 flex-1 rounded-full border border-(--color-line) bg-(--color-surface-strong) px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-stone-100"
-          />
+          <select
+            value={assigneeAdminUserId}
+            onChange={(event) => setAssigneeAdminUserId(event.target.value)}
+            disabled={!canManageOtherAssignees}
+            className="min-w-0 flex-1 rounded-full border border-(--color-line) bg-(--color-surface-strong) px-4 py-3 text-sm text-slate-900 outline-none dark:text-stone-100"
+          >
+            <option value="">Select moderator...</option>
+            {adminUsers.map((adminUser) => (
+              <option key={adminUser.id} value={adminUser.id}>
+                {(adminUser.display_name || adminUser.username) + ` (${adminUser.role})`}
+              </option>
+            ))}
+          </select>
           <div className="flex gap-2">
+            {currentAdminUsername && currentAdminUserId ? (
+              <button
+                type="button"
+                disabled={pendingKey !== null}
+                onClick={() => {
+                  setAssigneeAdminUserId(currentAdminUserId);
+                  void runBulkAction({
+                    actionKey: "bulk-assign-me",
+                    body: { assignee_admin_user_id: currentAdminUserId },
+                    method: "POST",
+                    pathBuilder: (reportId) => `/api/admin/reports/${reportId}/assignment`,
+                    successMessage: `Assigned ${selectedIds.length} reports to ${currentAdminUsername}.`,
+                  });
+                }}
+                className="rounded-full border border-(--color-line) bg-(--color-surface-strong) px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-(--color-chip-muted) disabled:cursor-not-allowed disabled:opacity-60 dark:text-stone-100"
+              >
+                {pendingKey === "bulk-assign-me" ? "Assigning..." : "Assign selected to me"}
+              </button>
+            ) : null}
             <button
               type="button"
-              disabled={pendingKey !== null}
+              disabled={pendingKey !== null || !canManageOtherAssignees}
               onClick={() => {
+                const selectedAdminUser = adminUsers.find(
+                  (adminUser) => adminUser.id === assigneeAdminUserId,
+                );
                 void runBulkAction({
                   actionKey: "bulk-assign",
-                  body: { assignee: assignee.trim() || null },
+                  body: { assignee_admin_user_id: assigneeAdminUserId || null },
                   method: "POST",
                   pathBuilder: (reportId) => `/api/admin/reports/${reportId}/assignment`,
-                  successMessage: assignee.trim()
-                    ? `Assigned ${selectedIds.length} reports to ${assignee.trim()}.`
+                  successMessage: selectedAdminUser
+                    ? `Assigned ${selectedIds.length} reports to ${selectedAdminUser.display_name || selectedAdminUser.username}.`
                     : `Cleared assignment for ${selectedIds.length} reports.`,
                 });
               }}
@@ -207,12 +328,12 @@ export function ReportFeed({ reports }: ReportFeedProps) {
             </button>
             <button
               type="button"
-              disabled={pendingKey !== null}
+              disabled={pendingKey !== null || !canManageOtherAssignees}
               onClick={() => {
-                setAssignee("");
+                setAssigneeAdminUserId("");
                 void runBulkAction({
                   actionKey: "bulk-unassign",
-                  body: { assignee: null },
+                  body: { assignee_admin_user_id: null },
                   method: "POST",
                   pathBuilder: (reportId) => `/api/admin/reports/${reportId}/assignment`,
                   successMessage: `Cleared assignment for ${selectedIds.length} reports.`,
@@ -243,6 +364,11 @@ export function ReportFeed({ reports }: ReportFeedProps) {
             {error}
           </button>
         ) : null}
+        {currentAdminRole === "moderator" ? (
+          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            Moderators can bulk move reports into review and claim them for themselves. Lead and admin roles can reassign, clear assignments, resolve, or dismiss.
+          </p>
+        ) : null}
       </div>
 
       {reports.map((report) => (
@@ -267,7 +393,17 @@ export function ReportFeed({ reports }: ReportFeedProps) {
                 </p>
                 {report.current_assignee ? (
                   <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                    Assigned to {report.current_assignee}
+                    Assigned to {report.current_assignee_admin_user?.display_name || report.current_assignee}
+                  </p>
+                ) : null}
+                {report.latest_enforcement ? (
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300">
+                    {formatEnforcementLabel(report.latest_enforcement)}
+                  </p>
+                ) : null}
+                {formatEnforcementFollowUp(report.latest_enforcement) ? (
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-rose-700 dark:text-rose-300">
+                    {formatEnforcementFollowUp(report.latest_enforcement)}
                   </p>
                 ) : null}
               </div>
@@ -329,7 +465,37 @@ export function ReportFeed({ reports }: ReportFeedProps) {
                 Session status {report.session.status ?? "unknown"}
               </span>
             ) : null}
+            {report.latest_enforcement ? (
+              <span className="rounded-full bg-amber-100 px-3 py-2 text-amber-900">
+                {formatEnforcementLabel(report.latest_enforcement)}
+              </span>
+            ) : null}
           </div>
+
+          {report.latest_enforcement ? (
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-800">
+                Latest enforcement
+              </p>
+              <p className="mt-2 text-sm font-semibold text-amber-950">
+                {formatEnforcementLabel(report.latest_enforcement)}
+              </p>
+              <p className="mt-2 text-sm text-amber-900">
+                Recorded {formatDate(report.latest_enforcement.created_at)}
+                {report.latest_enforcement.actor_admin_user
+                  ? ` by ${report.latest_enforcement.actor_admin_user.display_name || report.latest_enforcement.actor_admin_user.username}`
+                  : ""}
+              </p>
+              {report.latest_enforcement.note ? (
+                <p className="mt-2 text-sm text-amber-900">{report.latest_enforcement.note}</p>
+              ) : null}
+              {formatEnforcementFollowUp(report.latest_enforcement) ? (
+                <p className="mt-2 text-sm font-semibold text-rose-800">
+                  {formatEnforcementFollowUp(report.latest_enforcement)}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           {report.session ? (
             <div className="mt-4 rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
@@ -364,11 +530,13 @@ export function ReportFeed({ reports }: ReportFeedProps) {
                     </p>
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                       {event.event_type === "report_status_changed"
-                        ? `${String(event.payload.from_status ?? "unknown")} -> ${String(event.payload.to_status ?? "unknown")}`
+                        ? `${String(event.payload.from_status ?? "unknown")} -> ${String(event.payload.to_status ?? "unknown")}${formatActorSuffix(event)}`
                         : event.event_type === "report_assignment_changed"
-                          ? `Assigned to ${String(event.payload.assignee ?? "nobody")}`
+                          ? `Assigned to ${String(event.payload.assignee ?? "nobody")}${formatActorSuffix(event)}`
+                          : event.event_type === "enforcement_action_recorded"
+                            ? `${String(event.payload.action ?? "unknown")}${event.payload.duration_hours ? ` for ${String(event.payload.duration_hours)}h` : ""}${formatActorSuffix(event)}`
                           : event.event_type === "moderation_note_added"
-                            ? String(event.payload.note ?? "")
+                            ? `${String(event.payload.note ?? "")}${formatActorSuffix(event)}`
                             : JSON.stringify(event.payload)}
                     </p>
                     <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -380,9 +548,18 @@ export function ReportFeed({ reports }: ReportFeedProps) {
             </div>
           ) : null}
 
-          <ReportAssignment reportId={report.id} currentAssignee={report.current_assignee} />
+          <ReportAssignment
+            adminUsers={adminUsers}
+            currentAdminUserId={currentAdminUserId}
+            currentAdminRole={currentAdminRole}
+            currentAdminUsername={currentAdminUsername}
+            reportId={report.id}
+            currentAssigneeAdminUserId={report.current_assignee_admin_user_id}
+            currentAssignee={report.current_assignee}
+          />
+          <ReportEnforcement currentAdminRole={currentAdminRole} reportId={report.id} />
           <ReportNotes reportId={report.id} />
-          <ReportActions reportId={report.id} status={report.status} />
+          <ReportActions currentAdminRole={currentAdminRole} reportId={report.id} status={report.status} />
         </div>
       ))}
     </div>

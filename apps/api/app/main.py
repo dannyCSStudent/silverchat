@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from postgrest.exceptions import APIError
 
 from app.routes.auth import router as auth_router
+from app.routes.admin_users import router as admin_users_router
 from app.routes.blocks import router as blocks_router
 from app.routes.health import router as health_router
 from app.routes.interests import router as interests_router
@@ -58,6 +59,7 @@ async def handle_supabase_api_error(_request: Request, exc: APIError):
     return JSONResponse(status_code=502, content={"detail": message})
 
 app.include_router(auth_router)
+app.include_router(admin_users_router)
 app.include_router(blocks_router)
 app.include_router(health_router)
 app.include_router(interests_router)

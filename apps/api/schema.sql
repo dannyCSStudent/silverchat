@@ -2,6 +2,10 @@ create extension if not exists pgcrypto;
 
 do $$
 begin
+  if not exists (select 1 from pg_type where typname = 'admin_role') then
+    create type admin_role as enum ('moderator', 'lead', 'admin');
+  end if;
+
   if not exists (select 1 from pg_type where typname = 'profile_status') then
     create type profile_status as enum ('pending', 'active', 'paused', 'banned');
   end if;
@@ -60,6 +64,25 @@ create index if not exists profiles_country_code_idx on public.profiles (country
 drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at
 before update on public.profiles
+for each row
+execute function set_updated_at();
+
+create table if not exists public.admin_users (
+  id uuid primary key default gen_random_uuid(),
+  username text not null unique,
+  display_name text,
+  role admin_role not null default 'moderator',
+  is_active boolean not null default true,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists admin_users_role_idx on public.admin_users (role, username);
+create index if not exists admin_users_active_idx on public.admin_users (is_active, username);
+
+drop trigger if exists admin_users_set_updated_at on public.admin_users;
+create trigger admin_users_set_updated_at
+before update on public.admin_users
 for each row
 execute function set_updated_at();
 

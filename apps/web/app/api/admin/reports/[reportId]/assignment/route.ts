@@ -17,11 +17,13 @@ export async function POST(
 
   const { reportId } = await params;
   const body = await request.text();
+  const adminUsername = request.headers.get("x-admin-username");
   const response = await fetch(`${apiBaseUrl}/reports/${reportId}/assignment`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Admin-Token": adminApiToken,
+      ...(adminUsername ? { "X-Admin-Username": adminUsername } : {}),
     },
     body,
     cache: "no-store",

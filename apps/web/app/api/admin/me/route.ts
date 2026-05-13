@@ -4,10 +4,7 @@ const apiBaseUrl =
   process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
 const adminApiToken = process.env.ADMIN_API_TOKEN;
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ reportId: string }> },
-) {
+export async function GET(request: NextRequest) {
   if (!adminApiToken) {
     return NextResponse.json(
       { detail: "Missing ADMIN_API_TOKEN in apps/web environment." },
@@ -15,17 +12,13 @@ export async function POST(
     );
   }
 
-  const { reportId } = await params;
-  const body = await request.text();
   const adminUsername = request.headers.get("x-admin-username");
-  const response = await fetch(`${apiBaseUrl}/reports/${reportId}/notes`, {
-    method: "POST",
+  const response = await fetch(`${apiBaseUrl}/admin-users/me`, {
+    method: "GET",
     headers: {
-      "Content-Type": "application/json",
       "X-Admin-Token": adminApiToken,
       ...(adminUsername ? { "X-Admin-Username": adminUsername } : {}),
     },
-    body,
     cache: "no-store",
   });
 

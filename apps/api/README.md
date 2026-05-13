@@ -27,6 +27,8 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8081
 
 Run `apps/api/schema.sql` in the Supabase SQL editor before local development.
 
+That schema now includes `public.admin_users`. Basic-auth usernames from the web admin must also be present there for moderation routes to resolve a stored moderator identity.
+
 ## Auth boundary
 
 Mobile and web clients should authenticate with Supabase directly.
@@ -40,4 +42,18 @@ Admin moderation routes additionally expect:
 
 ```text
 X-Admin-Token: <admin-api-token>
+X-Admin-Username: <basic-auth-username>
+```
+
+Example moderator bootstrap:
+
+```sql
+insert into public.admin_users (username, display_name, role)
+values
+  ('alice', 'Alice Johnson', 'admin'),
+  ('bob', 'Bob Rivera', 'moderator')
+on conflict (username) do update
+set display_name = excluded.display_name,
+    role = excluded.role,
+    is_active = true;
 ```

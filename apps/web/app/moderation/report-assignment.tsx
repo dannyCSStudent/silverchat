@@ -1,17 +1,36 @@
 "use client";
 
 import { useState } from "react";
+import type { AdminUser } from "@repo/types";
 
 import { useDashboardAction } from "../use-dashboard-action";
 
 type ReportAssignmentProps = {
+  adminUsers: AdminUser[];
+  currentAdminUserId?: string;
+  currentAdminUsername?: string;
+  currentAdminRole?: "moderator" | "lead" | "admin";
   reportId: string;
+  currentAssigneeAdminUserId?: string;
   currentAssignee?: string;
 };
 
-export function ReportAssignment({ reportId, currentAssignee }: ReportAssignmentProps) {
+export function ReportAssignment({
+  adminUsers,
+  currentAdminUserId,
+  currentAdminUsername,
+  currentAdminRole,
+  reportId,
+  currentAssigneeAdminUserId,
+  currentAssignee,
+}: ReportAssignmentProps) {
   const { clearMessages, error, pendingKey, runAction, success } = useDashboardAction("");
-  const [assignee, setAssignee] = useState(currentAssignee ?? "");
+  const [assigneeAdminUserId, setAssigneeAdminUserId] = useState(currentAssigneeAdminUserId ?? "");
+  const canManageOtherAssignees =
+    currentAdminRole === "lead" || currentAdminRole === "admin";
+  const canClearAssignment =
+    canManageOtherAssignees ||
+    (currentAdminUsername !== undefined && currentAssignee === currentAdminUsername);
 
   return (
     <div className="mt-4 rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
@@ -19,23 +38,53 @@ export function ReportAssignment({ reportId, currentAssignee }: ReportAssignment
         Case assignment
       </p>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-        <input
-          value={assignee}
-          onChange={(event) => setAssignee(event.target.value)}
-          placeholder="Assign to moderator..."
+        <select
+          value={assigneeAdminUserId}
+          onChange={(event) => setAssigneeAdminUserId(event.target.value)}
+          disabled={!canManageOtherAssignees}
           className="min-w-0 flex-1 rounded-full border border-(--color-line) bg-(--color-surface) px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-stone-100"
-        />
+        >
+          <option value="">Select moderator...</option>
+          {adminUsers.map((adminUser) => (
+            <option key={adminUser.id} value={adminUser.id}>
+              {(adminUser.display_name || adminUser.username) + ` (${adminUser.role})`}
+            </option>
+          ))}
+        </select>
         <div className="flex gap-2">
+          {currentAdminUsername && currentAdminUserId ? (
+            <button
+              type="button"
+              disabled={pendingKey !== null}
+              onClick={() => {
+                setAssigneeAdminUserId(currentAdminUserId);
+                void runAction({
+                  path: `/api/admin/reports/${reportId}/assignment`,
+                  method: "POST",
+                  body: { assignee_admin_user_id: currentAdminUserId },
+                  successMessage: `Assigned to ${currentAdminUsername}.`,
+                  defaultErrorMessage: "Unable to assign to current moderator.",
+                  pendingKey: `${reportId}:assign-me`,
+                });
+              }}
+              className="rounded-full border border-(--color-line) bg-(--color-surface) px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-(--color-chip-muted) disabled:cursor-not-allowed disabled:opacity-60 dark:text-stone-100"
+            >
+              {pendingKey === `${reportId}:assign-me` ? "Assigning..." : "Assign to me"}
+            </button>
+          ) : null}
           <button
             type="button"
-            disabled={pendingKey !== null}
+            disabled={pendingKey !== null || !canManageOtherAssignees}
             onClick={() => {
+              const selectedAdminUser = adminUsers.find(
+                (adminUser) => adminUser.id === assigneeAdminUserId,
+              );
               void runAction({
                 path: `/api/admin/reports/${reportId}/assignment`,
                 method: "POST",
-                body: { assignee: assignee.trim() || null },
-                successMessage: assignee.trim()
-                  ? `Assigned to ${assignee.trim()}.`
+                body: { assignee_admin_user_id: assigneeAdminUserId || null },
+                successMessage: selectedAdminUser
+                  ? `Assigned to ${selectedAdminUser.display_name || selectedAdminUser.username}.`
                   : "Assignment cleared.",
                 defaultErrorMessage: "Unable to update assignment.",
                 pendingKey: `${reportId}:assignment`,
@@ -47,13 +96,13 @@ export function ReportAssignment({ reportId, currentAssignee }: ReportAssignment
           </button>
           <button
             type="button"
-            disabled={pendingKey !== null || assignee.length === 0}
+            disabled={pendingKey !== null || assigneeAdminUserId.length === 0 || !canClearAssignment}
             onClick={() => {
-              setAssignee("");
+              setAssigneeAdminUserId("");
               void runAction({
                 path: `/api/admin/reports/${reportId}/assignment`,
                 method: "POST",
-                body: { assignee: null },
+                body: { assignee_admin_user_id: null },
                 successMessage: "Assignment cleared.",
                 defaultErrorMessage: "Unable to clear assignment.",
                 pendingKey: `${reportId}:unassign`,
@@ -65,6 +114,11 @@ export function ReportAssignment({ reportId, currentAssignee }: ReportAssignment
           </button>
         </div>
       </div>
+      {canManageOtherAssignees ? null : (
+        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+          Moderators can only claim cases for themselves and clear assignments they currently own.
+        </p>
+      )}
       {success ? (
         <button
           type="button"
