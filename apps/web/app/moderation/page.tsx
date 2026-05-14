@@ -2,95 +2,15 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import type {
   AdminUser,
+  MemberSafetyState,
   ModerationBlock,
   ModerationEnforcementAction,
   ModerationReport,
 } from "@repo/types";
 
 import { Hero } from "../components/hero";
+import { getModerationData } from "./data";
 import { ReportFeed } from "./report-feed";
-
-const apiBaseUrl =
-  process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
-const adminApiToken = process.env.ADMIN_API_TOKEN;
-
-const fallbackReports: ModerationReport[] = [
-  {
-    id: "sample-report-1",
-    reporter_user_id: "user-1",
-    reported_user_id: "user-9",
-    reason: "harassment",
-    details: "Repeated insults within the first minute.",
-    status: "open",
-    created_at: "2026-05-07T15:00:00.000Z",
-    reporter_profile: {
-      user_id: "user-1",
-      display_name: "Eleanor",
-      country_code: "US",
-      profile_status: "active",
-      age_verified_status: "self_attested",
-    },
-    reported_profile: {
-      user_id: "user-9",
-      display_name: "Martin",
-      country_code: "CA",
-      profile_status: "active",
-      age_verified_status: "pending",
-    },
-  },
-  {
-    id: "sample-report-2",
-    reporter_user_id: "user-2",
-    reported_user_id: "user-4",
-    reason: "scam",
-    details: "Asked to move the conversation to a payment app immediately.",
-    status: "reviewing",
-    created_at: "2026-05-07T13:20:00.000Z",
-    reporter_profile: {
-      user_id: "user-2",
-      display_name: "Nina",
-      country_code: "US",
-      profile_status: "active",
-      age_verified_status: "verified",
-    },
-    reported_profile: {
-      user_id: "user-4",
-      display_name: "David",
-      country_code: "GB",
-      profile_status: "active",
-      age_verified_status: "self_attested",
-    },
-    session: {
-      id: "session-2",
-      initiator_user_id: "user-2",
-      recipient_user_id: "user-4",
-      status: "reported",
-      created_at: "2026-05-07T13:15:00.000Z",
-    },
-  },
-];
-
-const fallbackBlocks: ModerationBlock[] = [
-  {
-    id: "sample-block-1",
-    blocker_user_id: "user-1",
-    blocked_user_id: "user-9",
-    reason: "Felt unsafe after first match.",
-    created_at: "2026-05-07T15:03:00.000Z",
-    blocker_profile: {
-      user_id: "user-1",
-      display_name: "Eleanor",
-      country_code: "US",
-      profile_status: "active",
-    },
-    blocked_profile: {
-      user_id: "user-9",
-      display_name: "Martin",
-      country_code: "CA",
-      profile_status: "active",
-    },
-  },
-];
 
 function profileLabel(profile?: {
   display_name?: string;
@@ -118,19 +38,11 @@ function formatDate(value?: string) {
   }).format(date);
 }
 
-type ModerationData = {
-  adminUser: AdminUser | null;
-  adminUsers: AdminUser[];
-  reports: ModerationReport[];
-  blocks: ModerationBlock[];
-  isFallback: boolean;
-  configurationError: string | null;
-};
-
 type ModerationSearchParams = {
   actor?: string;
   enforcement?: string;
   queue?: string;
+  safety?: string;
   status?: string;
   reason?: string;
   subject?: string;
@@ -143,6 +55,7 @@ type QueueFilters = {
   actorAdminUserId: string;
   enforcement: "" | ModerationEnforcementAction;
   enforcementFollowUp: EnforcementFollowUpMode;
+  safetyState: "" | MemberSafetyState;
   reason: string;
   status: string;
 };
@@ -160,7 +73,11 @@ type SavedQueueKey =
   | "permanent-banned"
   | "temporary-ban-expiring"
   | "temporary-ban-expired"
-  | "verification-follow-up";
+  | "verification-follow-up"
+  | "currently-warned"
+  | "currently-verification-required"
+  | "currently-temporarily-banned"
+  | "currently-permanently-banned";
 
 const savedQueues: Array<{
   description: string;
@@ -232,23 +149,56 @@ const savedQueues: Array<{
     label: "Verification follow-up",
     description: "Members still gated behind verification-required outcomes.",
   },
+  {
+    key: "currently-warned",
+    label: "Currently warned",
+    description: "Members whose current safety state is warned.",
+  },
+  {
+    key: "currently-verification-required",
+    label: "Current verification gate",
+    description: "Members currently blocked on verification follow-up.",
+  },
+  {
+    key: "currently-temporarily-banned",
+    label: "Current temp bans",
+    description: "Members with an active temporary restriction.",
+  },
+  {
+    key: "currently-permanently-banned",
+    label: "Current permanent bans",
+    description: "Members whose current safety state is permanently banned.",
+  },
 ];
 
 function getEnforcementExpiryTimestamp(report: ModerationReport) {
-  if (
-    report.latest_enforcement?.action !== "temporary_ban" ||
-    !report.latest_enforcement.created_at ||
-    !report.latest_enforcement.duration_hours
-  ) {
+  if (report.latest_enforcement?.action !== "temporary_ban") {
     return null;
   }
 
-  const createdAt = new Date(report.latest_enforcement.created_at);
+  if (report.latest_enforcement_review?.action === "lift_ban") {
+    return null;
+  }
+
+  const baseCreatedAt =
+    report.latest_enforcement_review?.action === "extend_temporary_ban"
+      ? report.latest_enforcement_review.created_at
+      : report.latest_enforcement.created_at;
+  const baseDurationHours =
+    report.latest_enforcement_review?.action === "extend_temporary_ban"
+      ? report.latest_enforcement_review.duration_hours
+      : report.latest_enforcement.duration_hours;
+
+  if (!baseCreatedAt || !baseDurationHours) {
+    return null;
+  }
+
+  const createdAt = new Date(baseCreatedAt);
   if (Number.isNaN(createdAt.getTime())) {
     return null;
   }
 
-  return createdAt.getTime() + report.latest_enforcement.duration_hours * 60 * 60 * 1000;
+  return createdAt.getTime() + baseDurationHours * 60 * 60 * 1000;
 }
 
 function matchesEnforcementFollowUp(
@@ -260,7 +210,10 @@ function matchesEnforcementFollowUp(
   }
 
   if (followUpMode === "verification") {
-    return report.latest_enforcement?.action === "verification_required";
+    return (
+      report.latest_enforcement?.action === "verification_required" &&
+      report.latest_enforcement_review?.action !== "verification_completed"
+    );
   }
 
   const expiryTimestamp = getEnforcementExpiryTimestamp(report);
@@ -276,67 +229,6 @@ function matchesEnforcementFollowUp(
   return expiryTimestamp <= now;
 }
 
-async function getModerationData(adminUsername: string): Promise<ModerationData> {
-  if (!adminApiToken) {
-    return {
-      adminUser: null,
-      adminUsers: [],
-      reports: [] as ModerationReport[],
-      blocks: [] as ModerationBlock[],
-      isFallback: true,
-      configurationError: "Missing ADMIN_API_TOKEN in apps/web environment.",
-    };
-  }
-
-  try {
-    const baseHeaders = {
-      "X-Admin-Token": adminApiToken,
-      ...(adminUsername ? { "X-Admin-Username": adminUsername } : {}),
-    };
-    const [adminUserResponse, adminUsersResponse, reportsResponse, blocksResponse] = await Promise.all([
-      fetch(`${apiBaseUrl}/admin-users/me`, {
-        cache: "no-store",
-        headers: baseHeaders,
-      }),
-      fetch(`${apiBaseUrl}/admin-users/`, {
-        cache: "no-store",
-        headers: baseHeaders,
-      }),
-      fetch(`${apiBaseUrl}/reports/`, {
-        cache: "no-store",
-        headers: baseHeaders,
-      }),
-      fetch(`${apiBaseUrl}/blocks/`, {
-        cache: "no-store",
-        headers: baseHeaders,
-      }),
-    ]);
-
-    if (!adminUserResponse.ok || !adminUsersResponse.ok || !reportsResponse.ok || !blocksResponse.ok) {
-      throw new Error("Moderation API request failed");
-    }
-
-    const [adminUser, adminUsers, reports, blocks] = (await Promise.all([
-      adminUserResponse.json(),
-      adminUsersResponse.json(),
-      reportsResponse.json(),
-      blocksResponse.json(),
-    ])) as [AdminUser, AdminUser[], ModerationReport[], ModerationBlock[]];
-
-    return { adminUser, adminUsers, reports, blocks, isFallback: false, configurationError: null };
-  } catch {
-    return {
-      adminUser: null,
-      adminUsers: [],
-      reports: fallbackReports,
-      blocks: fallbackBlocks,
-      isFallback: true,
-      configurationError:
-        "Live moderation data is unavailable. Confirm apps/api/schema.sql has been reapplied and that the current Basic-auth username exists in public.admin_users.",
-    };
-  }
-}
-
 function buildModerationHref(filters: ModerationSearchParams) {
   const params = new URLSearchParams();
 
@@ -345,6 +237,9 @@ function buildModerationHref(filters: ModerationSearchParams) {
   }
   if (filters.enforcement) {
     params.set("enforcement", filters.enforcement);
+  }
+  if (filters.safety) {
+    params.set("safety", filters.safety);
   }
   if (filters.queue) {
     params.set("queue", filters.queue);
@@ -372,6 +267,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "",
         enforcementFollowUp: "",
+        safetyState: "",
         reason: "",
         status: "open",
       };
@@ -382,6 +278,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "",
         enforcementFollowUp: "",
+        safetyState: "",
         reason: "",
         status: "",
       };
@@ -392,6 +289,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "",
         enforcementFollowUp: "",
+        safetyState: "",
         reason: "",
         status: "",
       };
@@ -402,6 +300,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "",
         enforcementFollowUp: "",
+        safetyState: "",
         reason: "scam",
         status: "open",
       };
@@ -412,6 +311,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "",
         enforcementFollowUp: "",
+        safetyState: "",
         reason: "underage",
         status: "open",
       };
@@ -422,6 +322,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "",
         enforcementFollowUp: "",
+        safetyState: "",
         reason: "harassment",
         status: "open",
       };
@@ -432,6 +333,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "warning",
         enforcementFollowUp: "",
+        safetyState: "",
         reason: "",
         status: "",
       };
@@ -442,6 +344,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "verification_required",
         enforcementFollowUp: "",
+        safetyState: "",
         reason: "",
         status: "",
       };
@@ -452,6 +355,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "temporary_ban",
         enforcementFollowUp: "",
+        safetyState: "",
         reason: "",
         status: "",
       };
@@ -462,6 +366,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "permanent_ban",
         enforcementFollowUp: "",
+        safetyState: "",
         reason: "",
         status: "",
       };
@@ -472,6 +377,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "temporary_ban",
         enforcementFollowUp: "temp-expiring" as const,
+        safetyState: "",
         reason: "",
         status: "",
       };
@@ -482,6 +388,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "temporary_ban",
         enforcementFollowUp: "temp-expired" as const,
+        safetyState: "",
         reason: "",
         status: "",
       };
@@ -492,6 +399,51 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "verification_required",
         enforcementFollowUp: "verification" as const,
+        safetyState: "",
+        reason: "",
+        status: "",
+      };
+    case "currently-warned":
+      return {
+        assigneeMode: "any" as const,
+        assigneeValue: "",
+        actorAdminUserId: "",
+        enforcement: "",
+        enforcementFollowUp: "",
+        safetyState: "warned",
+        reason: "",
+        status: "",
+      };
+    case "currently-verification-required":
+      return {
+        assigneeMode: "any" as const,
+        assigneeValue: "",
+        actorAdminUserId: "",
+        enforcement: "",
+        enforcementFollowUp: "",
+        safetyState: "verification_required",
+        reason: "",
+        status: "",
+      };
+    case "currently-temporarily-banned":
+      return {
+        assigneeMode: "any" as const,
+        assigneeValue: "",
+        actorAdminUserId: "",
+        enforcement: "",
+        enforcementFollowUp: "",
+        safetyState: "temporarily_banned",
+        reason: "",
+        status: "",
+      };
+    case "currently-permanently-banned":
+      return {
+        assigneeMode: "any" as const,
+        assigneeValue: "",
+        actorAdminUserId: "",
+        enforcement: "",
+        enforcementFollowUp: "",
+        safetyState: "permanently_banned",
         reason: "",
         status: "",
       };
@@ -502,6 +454,7 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         actorAdminUserId: "",
         enforcement: "",
         enforcementFollowUp: "",
+        safetyState: "",
         reason: "",
         status: "",
       };
@@ -541,6 +494,17 @@ function matchesEnforcement(
   return report.latest_enforcement?.action === enforcement;
 }
 
+function matchesSafetyState(
+  report: ModerationReport,
+  safetyState?: string,
+) {
+  if (!safetyState) {
+    return true;
+  }
+
+  return report.member_safety_state?.state === safetyState;
+}
+
 type ModerationPageProps = {
   searchParams?: Promise<ModerationSearchParams>;
 };
@@ -555,6 +519,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
   const selectedEnforcement = resolvedSearchParams.enforcement?.trim() || queueFilters.enforcement;
   const selectedEnforcementFollowUp: EnforcementFollowUpMode =
     queueFilters.enforcementFollowUp ?? "";
+  const selectedSafety = resolvedSearchParams.safety?.trim() || queueFilters.safetyState;
   const selectedStatus = resolvedSearchParams.status?.trim() || queueFilters.status;
   const selectedReason = resolvedSearchParams.reason?.trim() || queueFilters.reason;
   const selectedSubject = resolvedSearchParams.subject?.trim() || "";
@@ -572,6 +537,9 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
       return false;
     }
     if (!matchesEnforcement(report, selectedEnforcement)) {
+      return false;
+    }
+    if (!matchesSafetyState(report, selectedSafety)) {
       return false;
     }
     if (!matchesEnforcementFollowUp(report, selectedEnforcementFollowUp)) {
@@ -606,6 +574,10 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
   const verificationRequiredReports = reports.filter((report) => report.latest_enforcement?.action === "verification_required").length;
   const temporaryBanReports = reports.filter((report) => report.latest_enforcement?.action === "temporary_ban").length;
   const permanentBanReports = reports.filter((report) => report.latest_enforcement?.action === "permanent_ban").length;
+  const currentlyWarnedReports = reports.filter((report) => report.member_safety_state?.state === "warned").length;
+  const currentlyVerificationRequiredReports = reports.filter((report) => report.member_safety_state?.state === "verification_required").length;
+  const currentlyTemporaryBannedReports = reports.filter((report) => report.member_safety_state?.state === "temporarily_banned").length;
+  const currentlyPermanentBannedReports = reports.filter((report) => report.member_safety_state?.state === "permanently_banned").length;
   const temporaryBanExpiringReports = reports.filter((report) => matchesEnforcementFollowUp(report, "temp-expiring")).length;
   const temporaryBanExpiredReports = reports.filter((report) => matchesEnforcementFollowUp(report, "temp-expired")).length;
   const repeatOffenders = Object.values(
@@ -628,7 +600,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
     .filter((item) => item.count > 1)
     .sort((left, right) => right.count - left.count)
     .slice(0, 5);
-  const activeFilterCount = [selectedQueue, selectedActor, selectedEnforcement, selectedEnforcementFollowUp, selectedStatus, selectedReason, selectedSubject].filter(Boolean).length;
+  const activeFilterCount = [selectedQueue, selectedActor, selectedEnforcement, selectedEnforcementFollowUp, selectedSafety, selectedStatus, selectedReason, selectedSubject].filter(Boolean).length;
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 py-2">
@@ -688,17 +660,17 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <Link href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, reason: selectedReason || undefined, subject: selectedSubject || undefined, status: "open" })} className="rounded-3xl bg-(--color-surface-dark) p-5 text-white transition hover:opacity-92">
+            <Link href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, reason: selectedReason || undefined, safety: selectedSafety || undefined, subject: selectedSubject || undefined, status: "open" })} className="rounded-3xl bg-(--color-surface-dark) p-5 text-white transition hover:opacity-92">
               <p className="text-sm text-white/58">Open reports</p>
               <p className="mt-3 text-4xl font-semibold">{openReports}</p>
               <p className="mt-3 text-sm text-white/62">Needs first-pass moderator review.</p>
             </Link>
-            <Link href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, reason: selectedReason || undefined, subject: selectedSubject || undefined, status: "reviewing" })} className="rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5 transition hover:bg-(--color-surface)">
+            <Link href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, reason: selectedReason || undefined, safety: selectedSafety || undefined, subject: selectedSubject || undefined, status: "reviewing" })} className="rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5 transition hover:bg-(--color-surface)">
               <p className="text-sm text-slate-500 dark:text-slate-400">Active reviews</p>
               <p className="mt-3 text-4xl font-semibold text-slate-950 dark:text-stone-100">{activeReviews}</p>
               <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Already escalated beyond intake.</p>
             </Link>
-            <Link href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, status: selectedStatus || undefined, subject: selectedSubject || undefined, reason: "scam" })} className="rounded-3xl border border-(--color-line) bg-(--color-accent-soft) p-5 transition hover:opacity-92">
+            <Link href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, status: selectedStatus || undefined, safety: selectedSafety || undefined, subject: selectedSubject || undefined, reason: "scam" })} className="rounded-3xl border border-(--color-line) bg-(--color-accent-soft) p-5 transition hover:opacity-92">
               <p className="text-sm text-slate-600">Scam reports</p>
               <p className="mt-3 text-4xl font-semibold text-slate-950">{scamReports}</p>
               <p className="mt-3 text-sm text-slate-600">Highest-risk trust pattern right now.</p>
@@ -721,6 +693,25 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
             <Link href={buildModerationHref({ actor: selectedActor || undefined, enforcement: "permanent_ban", queue: selectedQueue || undefined, reason: selectedReason || undefined, subject: selectedSubject || undefined, status: selectedStatus || undefined })} className="rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5 transition hover:bg-(--color-surface)">
               <p className="text-sm text-slate-500 dark:text-slate-400">Permanent bans</p>
               <p className="mt-3 text-3xl font-semibold text-slate-950 dark:text-stone-100">{permanentBanReports}</p>
+            </Link>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-4">
+            <Link href={buildModerationHref({ actor: selectedActor || undefined, queue: "currently-warned", reason: selectedReason || undefined, subject: selectedSubject || undefined, status: selectedStatus || undefined })} className="rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5 transition hover:bg-(--color-surface)">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Currently warned</p>
+              <p className="mt-3 text-3xl font-semibold text-slate-950 dark:text-stone-100">{currentlyWarnedReports}</p>
+            </Link>
+            <Link href={buildModerationHref({ actor: selectedActor || undefined, queue: "currently-verification-required", reason: selectedReason || undefined, subject: selectedSubject || undefined, status: selectedStatus || undefined })} className="rounded-3xl border border-amber-200 bg-amber-50 p-5 transition hover:opacity-92">
+              <p className="text-sm text-amber-800">Current verification gate</p>
+              <p className="mt-3 text-3xl font-semibold text-amber-950">{currentlyVerificationRequiredReports}</p>
+            </Link>
+            <Link href={buildModerationHref({ actor: selectedActor || undefined, queue: "currently-temporarily-banned", reason: selectedReason || undefined, subject: selectedSubject || undefined, status: selectedStatus || undefined })} className="rounded-3xl border border-rose-200 bg-rose-50 p-5 transition hover:opacity-92">
+              <p className="text-sm text-rose-800">Current temp bans</p>
+              <p className="mt-3 text-3xl font-semibold text-rose-950">{currentlyTemporaryBannedReports}</p>
+            </Link>
+            <Link href={buildModerationHref({ actor: selectedActor || undefined, queue: "currently-permanently-banned", reason: selectedReason || undefined, subject: selectedSubject || undefined, status: selectedStatus || undefined })} className="rounded-3xl border border-rose-300 bg-rose-100 p-5 transition hover:opacity-92">
+              <p className="text-sm text-rose-900">Current permanent bans</p>
+              <p className="mt-3 text-3xl font-semibold text-rose-950">{currentlyPermanentBannedReports}</p>
             </Link>
           </div>
 
@@ -758,7 +749,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                   All
                 </Link>
                 <Link
-                  href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, queue: selectedQueue || undefined, status: "open", reason: selectedReason || undefined, subject: selectedSubject || undefined })}
+                  href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, queue: selectedQueue || undefined, safety: selectedSafety || undefined, status: "open", reason: selectedReason || undefined, subject: selectedSubject || undefined })}
                   className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                     selectedStatus === "open" && selectedQueue !== "open-unassigned"
                       ? "bg-slate-900 text-white dark:bg-stone-100 dark:text-slate-950"
@@ -768,7 +759,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                   Open
                 </Link>
                 <Link
-                  href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, queue: selectedQueue || undefined, status: "reviewing", reason: selectedReason || undefined, subject: selectedSubject || undefined })}
+                  href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, queue: selectedQueue || undefined, safety: selectedSafety || undefined, status: "reviewing", reason: selectedReason || undefined, subject: selectedSubject || undefined })}
                   className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                     selectedStatus === "reviewing"
                       ? "bg-slate-900 text-white dark:bg-stone-100 dark:text-slate-950"
@@ -778,14 +769,24 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                   Reviewing
                 </Link>
                 <Link
+                  href={buildModerationHref({ actor: selectedActor || undefined, queue: selectedQueue || undefined, safety: "verification_required", status: selectedStatus || undefined, reason: selectedReason || undefined, subject: selectedSubject || undefined })}
+                  className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                    selectedSafety === "verification_required"
+                      ? "bg-slate-900 text-white dark:bg-stone-100 dark:text-slate-950"
+                      : "border border-(--color-line) bg-(--color-surface) text-slate-700 hover:bg-(--color-chip-muted) dark:text-stone-100"
+                  }`}
+                >
+                  Current safety gate
+                </Link>
+                <Link
                   href={buildModerationHref({ actor: selectedActor || undefined, enforcement: "verification_required", queue: selectedQueue || undefined, status: selectedStatus || undefined, reason: selectedReason || undefined, subject: selectedSubject || undefined })}
                   className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                     selectedEnforcement === "verification_required"
                       ? "bg-slate-900 text-white dark:bg-stone-100 dark:text-slate-950"
                       : "border border-(--color-line) bg-(--color-surface) text-slate-700 hover:bg-(--color-chip-muted) dark:text-stone-100"
-                  }`}
-                >
-                  Verification
+                    }`}
+                  >
+                    Verification
                 </Link>
                 <Link
                   href={buildModerationHref({ actor: selectedActor || undefined, queue: "temporary-ban-expiring", reason: selectedReason || undefined, subject: selectedSubject || undefined, status: selectedStatus || undefined })}
@@ -799,7 +800,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                 </Link>
                 {adminUser ? (
                   <Link
-                    href={buildModerationHref({ actor: adminUser.id, enforcement: selectedEnforcement || undefined, queue: selectedQueue || undefined, status: selectedStatus || undefined, reason: selectedReason || undefined, subject: selectedSubject || undefined })}
+                    href={buildModerationHref({ actor: adminUser.id, enforcement: selectedEnforcement || undefined, queue: selectedQueue || undefined, safety: selectedSafety || undefined, status: selectedStatus || undefined, reason: selectedReason || undefined, subject: selectedSubject || undefined })}
                     className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                       selectedActor === adminUser.id
                         ? "bg-slate-900 text-white dark:bg-stone-100 dark:text-slate-950"
@@ -810,7 +811,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                   </Link>
                 ) : null}
                 <Link
-                  href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, queue: selectedQueue || undefined, status: selectedStatus || undefined, reason: "scam", subject: selectedSubject || undefined })}
+                  href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, queue: selectedQueue || undefined, safety: selectedSafety || undefined, status: selectedStatus || undefined, reason: "scam", subject: selectedSubject || undefined })}
                   className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                     selectedReason === "scam" && selectedQueue !== "scam-open"
                       ? "bg-slate-900 text-white dark:bg-stone-100 dark:text-slate-950"
@@ -849,7 +850,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
               {savedQueues.map((queue) => (
                 <Link
                   key={queue.key}
-                  href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, queue: queue.key, subject: selectedSubject || undefined })}
+                  href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, queue: queue.key, safety: selectedSafety || undefined, subject: selectedSubject || undefined })}
                   className={`block rounded-3xl border p-5 transition ${
                     selectedQueue === queue.key
                       ? "border-slate-900 bg-slate-900 text-white dark:border-stone-100 dark:bg-stone-100 dark:text-slate-950"
@@ -877,7 +878,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                 repeatOffenders.map((offender) => (
                   <Link
                     key={offender.userId}
-                    href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, subject: offender.userId })}
+                    href={`/moderation/members/${offender.userId}`}
                     className="block rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5 transition hover:bg-(--color-surface)"
                   >
                     <p className="text-sm font-semibold text-slate-950 dark:text-stone-100">{offender.label}</p>
@@ -909,7 +910,13 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                     className="rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5"
                   >
                     <p className="text-sm font-semibold text-slate-950 dark:text-stone-100">
-                      {profileLabel(block.blocker_profile)} blocked {profileLabel(block.blocked_profile)}
+                      <Link href={`/moderation/members/${block.blocker_user_id}`} className="underline decoration-slate-300 underline-offset-4 transition hover:decoration-slate-950">
+                        {profileLabel(block.blocker_profile)}
+                      </Link>{" "}
+                      blocked{" "}
+                      <Link href={`/moderation/members/${block.blocked_user_id}`} className="underline decoration-slate-300 underline-offset-4 transition hover:decoration-slate-950">
+                        {profileLabel(block.blocked_profile)}
+                      </Link>
                     </p>
                     <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
                       {block.reason ?? "No reason submitted."}

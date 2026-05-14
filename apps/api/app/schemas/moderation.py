@@ -14,6 +14,18 @@ ModerationEnforcementAction = Literal[
     "temporary_ban",
     "permanent_ban",
 ]
+ModerationEnforcementReviewAction = Literal[
+    "lift_ban",
+    "extend_temporary_ban",
+    "verification_completed",
+]
+MemberSafetyState = Literal[
+    "clear",
+    "warned",
+    "verification_required",
+    "temporarily_banned",
+    "permanently_banned",
+]
 
 
 class ReportCreate(BaseModel):
@@ -47,6 +59,12 @@ class ModerationAssignmentUpdate(BaseModel):
 
 class ModerationEnforcementCreate(BaseModel):
     action: ModerationEnforcementAction
+    duration_hours: int | None = None
+    note: str | None = None
+
+
+class ModerationEnforcementReviewCreate(BaseModel):
+    action: ModerationEnforcementReviewAction
     duration_hours: int | None = None
     note: str | None = None
 
@@ -96,6 +114,24 @@ class ModerationEnforcementSummary(BaseModel):
     created_at: datetime | None = None
 
 
+class ModerationEnforcementReviewSummary(BaseModel):
+    action: ModerationEnforcementReviewAction
+    duration_hours: int | None = None
+    note: str | None = None
+    actor_admin_user: AdminUserSummary | None = None
+    report_id: str | None = None
+    created_at: datetime | None = None
+
+
+class ModerationMemberSafetyState(BaseModel):
+    state: MemberSafetyState
+    label: str
+    expires_at: datetime | None = None
+    source_report_id: str | None = None
+    enforcement: ModerationEnforcementSummary | None = None
+    review: ModerationEnforcementReviewSummary | None = None
+
+
 class ModerationReportRecord(ReportRecord):
     reporter_profile: ModerationProfileSummary | None = None
     reported_profile: ModerationProfileSummary | None = None
@@ -105,6 +141,8 @@ class ModerationReportRecord(ReportRecord):
     current_assignee_admin_user_id: str | None = None
     current_assignee_admin_user: AdminUserSummary | None = None
     latest_enforcement: ModerationEnforcementSummary | None = None
+    latest_enforcement_review: ModerationEnforcementReviewSummary | None = None
+    member_safety_state: ModerationMemberSafetyState | None = None
 
 
 class BlockCreate(BaseModel):

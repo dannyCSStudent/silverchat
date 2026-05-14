@@ -8,6 +8,16 @@ export type ModerationEnforcementAction =
   | "verification_required"
   | "temporary_ban"
   | "permanent_ban"
+export type ModerationEnforcementReviewAction =
+  | "lift_ban"
+  | "extend_temporary_ban"
+  | "verification_completed"
+export type MemberSafetyState =
+  | "clear"
+  | "warned"
+  | "verification_required"
+  | "temporarily_banned"
+  | "permanently_banned"
 
 export interface Profile {
   user_id: string
@@ -96,6 +106,24 @@ export interface ModerationEnforcementSummary {
   created_at?: string
 }
 
+export interface ModerationEnforcementReviewSummary {
+  action: ModerationEnforcementReviewAction
+  duration_hours?: number
+  note?: string
+  actor_admin_user?: AdminUser
+  report_id?: string
+  created_at?: string
+}
+
+export interface ModerationMemberSafetyState {
+  state: MemberSafetyState
+  label: string
+  expires_at?: string
+  source_report_id?: string
+  enforcement?: ModerationEnforcementSummary
+  review?: ModerationEnforcementReviewSummary
+}
+
 export interface AdminUser {
   id: string
   username: string
@@ -115,6 +143,8 @@ export interface ModerationReport extends Report {
   current_assignee_admin_user_id?: string
   current_assignee_admin_user?: AdminUser
   latest_enforcement?: ModerationEnforcementSummary
+  latest_enforcement_review?: ModerationEnforcementReviewSummary
+  member_safety_state?: ModerationMemberSafetyState
 }
 
 export interface ModerationBlock extends Block {

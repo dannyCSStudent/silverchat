@@ -2,12 +2,22 @@
 
 import { useState } from "react";
 import { startTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AdminUser, ModerationEnforcementSummary, ModerationEvent, ModerationReport } from "@repo/types";
 
+import {
+  formatActorSuffix,
+  formatDate,
+  formatEnforcementFollowUp,
+  formatEnforcementLabel,
+  formatEventLabel,
+  formatModerationEventBody,
+} from "./formatters";
 import { ReportActions } from "./report-actions";
 import { ReportAssignment } from "./report-assignment";
 import { ReportEnforcement } from "./report-enforcement";
+import { ReportEnforcementReview } from "./report-enforcement-review";
 import { ReportNotes } from "./report-notes";
 
 type ReportFeedProps = {
@@ -28,108 +38,38 @@ function profileLabel(profile?: {
   return profile?.display_name ?? profile?.user_id ?? "Unknown profile";
 }
 
-function formatDate(value?: string) {
-  if (!value) {
-    return "Unknown time";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
-
-function formatEventLabel(eventType: string) {
-  if (eventType === "report_status_changed") {
-    return "Status changed";
-  }
-  if (eventType === "moderation_note_added") {
-    return "Moderator note";
-  }
-  if (eventType === "report_assignment_changed") {
-    return "Assignment changed";
-  }
-  if (eventType === "enforcement_action_recorded") {
-    return "Enforcement recorded";
-  }
-
-  return eventType.replaceAll("_", " ");
-}
-
-function formatActorSuffix(reportEvent: ModerationEvent) {
-  const actorLabel =
-    reportEvent.actor_admin_user?.display_name ||
-    reportEvent.actor_admin_user?.username;
-  if (actorLabel) {
-    return ` by ${actorLabel}`;
-  }
-
-  const actorUsername = reportEvent.payload.actor_username;
-  if (typeof actorUsername !== "string" || actorUsername.length === 0) {
-    return "";
-  }
-
-  return ` by ${actorUsername}`;
-}
-
-function formatEnforcementLabel(enforcement?: ModerationEnforcementSummary) {
-  if (!enforcement) {
+function formatMemberSafetyState(report: ModerationReport) {
+  const safetyState = report.member_safety_state;
+  if (!safetyState) {
     return null;
   }
 
-  if (enforcement.action === "verification_required") {
-    return "Verification required";
-  }
-  if (enforcement.action === "temporary_ban") {
-    return enforcement.duration_hours
-      ? `Temporary ban for ${enforcement.duration_hours}h`
-      : "Temporary ban";
-  }
-  if (enforcement.action === "permanent_ban") {
-    return "Permanent ban";
+  if (safetyState.state === "temporarily_banned" && safetyState.expires_at) {
+    return `${safetyState.label} until ${formatDate(safetyState.expires_at)}`;
   }
 
-  return "Warning issued";
+  return safetyState.label;
 }
 
-function getEnforcementExpiryDate(enforcement?: ModerationEnforcementSummary) {
-  if (
-    enforcement?.action !== "temporary_ban" ||
-    !enforcement.created_at ||
-    !enforcement.duration_hours
-  ) {
-    return null;
+function safetyStateClasses(
+  state?:
+    | "clear"
+    | "warned"
+    | "verification_required"
+    | "temporarily_banned"
+    | "permanently_banned",
+) {
+  if (state === "permanently_banned" || state === "temporarily_banned") {
+    return "bg-rose-100 text-rose-900";
+  }
+  if (state === "verification_required") {
+    return "bg-amber-100 text-amber-900";
+  }
+  if (state === "warned") {
+    return "bg-slate-200 text-slate-800";
   }
 
-  const createdAt = new Date(enforcement.created_at);
-  if (Number.isNaN(createdAt.getTime())) {
-    return null;
-  }
-
-  return new Date(createdAt.getTime() + enforcement.duration_hours * 60 * 60 * 1000);
-}
-
-function formatEnforcementFollowUp(enforcement?: ModerationEnforcementSummary) {
-  const expiryDate = getEnforcementExpiryDate(enforcement);
-  if (!expiryDate) {
-    return null;
-  }
-
-  const now = Date.now();
-  const expiryTime = expiryDate.getTime();
-  if (expiryTime <= now) {
-    return `Expired ${formatDate(expiryDate.toISOString())}`;
-  }
-  if (expiryTime - now <= 24 * 60 * 60 * 1000) {
-    return `Expires ${formatDate(expiryDate.toISOString())}`;
-  }
-
-  return null;
+  return "bg-emerald-100 text-emerald-900";
 }
 
 const BULK_STATUS_OPTIONS = [
@@ -401,9 +341,9 @@ export function ReportFeed({
                     {formatEnforcementLabel(report.latest_enforcement)}
                   </p>
                 ) : null}
-                {formatEnforcementFollowUp(report.latest_enforcement) ? (
+                {formatEnforcementFollowUp(report) ? (
                   <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-rose-700 dark:text-rose-300">
-                    {formatEnforcementFollowUp(report.latest_enforcement)}
+                    {formatEnforcementFollowUp(report)}
                   </p>
                 ) : null}
               </div>
@@ -435,14 +375,26 @@ export function ReportFeed({
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                 Reported user
               </p>
-              <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-stone-100">
+              <Link
+                href={`/moderation/members/${report.reported_user_id}`}
+                className="mt-2 inline-block text-sm font-semibold text-slate-950 underline decoration-slate-300 underline-offset-4 transition hover:decoration-slate-950 dark:text-stone-100"
+              >
                 {profileLabel(report.reported_profile)}
-              </p>
+              </Link>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 {report.reported_profile?.country_code ?? "Country unknown"} ·{" "}
                 {report.reported_profile?.profile_status ?? "Profile state unknown"} ·{" "}
                 {report.reported_profile?.age_verified_status ?? "Verification unknown"}
               </p>
+              {report.member_safety_state ? (
+                <p
+                  className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${safetyStateClasses(
+                    report.member_safety_state.state,
+                  )}`}
+                >
+                  {formatMemberSafetyState(report)}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -470,6 +422,15 @@ export function ReportFeed({
                 {formatEnforcementLabel(report.latest_enforcement)}
               </span>
             ) : null}
+            {report.member_safety_state ? (
+              <span
+                className={`rounded-full px-3 py-2 ${safetyStateClasses(
+                  report.member_safety_state.state,
+                )}`}
+              >
+                {formatMemberSafetyState(report)}
+              </span>
+            ) : null}
           </div>
 
           {report.latest_enforcement ? (
@@ -489,9 +450,9 @@ export function ReportFeed({
               {report.latest_enforcement.note ? (
                 <p className="mt-2 text-sm text-amber-900">{report.latest_enforcement.note}</p>
               ) : null}
-              {formatEnforcementFollowUp(report.latest_enforcement) ? (
+              {formatEnforcementFollowUp(report) ? (
                 <p className="mt-2 text-sm font-semibold text-rose-800">
-                  {formatEnforcementFollowUp(report.latest_enforcement)}
+                  {formatEnforcementFollowUp(report)}
                 </p>
               ) : null}
             </div>
@@ -529,15 +490,7 @@ export function ReportFeed({
                       {formatEventLabel(event.event_type)}
                     </p>
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                      {event.event_type === "report_status_changed"
-                        ? `${String(event.payload.from_status ?? "unknown")} -> ${String(event.payload.to_status ?? "unknown")}${formatActorSuffix(event)}`
-                        : event.event_type === "report_assignment_changed"
-                          ? `Assigned to ${String(event.payload.assignee ?? "nobody")}${formatActorSuffix(event)}`
-                          : event.event_type === "enforcement_action_recorded"
-                            ? `${String(event.payload.action ?? "unknown")}${event.payload.duration_hours ? ` for ${String(event.payload.duration_hours)}h` : ""}${formatActorSuffix(event)}`
-                          : event.event_type === "moderation_note_added"
-                            ? `${String(event.payload.note ?? "")}${formatActorSuffix(event)}`
-                            : JSON.stringify(event.payload)}
+                      {formatModerationEventBody(event)}
                     </p>
                     <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                       {formatDate(event.created_at)}
@@ -558,6 +511,7 @@ export function ReportFeed({
             currentAssignee={report.current_assignee}
           />
           <ReportEnforcement currentAdminRole={currentAdminRole} reportId={report.id} />
+          <ReportEnforcementReview currentAdminRole={currentAdminRole} report={report} />
           <ReportNotes reportId={report.id} />
           <ReportActions currentAdminRole={currentAdminRole} reportId={report.id} status={report.status} />
         </div>
