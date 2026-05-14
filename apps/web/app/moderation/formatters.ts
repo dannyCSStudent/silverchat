@@ -1,5 +1,17 @@
 import type { ModerationEnforcementSummary, ModerationEvent, ModerationReport } from "@repo/types";
 
+type MemberSafetyStateSummary = {
+  expires_at?: string;
+  label: string;
+  state: string;
+};
+
+export type MemberAttentionSummary = {
+  detail: string;
+  title: string;
+  tone: "amber" | "emerald" | "rose" | "slate";
+};
+
 export function formatDate(value?: string) {
   if (!value) {
     return "Unknown time";
@@ -143,4 +155,78 @@ export function formatModerationEventBody(event: ModerationEvent) {
   }
 
   return JSON.stringify(event.payload);
+}
+
+export function getMemberAttentionSummary(args: {
+  currentSafetyState?: MemberSafetyStateSummary | null;
+  openReportCount: number;
+}): MemberAttentionSummary {
+  const { currentSafetyState, openReportCount } = args;
+
+  if (currentSafetyState?.state === "verification_required") {
+    return {
+      tone: "amber",
+      title: "Verification follow-up needed",
+      detail: "Member is still gated behind verification review before returning to a clear state.",
+    };
+  }
+
+  if (currentSafetyState?.state === "temporarily_banned") {
+    if (currentSafetyState.expires_at) {
+      const expiresAt = new Date(currentSafetyState.expires_at);
+      if (!Number.isNaN(expiresAt.getTime())) {
+        const msRemaining = expiresAt.getTime() - Date.now();
+        if (msRemaining <= 0) {
+          return {
+            tone: "rose",
+            title: "Temporary ban follow-up overdue",
+            detail: "Restriction has expired and needs a lift or extension decision.",
+          };
+        }
+        if (msRemaining <= 24 * 60 * 60 * 1000) {
+          return {
+            tone: "amber",
+            title: "Temporary ban expiring soon",
+            detail: `Restriction expires ${formatDate(currentSafetyState.expires_at)} and needs review.`,
+          };
+        }
+      }
+    }
+
+    return {
+      tone: "rose",
+      title: "Temporary restriction active",
+      detail: "Member remains temporarily banned until the restriction is lifted or expires.",
+    };
+  }
+
+  if (currentSafetyState?.state === "permanently_banned") {
+    return {
+      tone: "rose",
+      title: "Permanent restriction active",
+      detail: "Member is currently in a permanently banned state.",
+    };
+  }
+
+  if (openReportCount > 0) {
+    return {
+      tone: "slate",
+      title: "Open reports need resolution",
+      detail: `${openReportCount} open report${openReportCount === 1 ? "" : "s"} still need moderator action.`,
+    };
+  }
+
+  if (currentSafetyState?.state === "warned") {
+    return {
+      tone: "slate",
+      title: "Monitor after warning",
+      detail: "Member is currently warned with no active restriction in place.",
+    };
+  }
+
+  return {
+    tone: "emerald",
+    title: "No immediate action needed",
+    detail: "Current safety state is clear and there are no open reports requiring follow-up.",
+  };
 }

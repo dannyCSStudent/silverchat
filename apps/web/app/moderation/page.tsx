@@ -10,7 +10,9 @@ import type {
 
 import { Hero } from "../components/hero";
 import { getModerationData } from "./data";
+import { getMemberAttentionSummary } from "./formatters";
 import { ReportFeed } from "./report-feed";
+import { WorkloadRebalance } from "./workload-rebalance";
 
 function profileLabel(profile?: {
   display_name?: string;
@@ -38,7 +40,12 @@ function formatDate(value?: string) {
   }).format(date);
 }
 
+function canHandleEnforcementHeavyUrgentWork(role?: AdminUser["role"]) {
+  return role === "lead" || role === "admin";
+}
+
 type ModerationSearchParams = {
+  assignee?: string;
   actor?: string;
   enforcement?: string;
   queue?: string;
@@ -64,6 +71,8 @@ type SavedQueueKey =
   | "open-unassigned"
   | "assigned-to-me"
   | "assigned"
+  | "urgent-unassigned"
+  | "urgent-assigned"
   | "scam-open"
   | "underage-open"
   | "harassment-open"
@@ -74,6 +83,7 @@ type SavedQueueKey =
   | "temporary-ban-expiring"
   | "temporary-ban-expired"
   | "verification-follow-up"
+  | "attention-needed"
   | "currently-warned"
   | "currently-verification-required"
   | "currently-temporarily-banned"
@@ -98,6 +108,16 @@ const savedQueues: Array<{
     key: "assigned",
     label: "Assigned",
     description: "Cases already claimed by a moderator.",
+  },
+  {
+    key: "urgent-unassigned",
+    label: "Urgent unassigned",
+    description: "Attention-needed cases still sitting without an owner.",
+  },
+  {
+    key: "urgent-assigned",
+    label: "Urgent assigned",
+    description: "Urgent cases that already belong to a moderator.",
   },
   {
     key: "scam-open",
@@ -148,6 +168,11 @@ const savedQueues: Array<{
     key: "verification-follow-up",
     label: "Verification follow-up",
     description: "Members still gated behind verification-required outcomes.",
+  },
+  {
+    key: "attention-needed",
+    label: "Attention needed",
+    description: "Members whose current state implies urgent or active follow-up.",
   },
   {
     key: "currently-warned",
@@ -232,6 +257,9 @@ function matchesEnforcementFollowUp(
 function buildModerationHref(filters: ModerationSearchParams) {
   const params = new URLSearchParams();
 
+  if (filters.assignee) {
+    params.set("assignee", filters.assignee);
+  }
   if (filters.actor) {
     params.set("actor", filters.actor);
   }
@@ -283,6 +311,28 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         status: "",
       };
     case "assigned":
+      return {
+        assigneeMode: "assigned" as const,
+        assigneeValue: "",
+        actorAdminUserId: "",
+        enforcement: "",
+        enforcementFollowUp: "",
+        safetyState: "",
+        reason: "",
+        status: "",
+      };
+    case "urgent-unassigned":
+      return {
+        assigneeMode: "unassigned" as const,
+        assigneeValue: "",
+        actorAdminUserId: "",
+        enforcement: "",
+        enforcementFollowUp: "",
+        safetyState: "",
+        reason: "",
+        status: "",
+      };
+    case "urgent-assigned":
       return {
         assigneeMode: "assigned" as const,
         assigneeValue: "",
@@ -403,6 +453,17 @@ function resolveQueueFilters(queue: string, adminUserId: string): QueueFilters {
         reason: "",
         status: "",
       };
+    case "attention-needed":
+      return {
+        assigneeMode: "any" as const,
+        assigneeValue: "",
+        actorAdminUserId: "",
+        enforcement: "",
+        enforcementFollowUp: "",
+        safetyState: "",
+        reason: "",
+        status: "",
+      };
     case "currently-warned":
       return {
         assigneeMode: "any" as const,
@@ -505,6 +566,15 @@ function matchesSafetyState(
   return report.member_safety_state?.state === safetyState;
 }
 
+function isAttentionQueueMatch(report: ModerationReport, openReportCount: number) {
+  return (
+    getMemberAttentionSummary({
+      currentSafetyState: report.member_safety_state,
+      openReportCount,
+    }).title !== "No immediate action needed"
+  );
+}
+
 type ModerationPageProps = {
   searchParams?: Promise<ModerationSearchParams>;
 };
@@ -513,8 +583,19 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
   const resolvedSearchParams = (await searchParams) ?? {};
   const adminUsername = (await headers()).get("x-admin-username") ?? "";
   const { adminUser, adminUsers, reports, blocks, isFallback, configurationError } = await getModerationData(adminUsername);
+  const openReportCountByUserId = reports.reduce<Record<string, number>>(
+    (accumulator, report) => {
+      if ((report.status ?? "open") === "open") {
+        accumulator[report.reported_user_id] =
+          (accumulator[report.reported_user_id] ?? 0) + 1;
+      }
+      return accumulator;
+    },
+    {},
+  );
   const selectedQueue = resolvedSearchParams.queue?.trim() || "";
   const queueFilters = resolveQueueFilters(selectedQueue, adminUser?.id ?? "");
+  const selectedAssignee = resolvedSearchParams.assignee?.trim() || queueFilters.assigneeValue;
   const selectedActor = resolvedSearchParams.actor?.trim() || queueFilters.actorAdminUserId;
   const selectedEnforcement = resolvedSearchParams.enforcement?.trim() || queueFilters.enforcement;
   const selectedEnforcementFollowUp: EnforcementFollowUpMode =
@@ -545,6 +626,21 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
     if (!matchesEnforcementFollowUp(report, selectedEnforcementFollowUp)) {
       return false;
     }
+    if (
+      selectedAssignee &&
+      report.current_assignee_admin_user_id !== selectedAssignee
+    ) {
+      return false;
+    }
+    if (
+      ["attention-needed", "urgent-unassigned", "urgent-assigned"].includes(selectedQueue) &&
+      !isAttentionQueueMatch(
+        report,
+        openReportCountByUserId[report.reported_user_id] ?? 0,
+      )
+    ) {
+      return false;
+    }
     if (queueFilters.assigneeMode === "assigned" && !report.current_assignee) {
       return false;
     }
@@ -553,6 +649,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
     }
     if (
       queueFilters.assigneeMode === "exact" &&
+      !selectedAssignee &&
       report.current_assignee_admin_user_id !== queueFilters.assigneeValue
     ) {
       return false;
@@ -580,6 +677,159 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
   const currentlyPermanentBannedReports = reports.filter((report) => report.member_safety_state?.state === "permanently_banned").length;
   const temporaryBanExpiringReports = reports.filter((report) => matchesEnforcementFollowUp(report, "temp-expiring")).length;
   const temporaryBanExpiredReports = reports.filter((report) => matchesEnforcementFollowUp(report, "temp-expired")).length;
+  const urgentUnassignedReports = reports.filter(
+    (report) =>
+      !report.current_assignee &&
+      isAttentionQueueMatch(
+        report,
+        openReportCountByUserId[report.reported_user_id] ?? 0,
+      ),
+  ).length;
+  const urgentAssignedReports = reports.filter(
+    (report) =>
+      Boolean(report.current_assignee) &&
+      isAttentionQueueMatch(
+        report,
+        openReportCountByUserId[report.reported_user_id] ?? 0,
+      ),
+  ).length;
+  const membersNeedingAttention = Object.values(
+    reports.reduce<
+      Record<
+        string,
+        {
+          attention: ReturnType<typeof getMemberAttentionSummary>;
+          label: string;
+          lastSeenAt: string;
+          openReportCount: number;
+          reportCount: number;
+          userId: string;
+        }
+      >
+    >((accumulator, report) => {
+      const userId = report.reported_user_id;
+      const existing = accumulator[userId];
+      const openReportCount = reports.filter(
+        (candidate) =>
+          candidate.reported_user_id === userId &&
+          (candidate.status ?? "open") === "open",
+      ).length;
+      const attention = getMemberAttentionSummary({
+        currentSafetyState: report.member_safety_state,
+        openReportCount,
+      });
+
+      if (attention.title === "No immediate action needed") {
+        if (!existing) {
+          accumulator[userId] = {
+            attention,
+            label: profileLabel(report.reported_profile),
+            lastSeenAt: report.created_at ?? "",
+            openReportCount,
+            reportCount: 1,
+            userId,
+          };
+        }
+        return accumulator;
+      }
+
+      const nextItem = {
+        attention,
+        label: profileLabel(report.reported_profile),
+        lastSeenAt: report.created_at ?? "",
+        openReportCount,
+        reportCount: existing ? existing.reportCount + 1 : 1,
+        userId,
+      };
+
+      if (!existing) {
+        accumulator[userId] = nextItem;
+        return accumulator;
+      }
+
+      const toneRank = { rose: 3, amber: 2, slate: 1, emerald: 0 };
+      const existingRank = toneRank[existing.attention.tone];
+      const nextRank = toneRank[nextItem.attention.tone];
+
+      if (
+        nextRank > existingRank ||
+        (nextRank === existingRank &&
+          new Date(nextItem.lastSeenAt || 0).getTime() >
+            new Date(existing.lastSeenAt || 0).getTime())
+      ) {
+        accumulator[userId] = nextItem;
+        return accumulator;
+      }
+
+      existing.openReportCount = Math.max(existing.openReportCount, openReportCount);
+      existing.reportCount += 1;
+      if (
+        new Date(nextItem.lastSeenAt || 0).getTime() >
+        new Date(existing.lastSeenAt || 0).getTime()
+      ) {
+        existing.lastSeenAt = nextItem.lastSeenAt;
+      }
+      return accumulator;
+    }, {}),
+  )
+    .filter((member) => member.attention.title !== "No immediate action needed")
+    .sort((left, right) => {
+      const toneRank = { rose: 3, amber: 2, slate: 1, emerald: 0 };
+      const toneDelta = toneRank[right.attention.tone] - toneRank[left.attention.tone];
+      if (toneDelta !== 0) {
+        return toneDelta;
+      }
+      return new Date(right.lastSeenAt || 0).getTime() - new Date(left.lastSeenAt || 0).getTime();
+    })
+    .slice(0, 6);
+  const attentionNeededCount = membersNeedingAttention.length;
+  const moderatorWorkloads = adminUsers
+    .map((candidate) => {
+      const assignedReports = reports.filter(
+        (report) => report.current_assignee_admin_user_id === candidate.id,
+      );
+      const openAssignedCount = assignedReports.filter(
+        (report) => (report.status ?? "open") === "open",
+      ).length;
+      const urgentAssignedCount = assignedReports.filter((report) =>
+        isAttentionQueueMatch(
+          report,
+          openReportCountByUserId[report.reported_user_id] ?? 0,
+        ),
+      ).length;
+
+      return {
+        adminUser: candidate,
+        openAssignedCount,
+        totalAssignedCount: assignedReports.length,
+        urgentAssignedCount,
+        urgentCases: assignedReports
+          .filter((report) =>
+            isAttentionQueueMatch(
+              report,
+              openReportCountByUserId[report.reported_user_id] ?? 0,
+            ),
+          )
+          .map((report) => ({
+            attentionTitle: getMemberAttentionSummary({
+              currentSafetyState: report.member_safety_state,
+              openReportCount: openReportCountByUserId[report.reported_user_id] ?? 0,
+            }).title,
+            memberLabel: profileLabel(report.reported_profile),
+            reason: report.reason,
+            reportId: report.id,
+          })),
+      };
+    })
+    .sort((left, right) => {
+      if (right.urgentAssignedCount !== left.urgentAssignedCount) {
+        return right.urgentAssignedCount - left.urgentAssignedCount;
+      }
+      if (right.openAssignedCount !== left.openAssignedCount) {
+        return right.openAssignedCount - left.openAssignedCount;
+      }
+      return right.totalAssignedCount - left.totalAssignedCount;
+    });
   const repeatOffenders = Object.values(
     reports.reduce<Record<string, { userId: string; label: string; count: number }>>((accumulator, report) => {
       const key = report.reported_user_id;
@@ -600,7 +850,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
     .filter((item) => item.count > 1)
     .sort((left, right) => right.count - left.count)
     .slice(0, 5);
-  const activeFilterCount = [selectedQueue, selectedActor, selectedEnforcement, selectedEnforcementFollowUp, selectedSafety, selectedStatus, selectedReason, selectedSubject].filter(Boolean).length;
+  const activeFilterCount = [selectedQueue, selectedAssignee, selectedActor, selectedEnforcement, selectedEnforcementFollowUp, selectedSafety, selectedStatus, selectedReason, selectedSubject].filter(Boolean).length;
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 py-2">
@@ -715,6 +965,24 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
             </Link>
           </div>
 
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <Link href={buildModerationHref({ actor: selectedActor || undefined, queue: "attention-needed", reason: selectedReason || undefined, subject: selectedSubject || undefined, status: selectedStatus || undefined })} className="rounded-3xl border border-rose-200 bg-rose-50 p-5 transition hover:opacity-92">
+              <p className="text-sm text-rose-800">Members needing attention</p>
+              <p className="mt-3 text-3xl font-semibold text-rose-950">{attentionNeededCount}</p>
+              <p className="mt-2 text-sm text-rose-900">Any member with an active follow-up, restriction, or unresolved case.</p>
+            </Link>
+            <Link href={buildModerationHref({ actor: selectedActor || undefined, queue: "urgent-unassigned", reason: selectedReason || undefined, subject: selectedSubject || undefined, status: selectedStatus || undefined })} className="rounded-3xl border border-amber-200 bg-amber-50 p-5 transition hover:opacity-92">
+              <p className="text-sm text-amber-800">Urgent unassigned reports</p>
+              <p className="mt-3 text-3xl font-semibold text-amber-950">{urgentUnassignedReports}</p>
+              <p className="mt-2 text-sm text-amber-900">Immediate follow-up cases still waiting for an owner.</p>
+            </Link>
+            <Link href={buildModerationHref({ actor: selectedActor || undefined, queue: "urgent-assigned", reason: selectedReason || undefined, subject: selectedSubject || undefined, status: selectedStatus || undefined })} className="rounded-3xl border border-rose-200 bg-rose-50 p-5 transition hover:opacity-92">
+              <p className="text-sm text-rose-800">Urgent assigned reports</p>
+              <p className="mt-3 text-3xl font-semibold text-rose-950">{urgentAssignedReports}</p>
+              <p className="mt-2 text-sm text-rose-900">Urgent workload already sitting with moderators.</p>
+            </Link>
+          </div>
+
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Link href={buildModerationHref({ actor: selectedActor || undefined, queue: "temporary-ban-expiring", reason: selectedReason || undefined, subject: selectedSubject || undefined, status: selectedStatus || undefined })} className="rounded-3xl border border-amber-200 bg-amber-50 p-5 transition hover:opacity-92">
               <p className="text-sm text-amber-800">Temporary bans expiring in 24h</p>
@@ -789,6 +1057,16 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                     Verification
                 </Link>
                 <Link
+                  href={buildModerationHref({ actor: selectedActor || undefined, queue: "attention-needed", reason: selectedReason || undefined, subject: selectedSubject || undefined, status: selectedStatus || undefined })}
+                  className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                    selectedQueue === "attention-needed"
+                      ? "bg-slate-900 text-white dark:bg-stone-100 dark:text-slate-950"
+                      : "border border-(--color-line) bg-(--color-surface) text-slate-700 hover:bg-(--color-chip-muted) dark:text-stone-100"
+                  }`}
+                >
+                  Attention needed
+                </Link>
+                <Link
                   href={buildModerationHref({ actor: selectedActor || undefined, queue: "temporary-ban-expiring", reason: selectedReason || undefined, subject: selectedSubject || undefined, status: selectedStatus || undefined })}
                   className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                     selectedQueue === "temporary-ban-expiring"
@@ -839,6 +1117,178 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
         </div>
 
         <div className="space-y-6">
+          <div className="rounded-[34px] border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500 dark:text-slate-400">
+              Team workload
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-stone-100">
+              Moderator ownership snapshot
+            </h2>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              Enforcement-heavy urgent work should stay with `lead` or `admin` moderators.
+            </p>
+            <div className="mt-6 space-y-3">
+              {moderatorWorkloads.length > 0 ? (
+                moderatorWorkloads.map((workload) => (
+                  <div
+                    key={workload.adminUser.id}
+                    className="rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-950 dark:text-stone-100">
+                          {workload.adminUser.display_name || workload.adminUser.username}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                            {workload.adminUser.role}
+                          </span>
+                          {canHandleEnforcementHeavyUrgentWork(workload.adminUser.role) ? (
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-900">
+                              Enforcement-ready
+                            </span>
+                          ) : (
+                            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+                              Review-only for urgent enforcement
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {adminUser?.id === workload.adminUser.id ? (
+                        <Link
+                          href={buildModerationHref({ assignee: workload.adminUser.id })}
+                          className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white dark:bg-stone-100 dark:text-slate-950"
+                        >
+                          My queue
+                        </Link>
+                      ) : null}
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                      <Link
+                        href={buildModerationHref({ assignee: workload.adminUser.id })}
+                        className="rounded-2xl bg-(--color-surface) px-3 py-4 transition hover:bg-(--color-chip-muted)"
+                      >
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                          Assigned
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-stone-100">
+                          {workload.totalAssignedCount}
+                        </p>
+                      </Link>
+                      <Link
+                        href={buildModerationHref({ assignee: workload.adminUser.id, status: "open" })}
+                        className="rounded-2xl bg-(--color-surface) px-3 py-4 transition hover:bg-(--color-chip-muted)"
+                      >
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                          Open
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-stone-100">
+                          {workload.openAssignedCount}
+                        </p>
+                      </Link>
+                      <Link
+                        href={buildModerationHref({ assignee: workload.adminUser.id, queue: "urgent-assigned" })}
+                        className="rounded-2xl bg-(--color-surface) px-3 py-4 transition hover:bg-(--color-chip-muted)"
+                      >
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                          Urgent
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-rose-950">
+                          {workload.urgentAssignedCount}
+                        </p>
+                      </Link>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Link
+                        href={buildModerationHref({ assignee: workload.adminUser.id })}
+                        className="rounded-full border border-(--color-line) bg-(--color-surface) px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-(--color-chip-muted) dark:text-stone-100"
+                      >
+                        View assigned
+                      </Link>
+                      <Link
+                        href={buildModerationHref({ assignee: workload.adminUser.id, queue: "urgent-assigned" })}
+                        className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-900 transition hover:opacity-92"
+                      >
+                        View urgent
+                      </Link>
+                    </div>
+                    <WorkloadRebalance
+                      adminUsers={adminUsers}
+                      adminWorkloads={moderatorWorkloads.map((candidateWorkload) => ({
+                        adminUserId: candidateWorkload.adminUser.id,
+                        openAssignedCount: candidateWorkload.openAssignedCount,
+                        totalAssignedCount: candidateWorkload.totalAssignedCount,
+                        urgentAssignedCount: candidateWorkload.urgentAssignedCount,
+                      }))}
+                      currentAdminRole={adminUser?.role}
+                      fromAdminUserId={workload.adminUser.id}
+                      fromAdminUserLabel={
+                        workload.adminUser.display_name || workload.adminUser.username
+                      }
+                      urgentCases={workload.urgentCases}
+                    />
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-3xl border border-dashed border-(--color-line) bg-(--color-surface-strong) p-5 text-sm text-slate-600 dark:text-slate-300">
+                  No moderator workload to show yet.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-[34px] border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500 dark:text-slate-400">
+              Attention now
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-stone-100">
+              Members who need action first
+            </h2>
+            <div className="mt-6 space-y-3">
+              {membersNeedingAttention.length > 0 ? (
+                membersNeedingAttention.map((member) => (
+                  <Link
+                    key={member.userId}
+                    href={`/moderation/members/${member.userId}`}
+                    className="block rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5 transition hover:bg-(--color-surface)"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-950 dark:text-stone-100">
+                          {member.label}
+                        </p>
+                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                          {member.attention.title}
+                        </p>
+                      </div>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          member.attention.tone === "rose"
+                            ? "bg-rose-100 text-rose-900"
+                            : member.attention.tone === "amber"
+                              ? "bg-amber-100 text-amber-900"
+                              : "bg-slate-200 text-slate-800"
+                        }`}
+                      >
+                        {member.openReportCount} open
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                      {member.attention.detail}
+                    </p>
+                    <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      Last report {formatDate(member.lastSeenAt)}
+                    </p>
+                  </Link>
+                ))
+              ) : (
+                <div className="rounded-3xl border border-dashed border-(--color-line) bg-(--color-surface-strong) p-5 text-sm text-slate-600 dark:text-slate-300">
+                  No members currently need immediate moderation follow-up.
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="rounded-[34px] border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">
             <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500 dark:text-slate-400">
               Saved queues

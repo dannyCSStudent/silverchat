@@ -6,6 +6,7 @@ import { getModerationData } from "../../data";
 import {
   formatDate,
   formatEventLabel,
+  getMemberAttentionSummary,
   formatModerationEventBody,
 } from "../../formatters";
 import { ReportFeed } from "../../report-feed";
@@ -28,21 +29,23 @@ function latestReportActivity(reportsAgainstMember: Awaited<
   return sortedEvents[0] ?? null;
 }
 
-function getMemberAttentionSummary(args: {
+function getAttentionActions(args: {
   currentSafetyState?: {
     expires_at?: string;
     label: string;
     state: string;
   } | null;
   openReportCount: number;
+  userId: string;
 }) {
-  const { currentSafetyState, openReportCount } = args;
+  const { currentSafetyState, openReportCount, userId } = args;
 
   if (currentSafetyState?.state === "verification_required") {
     return {
-      tone: "amber" as const,
-      title: "Verification follow-up needed",
-      detail: "Member is still gated behind verification review before returning to a clear state.",
+      primaryHref: `/moderation?queue=verification-follow-up&subject=${userId}`,
+      primaryLabel: "Open verification queue",
+      secondaryHref: `#reports`,
+      secondaryLabel: "Review member reports",
     };
   }
 
@@ -53,56 +56,64 @@ function getMemberAttentionSummary(args: {
         const msRemaining = expiresAt.getTime() - Date.now();
         if (msRemaining <= 0) {
           return {
-            tone: "rose" as const,
-            title: "Temporary ban follow-up overdue",
-            detail: "Restriction has expired and needs a lift or extension decision.",
+            primaryHref: `/moderation?queue=temporary-ban-expired&subject=${userId}`,
+            primaryLabel: "Open expired-ban queue",
+            secondaryHref: `#reports`,
+            secondaryLabel: "Review ban follow-up",
           };
         }
+
         if (msRemaining <= 24 * 60 * 60 * 1000) {
           return {
-            tone: "amber" as const,
-            title: "Temporary ban expiring soon",
-            detail: `Restriction expires ${formatDate(currentSafetyState.expires_at)} and needs review.`,
+            primaryHref: `/moderation?queue=temporary-ban-expiring&subject=${userId}`,
+            primaryLabel: "Open expiring-ban queue",
+            secondaryHref: `#reports`,
+            secondaryLabel: "Review ban follow-up",
           };
         }
       }
     }
 
     return {
-      tone: "rose" as const,
-      title: "Temporary restriction active",
-      detail: "Member remains temporarily banned until the restriction is lifted or expires.",
+      primaryHref: `/moderation?queue=temporary-banned&subject=${userId}`,
+      primaryLabel: "Open temp-ban queue",
+      secondaryHref: `#reports`,
+      secondaryLabel: "Review member reports",
     };
   }
 
   if (currentSafetyState?.state === "permanently_banned") {
     return {
-      tone: "rose" as const,
-      title: "Permanent restriction active",
-      detail: "Member is currently in a permanently banned state.",
+      primaryHref: `/moderation?queue=currently-permanently-banned&subject=${userId}`,
+      primaryLabel: "Open permanent-ban queue",
+      secondaryHref: `#reports`,
+      secondaryLabel: "Review member reports",
     };
   }
 
   if (openReportCount > 0) {
     return {
-      tone: "slate" as const,
-      title: "Open reports need resolution",
-      detail: `${openReportCount} open report${openReportCount === 1 ? "" : "s"} still need moderator action.`,
+      primaryHref: `/moderation?status=open&subject=${userId}`,
+      primaryLabel: "Open unresolved reports",
+      secondaryHref: `#reports`,
+      secondaryLabel: "Work this member's cases",
     };
   }
 
   if (currentSafetyState?.state === "warned") {
     return {
-      tone: "slate" as const,
-      title: "Monitor after warning",
-      detail: "Member is currently warned with no active restriction in place.",
+      primaryHref: `/moderation?queue=currently-warned&subject=${userId}`,
+      primaryLabel: "Open warned-member queue",
+      secondaryHref: `#reports`,
+      secondaryLabel: "Review member history",
     };
   }
 
   return {
-    tone: "emerald" as const,
-    title: "No immediate action needed",
-    detail: "Current safety state is clear and there are no open reports requiring follow-up.",
+    primaryHref: `/moderation?subject=${userId}`,
+    primaryLabel: "Open member queue",
+    secondaryHref: "/moderation",
+    secondaryLabel: "Back to moderation",
   };
 }
 
@@ -153,6 +164,11 @@ export default async function ModerationMemberPage({
   const attentionSummary = getMemberAttentionSummary({
     currentSafetyState,
     openReportCount,
+  });
+  const attentionActions = getAttentionActions({
+    currentSafetyState,
+    openReportCount,
+    userId,
   });
   const recentEvents = reportsAgainstMember
     .flatMap((report) => report.events ?? [])
@@ -354,6 +370,28 @@ export default async function ModerationMemberPage({
               >
                 {attentionSummary.detail}
               </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href={attentionActions.primaryHref}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    attentionSummary.tone === "rose"
+                      ? "bg-rose-900 text-white hover:bg-rose-950"
+                      : attentionSummary.tone === "amber"
+                        ? "bg-amber-900 text-white hover:bg-amber-950"
+                        : attentionSummary.tone === "emerald"
+                          ? "bg-emerald-900 text-white hover:bg-emerald-950"
+                          : "bg-slate-900 text-white hover:bg-slate-950 dark:bg-stone-100 dark:text-slate-950"
+                  }`}
+                >
+                  {attentionActions.primaryLabel}
+                </Link>
+                <Link
+                  href={attentionActions.secondaryHref}
+                  className="rounded-full border border-(--color-line) bg-white/70 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white dark:bg-stone-950/30 dark:text-stone-100 dark:hover:bg-stone-950/50"
+                >
+                  {attentionActions.secondaryLabel}
+                </Link>
+              </div>
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -413,7 +451,10 @@ export default async function ModerationMemberPage({
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-[34px] border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">
+          <div
+            id="reports"
+            className="rounded-[34px] border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)"
+          >
             <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500 dark:text-slate-400">
               Reports
             </p>

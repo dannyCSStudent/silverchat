@@ -7,11 +7,17 @@ import { useRouter } from "next/navigation";
 import type { AdminUser, ModerationEnforcementSummary, ModerationEvent, ModerationReport } from "@repo/types";
 
 import {
+  rankAssignmentTargets,
+  requiresElevatedCapability,
+  type ModeratorWorkloadSnapshot,
+} from "./assignment-targets";
+import {
   formatActorSuffix,
   formatDate,
   formatEnforcementFollowUp,
   formatEnforcementLabel,
   formatEventLabel,
+  getMemberAttentionSummary,
   formatModerationEventBody,
 } from "./formatters";
 import { ReportActions } from "./report-actions";
@@ -78,6 +84,37 @@ const BULK_STATUS_OPTIONS = [
   { label: "Dismiss", value: "dismissed" },
 ] as const;
 
+const SORT_OPTIONS = [
+  { label: "Attention first", value: "attention" },
+  { label: "Newest first", value: "newest" },
+  { label: "Oldest first", value: "oldest" },
+] as const;
+const CLAIM_URGENT_BATCH_SIZE = 3;
+
+function attentionToneClasses(tone: "amber" | "emerald" | "rose" | "slate") {
+  if (tone === "rose") {
+    return "bg-rose-100 text-rose-900";
+  }
+  if (tone === "amber") {
+    return "bg-amber-100 text-amber-900";
+  }
+  if (tone === "emerald") {
+    return "bg-emerald-100 text-emerald-900";
+  }
+
+  return "bg-slate-200 text-slate-800";
+}
+
+function assigneeNeedsEscalation(args: {
+  assigneeRole?: AdminUser["role"];
+  attentionTitle: string;
+}) {
+  return (
+    args.assigneeRole === "moderator" &&
+    requiresElevatedCapability([args.attentionTitle])
+  );
+}
+
 export function ReportFeed({
   adminUsers,
   currentAdminUserId,
@@ -90,6 +127,8 @@ export function ReportFeed({
   const [error, setError] = useState<string | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [sortMode, setSortMode] =
+    useState<(typeof SORT_OPTIONS)[number]["value"]>("attention");
   const [success, setSuccess] = useState<string | null>(null);
   const selectedSet = new Set(selectedIds);
   const canResolveOrDismiss =
@@ -99,6 +138,82 @@ export function ReportFeed({
   const bulkStatusOptions = BULK_STATUS_OPTIONS.filter((option) =>
     option.value === "reviewing" ? true : canResolveOrDismiss,
   );
+  const openReportCountByUserId = reports.reduce<Record<string, number>>(
+    (accumulator, report) => {
+      if ((report.status ?? "open") === "open") {
+        accumulator[report.reported_user_id] =
+          (accumulator[report.reported_user_id] ?? 0) + 1;
+      }
+      return accumulator;
+    },
+    {},
+  );
+  const adminWorkloads: ModeratorWorkloadSnapshot[] = adminUsers.map((adminUser) => {
+    const assignedReports = reports.filter(
+      (report) => report.current_assignee_admin_user_id === adminUser.id,
+    );
+    const urgentAssignedCount = assignedReports.filter((report) => {
+      const attentionSummary = getMemberAttentionSummary({
+        currentSafetyState: report.member_safety_state,
+        openReportCount: openReportCountByUserId[report.reported_user_id] ?? 0,
+      });
+
+      return (
+        requiresElevatedCapability([attentionSummary.title]) ||
+        attentionSummary.tone !== "emerald"
+      );
+    }).length;
+
+    return {
+      adminUserId: adminUser.id,
+      openAssignedCount: assignedReports.filter(
+        (report) => (report.status ?? "open") === "open",
+      ).length,
+      totalAssignedCount: assignedReports.length,
+      urgentAssignedCount,
+    };
+  });
+  const sortedReports = [...reports].sort((left, right) => {
+    const leftTime = new Date(left.created_at ?? 0).getTime();
+    const rightTime = new Date(right.created_at ?? 0).getTime();
+
+    if (sortMode === "newest") {
+      return rightTime - leftTime;
+    }
+
+    if (sortMode === "oldest") {
+      return leftTime - rightTime;
+    }
+
+    const toneRank = { rose: 3, amber: 2, slate: 1, emerald: 0 };
+    const leftAttention = getMemberAttentionSummary({
+      currentSafetyState: left.member_safety_state,
+      openReportCount: openReportCountByUserId[left.reported_user_id] ?? 0,
+    });
+    const rightAttention = getMemberAttentionSummary({
+      currentSafetyState: right.member_safety_state,
+      openReportCount: openReportCountByUserId[right.reported_user_id] ?? 0,
+    });
+    const toneDelta = toneRank[rightAttention.tone] - toneRank[leftAttention.tone];
+    if (toneDelta !== 0) {
+      return toneDelta;
+    }
+
+    const openCountDelta =
+      (openReportCountByUserId[right.reported_user_id] ?? 0) -
+      (openReportCountByUserId[left.reported_user_id] ?? 0);
+    if (openCountDelta !== 0) {
+      return openCountDelta;
+    }
+
+    return rightTime - leftTime;
+  });
+  const urgentAssignableReports = sortedReports.filter(
+    (report) =>
+      !report.current_assignee &&
+      (report.status ?? "open") === "open",
+  );
+  const urgentClaimTargets = urgentAssignableReports.slice(0, CLAIM_URGENT_BATCH_SIZE);
 
   async function runBulkAction({
     actionKey,
@@ -171,6 +286,43 @@ export function ReportFeed({
     setSelectedIds(reports.map((report) => report.id));
   }
 
+  async function runSingleAssignment(args: {
+    reportId: string;
+    targetAdminUserId: string;
+    targetLabel: string;
+  }) {
+    setError(null);
+    setSuccess(null);
+    setPendingKey(`escalate:${args.reportId}`);
+
+    try {
+      const response = await fetch(`/api/admin/reports/${args.reportId}/assignment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ assignee_admin_user_id: args.targetAdminUserId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`POST failed with ${response.status}`);
+      }
+
+      setSuccess(`Escalated case to ${args.targetLabel}.`);
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Unable to escalate case assignment.",
+      );
+    } finally {
+      setPendingKey(null);
+    }
+  }
+
   return (
     <div className="mt-4 space-y-4">
       <div className="rounded-3xl border border-(--color-line) bg-(--color-surface) p-5">
@@ -181,7 +333,20 @@ export function ReportFeed({
               {selectedIds.length} of {reports.length} filtered reports selected
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={sortMode}
+              onChange={(event) =>
+                setSortMode(event.target.value as (typeof SORT_OPTIONS)[number]["value"])
+              }
+              className="rounded-full border border-(--color-line) bg-(--color-surface-strong) px-4 py-2 text-xs font-semibold text-slate-700 outline-none dark:text-stone-100"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  Sort: {option.label}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               onClick={toggleAll}
@@ -189,6 +354,28 @@ export function ReportFeed({
             >
               {selectedIds.length === reports.length && reports.length > 0 ? "Clear all" : "Select all"}
             </button>
+            {currentAdminUsername && currentAdminUserId ? (
+              <button
+                type="button"
+                disabled={pendingKey !== null || urgentClaimTargets.length === 0}
+                onClick={() => {
+                  const urgentIds = urgentClaimTargets.map((report) => report.id);
+                  setSelectedIds(urgentIds);
+                  void runBulkAction({
+                    actionKey: "bulk-claim-urgent",
+                    body: { assignee_admin_user_id: currentAdminUserId },
+                    method: "POST",
+                    pathBuilder: (reportId) => `/api/admin/reports/${reportId}/assignment`,
+                    successMessage: `Assigned ${urgentIds.length} urgent report${urgentIds.length === 1 ? "" : "s"} to ${currentAdminUsername}.`,
+                  });
+                }}
+                className="rounded-full bg-rose-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-rose-950 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {pendingKey === "bulk-claim-urgent"
+                  ? "Claiming..."
+                  : `Claim top urgent ${urgentClaimTargets.length === 1 ? "case" : `${urgentClaimTargets.length} cases`}`}
+              </button>
+            ) : null}
             {bulkStatusOptions.map((option) => (
               <button
                 key={option.value}
@@ -309,55 +496,126 @@ export function ReportFeed({
             Moderators can bulk move reports into review and claim them for themselves. Lead and admin roles can reassign, clear assignments, resolve, or dismiss.
           </p>
         ) : null}
+        {sortMode === "attention" && urgentClaimTargets.length > 0 ? (
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            Urgent claim uses the current attention ranking and only targets open, unassigned reports.
+          </p>
+        ) : null}
       </div>
 
-      {reports.map((report) => (
-        <div
-          key={report.id}
-          className="rounded-3xl border border-(--color-line) bg-(--color-surface) p-5"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                checked={selectedSet.has(report.id)}
-                onChange={() => toggleReport(report.id)}
-                className="mt-1 h-4 w-4 rounded border-(--color-line)"
-              />
-              <div>
-                <p className="text-lg font-semibold text-slate-950 dark:text-stone-100">
-                  {report.reason}
-                </p>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  {profileLabel(report.reporter_profile)} flagged {profileLabel(report.reported_profile)}
-                </p>
-                {report.current_assignee ? (
-                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                    Assigned to {report.current_assignee_admin_user?.display_name || report.current_assignee}
+      {sortedReports.map((report) => {
+        const attentionSummary = getMemberAttentionSummary({
+          currentSafetyState: report.member_safety_state,
+          openReportCount: openReportCountByUserId[report.reported_user_id] ?? 0,
+        });
+        const currentAssigneeNeedsEscalation = assigneeNeedsEscalation({
+          assigneeRole: report.current_assignee_admin_user?.role,
+          attentionTitle: attentionSummary.title,
+        });
+        const preferredEscalationTarget = rankAssignmentTargets({
+          adminUsers,
+          adminWorkloads,
+          excludeAdminUserId: report.current_assignee_admin_user_id,
+          minimumRoleRank: requiresElevatedCapability([attentionSummary.title]) ? 2 : 1,
+          preferredAdminUserId: currentAdminUserId,
+        })[0];
+
+        return (
+          <div
+            key={report.id}
+            className="rounded-3xl border border-(--color-line) bg-(--color-surface) p-5"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={selectedSet.has(report.id)}
+                  onChange={() => toggleReport(report.id)}
+                  className="mt-1 h-4 w-4 rounded border-(--color-line)"
+                />
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-lg font-semibold text-slate-950 dark:text-stone-100">
+                      {report.reason}
+                    </p>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${attentionToneClasses(
+                        attentionSummary.tone,
+                      )}`}
+                    >
+                      {attentionSummary.title}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                    {profileLabel(report.reporter_profile)} flagged {profileLabel(report.reported_profile)}
                   </p>
-                ) : null}
-                {report.latest_enforcement ? (
-                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300">
-                    {formatEnforcementLabel(report.latest_enforcement)}
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                    {attentionSummary.detail}
                   </p>
-                ) : null}
-                {formatEnforcementFollowUp(report) ? (
-                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-rose-700 dark:text-rose-300">
-                    {formatEnforcementFollowUp(report)}
-                  </p>
-                ) : null}
+                  {report.current_assignee ? (
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                      Assigned to {report.current_assignee_admin_user?.display_name || report.current_assignee}
+                    </p>
+                  ) : null}
+                  {currentAssigneeNeedsEscalation ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <p className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+                        Current assignee can review this urgent case, but a lead or admin may be needed to complete enforcement follow-up.
+                      </p>
+                      {preferredEscalationTarget && canManageOtherAssignees ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={pendingKey !== null}
+                            onClick={() => {
+                              void runSingleAssignment({
+                                reportId: report.id,
+                                targetAdminUserId: preferredEscalationTarget.adminUser.id,
+                                targetLabel:
+                                  preferredEscalationTarget.adminUser.display_name ||
+                                  preferredEscalationTarget.adminUser.username,
+                              });
+                            }}
+                            className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-900 transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {pendingKey === `escalate:${report.id}`
+                              ? "Escalating..."
+                              : `Escalate to ${
+                                  preferredEscalationTarget.adminUser.id === currentAdminUserId
+                                    ? "me"
+                                    : preferredEscalationTarget.adminUser.display_name ||
+                                      preferredEscalationTarget.adminUser.username
+                                }`}
+                          </button>
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                            {preferredEscalationTarget.recommendationReason}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {report.latest_enforcement ? (
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300">
+                      {formatEnforcementLabel(report.latest_enforcement)}
+                    </p>
+                  ) : null}
+                  {formatEnforcementFollowUp(report) ? (
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-rose-700 dark:text-rose-300">
+                      {formatEnforcementFollowUp(report)}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="rounded-full bg-(--color-chip-muted) px-3 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-900 dark:text-stone-100">
+                {report.status ?? "open"}
               </div>
             </div>
-            <div className="rounded-full bg-(--color-chip-muted) px-3 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-900 dark:text-stone-100">
-              {report.status ?? "open"}
-            </div>
-          </div>
 
-          <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
-            {report.details ?? "No additional details submitted."}
-          </p>
+            <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              {report.details ?? "No additional details submitted."}
+            </p>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                 Reporter
@@ -398,7 +656,7 @@ export function ReportFeed({
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+            <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
             <span className="rounded-full bg-(--color-chip-muted) px-3 py-2">
               {formatDate(report.created_at)}
             </span>
@@ -433,7 +691,7 @@ export function ReportFeed({
             ) : null}
           </div>
 
-          {report.latest_enforcement ? (
+            {report.latest_enforcement ? (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-800">
                 Latest enforcement
@@ -456,9 +714,9 @@ export function ReportFeed({
                 </p>
               ) : null}
             </div>
-          ) : null}
+            ) : null}
 
-          {report.session ? (
+            {report.session ? (
             <div className="mt-4 rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                 Session context
@@ -473,9 +731,9 @@ export function ReportFeed({
                 {report.session.ended_at ? ` · Ended ${formatDate(report.session.ended_at)}` : ""}
               </p>
             </div>
-          ) : null}
+            ) : null}
 
-          {report.events && report.events.length > 0 ? (
+            {report.events && report.events.length > 0 ? (
             <div className="mt-4 rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                 Moderation history
@@ -499,23 +757,24 @@ export function ReportFeed({
                 ))}
               </div>
             </div>
-          ) : null}
+            ) : null}
 
-          <ReportAssignment
-            adminUsers={adminUsers}
-            currentAdminUserId={currentAdminUserId}
-            currentAdminRole={currentAdminRole}
-            currentAdminUsername={currentAdminUsername}
-            reportId={report.id}
-            currentAssigneeAdminUserId={report.current_assignee_admin_user_id}
-            currentAssignee={report.current_assignee}
-          />
-          <ReportEnforcement currentAdminRole={currentAdminRole} reportId={report.id} />
-          <ReportEnforcementReview currentAdminRole={currentAdminRole} report={report} />
-          <ReportNotes reportId={report.id} />
-          <ReportActions currentAdminRole={currentAdminRole} reportId={report.id} status={report.status} />
-        </div>
-      ))}
+            <ReportAssignment
+              adminUsers={adminUsers}
+              currentAdminUserId={currentAdminUserId}
+              currentAdminRole={currentAdminRole}
+              currentAdminUsername={currentAdminUsername}
+              reportId={report.id}
+              currentAssigneeAdminUserId={report.current_assignee_admin_user_id}
+              currentAssignee={report.current_assignee}
+            />
+            <ReportEnforcement currentAdminRole={currentAdminRole} reportId={report.id} />
+            <ReportEnforcementReview currentAdminRole={currentAdminRole} report={report} />
+            <ReportNotes reportId={report.id} />
+            <ReportActions currentAdminRole={currentAdminRole} reportId={report.id} status={report.status} />
+          </div>
+        );
+      })}
     </div>
   );
 }
