@@ -1,5 +1,8 @@
 fastapi
+uvicorn[standard]
 pydantic
 supabase
+postgrest
 python-dotenv
-uvicorn
+httpx
+python-multipart
