@@ -1,3 +1,8 @@
+import { headers } from "next/headers";
+
+import { AdminHealthPanel } from "../moderation/admin-health-panel";
+import { getModerationAdminHealth } from "../moderation/data";
+
 const apiBaseUrl = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
 
 type HealthPayload = {
@@ -50,7 +55,16 @@ async function fetchHealth(): Promise<HealthResponse> {
 }
 
 export default async function HealthPage() {
+  const requestHeaders = await headers();
+  const adminUsername = requestHeaders.get("x-admin-username") ?? "";
+  const host =
+    requestHeaders.get("x-forwarded-host") ??
+    requestHeaders.get("host") ??
+    "localhost:3000";
+  const proto = requestHeaders.get("x-forwarded-proto") ?? "http";
+  const webBaseUrl = `${proto}://${host}`;
   const { api, db, error } = await fetchHealth();
+  const adminHealth = await getModerationAdminHealth(adminUsername, webBaseUrl);
   const missingTables = db.missing_tables ?? [];
   const tableEntries = Object.entries(db.tables ?? {});
   const dbReady = db.ready === true && db.status === "ok";
@@ -84,6 +98,8 @@ export default async function HealthPage() {
           {renderStatus("API Health", api)}
           {renderStatus("DB Health", db)}
         </div>
+
+        <AdminHealthPanel health={adminHealth} />
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="rounded-3xl border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">

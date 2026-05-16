@@ -1,7 +1,5 @@
 import type { AdminUser, ModerationBlock, ModerationReport } from "@repo/types";
 
-const apiBaseUrl =
-  process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
 const adminApiToken = process.env.ADMIN_API_TOKEN;
 
 const fallbackReports: ModerationReport[] = [
@@ -89,10 +87,74 @@ export type ModerationData = {
   blocks: ModerationBlock[];
   isFallback: boolean;
   configurationError: string | null;
+  proxyStatuses: Array<{
+    detail: string;
+    durationMs: number | null;
+    ok: boolean;
+    path: string;
+    status: number | null;
+  }>;
 };
+
+type ProxyStatus = ModerationData["proxyStatuses"][number];
+
+export type ModerationAdminHealth = {
+  ok: boolean;
+  statuses: ProxyStatus[];
+};
+
+async function fetchAdminProxyJson<T>(
+  webBaseUrl: string,
+  path: string,
+  headers: Record<string, string>,
+): Promise<{ data: T | null; proxyStatus: ProxyStatus }> {
+  try {
+    const response = await fetch(`${webBaseUrl}${path}`, {
+      cache: "no-store",
+      headers,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return {
+        data: null,
+        proxyStatus: {
+          path,
+          ok: false,
+          status: response.status,
+          durationMs: null,
+          detail: text || `Request failed with ${response.status}.`,
+        },
+      };
+    }
+
+    return {
+      data: (await response.json()) as T,
+      proxyStatus: {
+        path,
+        ok: true,
+        status: response.status,
+        durationMs: null,
+        detail: "ok",
+      },
+    };
+  } catch (error) {
+    return {
+      data: null,
+      proxyStatus: {
+        path,
+        ok: false,
+        status: null,
+        durationMs: null,
+        detail: error instanceof Error ? error.message : "Unexpected proxy failure.",
+      },
+    };
+  }
+}
 
 export async function getModerationData(
   adminUsername: string,
+  webBaseUrl: string,
 ): Promise<ModerationData> {
   if (!adminApiToken) {
     return {
@@ -102,67 +164,105 @@ export async function getModerationData(
       blocks: [],
       isFallback: true,
       configurationError: "Missing ADMIN_API_TOKEN in apps/web environment.",
+      proxyStatuses: [],
     };
   }
 
-  try {
-    const baseHeaders = {
-      "X-Admin-Token": adminApiToken,
-      ...(adminUsername ? { "X-Admin-Username": adminUsername } : {}),
-    };
-    const [adminUserResponse, adminUsersResponse, reportsResponse, blocksResponse] =
-      await Promise.all([
-        fetch(`${apiBaseUrl}/admin-users/me`, {
-          cache: "no-store",
-          headers: baseHeaders,
-        }),
-        fetch(`${apiBaseUrl}/admin-users/`, {
-          cache: "no-store",
-          headers: baseHeaders,
-        }),
-        fetch(`${apiBaseUrl}/reports/`, {
-          cache: "no-store",
-          headers: baseHeaders,
-        }),
-        fetch(`${apiBaseUrl}/blocks/`, {
-          cache: "no-store",
-          headers: baseHeaders,
-        }),
-      ]);
+  const baseHeaders: Record<string, string> = {
+    ...(adminUsername ? { "X-Admin-Username": adminUsername } : {}),
+  };
+  const [adminUserResult, adminUsersResult, reportsResult, blocksResult] =
+    await Promise.all([
+      fetchAdminProxyJson<AdminUser>(webBaseUrl, "/api/admin/me", baseHeaders),
+      fetchAdminProxyJson<AdminUser[]>(
+        webBaseUrl,
+        "/api/admin/admin-users",
+        baseHeaders,
+      ),
+      fetchAdminProxyJson<ModerationReport[]>(
+        webBaseUrl,
+        "/api/admin/reports",
+        baseHeaders,
+      ),
+      fetchAdminProxyJson<ModerationBlock[]>(
+        webBaseUrl,
+        "/api/admin/blocks",
+        baseHeaders,
+      ),
+    ]);
+  const proxyStatuses = [
+    adminUserResult.proxyStatus,
+    adminUsersResult.proxyStatus,
+    reportsResult.proxyStatus,
+    blocksResult.proxyStatus,
+  ];
 
-    if (
-      !adminUserResponse.ok ||
-      !adminUsersResponse.ok ||
-      !reportsResponse.ok ||
-      !blocksResponse.ok
-    ) {
-      throw new Error("Moderation API request failed");
-    }
-
-    const [adminUser, adminUsers, reports, blocks] = (await Promise.all([
-      adminUserResponse.json(),
-      adminUsersResponse.json(),
-      reportsResponse.json(),
-      blocksResponse.json(),
-    ])) as [AdminUser, AdminUser[], ModerationReport[], ModerationBlock[]];
-
+  if (
+    adminUserResult.data &&
+    adminUsersResult.data &&
+    reportsResult.data &&
+    blocksResult.data
+  ) {
     return {
-      adminUser,
-      adminUsers,
-      reports,
-      blocks,
+      adminUser: adminUserResult.data,
+      adminUsers: adminUsersResult.data,
+      reports: reportsResult.data,
+      blocks: blocksResult.data,
       isFallback: false,
       configurationError: null,
+      proxyStatuses,
     };
-  } catch {
+  }
+
+  const failedProxyPaths = proxyStatuses
+    .filter((proxyStatus) => !proxyStatus.ok)
+    .map((proxyStatus) => proxyStatus.path)
+    .join(", ");
+
+  return {
+    adminUser: null,
+    adminUsers: [],
+    reports: fallbackReports,
+    blocks: fallbackBlocks,
+    isFallback: true,
+    configurationError: failedProxyPaths
+      ? `Live moderation data is unavailable. Failed admin routes: ${failedProxyPaths}.`
+      : "Live moderation data is unavailable. Confirm the admin proxy routes are healthy, apps/api/schema.sql has been applied, and the current Basic-auth username exists in public.admin_users.",
+    proxyStatuses,
+  };
+}
+
+export async function getModerationAdminHealth(
+  adminUsername: string,
+  webBaseUrl: string,
+): Promise<ModerationAdminHealth> {
+  const headers: Record<string, string> = {
+    ...(adminUsername ? { "X-Admin-Username": adminUsername } : {}),
+  };
+
+  try {
+    const response = await fetch(`${webBaseUrl}/api/admin/health`, {
+      cache: "no-store",
+      headers,
+    });
+    const payload = (await response.json()) as ModerationAdminHealth;
+
     return {
-      adminUser: null,
-      adminUsers: [],
-      reports: fallbackReports,
-      blocks: fallbackBlocks,
-      isFallback: true,
-      configurationError:
-        "Live moderation data is unavailable. Confirm apps/api/schema.sql has been reapplied and that the current Basic-auth username exists in public.admin_users.",
+      ok: response.ok && payload.ok,
+      statuses: payload.statuses ?? [],
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      statuses: [
+        {
+          path: "/api/admin/health",
+          ok: false,
+          status: null,
+          durationMs: null,
+          detail: error instanceof Error ? error.message : "Unexpected health check failure.",
+        },
+      ],
     };
   }
 }

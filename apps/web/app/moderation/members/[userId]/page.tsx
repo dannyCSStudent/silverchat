@@ -2,7 +2,10 @@ import { headers } from "next/headers";
 import Link from "next/link";
 
 import { Hero } from "../../../components/hero";
-import { getModerationData } from "../../data";
+import { AdminHealthPanel } from "../../admin-health-panel";
+import { getModerationAdminHealth, getModerationData } from "../../data";
+import { DataSourceBadge } from "../../data-source-badge";
+import { FallbackWarningPanel } from "../../fallback-warning-panel";
 import {
   formatDate,
   formatEventLabel,
@@ -126,7 +129,11 @@ export default async function ModerationMemberPage({
 }) {
   const { userId } = await params;
   const resolvedSearchParams = (await searchParams) ?? {};
-  const adminUsername = (await headers()).get("x-admin-username") ?? "";
+  const requestHeaders = await headers();
+  const adminUsername = requestHeaders.get("x-admin-username") ?? "";
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
+  const proto = requestHeaders.get("x-forwarded-proto") ?? "http";
+  const webBaseUrl = `${proto}://${host}`;
   const {
     adminUser,
     adminUsers,
@@ -134,8 +141,9 @@ export default async function ModerationMemberPage({
     blocks,
     configurationError,
     isFallback,
-  } =
-    await getModerationData(adminUsername);
+    proxyStatuses,
+  } = await getModerationData(adminUsername, webBaseUrl);
+  const adminHealth = await getModerationAdminHealth(adminUsername, webBaseUrl);
 
   const reportsAgainstMember = reports.filter(
     (report) => report.reported_user_id === userId,
@@ -237,11 +245,12 @@ export default async function ModerationMemberPage({
         </Link>
       </div>
 
-      {configurationError ? (
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 shadow-(--shadow-md)">
-          {configurationError}
-        </div>
-      ) : null}
+      <FallbackWarningPanel
+        configurationError={configurationError}
+        proxyStatuses={proxyStatuses}
+      />
+
+      <AdminHealthPanel health={adminHealth} />
 
       <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="space-y-6">
@@ -255,13 +264,7 @@ export default async function ModerationMemberPage({
                   {profileLabel(subjectProfile)}
                 </h2>
               </div>
-              <div
-                className={`rounded-full px-4 py-2 text-sm font-medium ${
-                  isFallback ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"
-                }`}
-              >
-                {isFallback ? "Fallback dataset" : "Live API connected"}
-              </div>
+              <DataSourceBadge isFallback={isFallback} />
             </div>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">

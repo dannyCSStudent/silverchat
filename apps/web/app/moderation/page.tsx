@@ -9,7 +9,10 @@ import type {
 } from "@repo/types";
 
 import { Hero } from "../components/hero";
-import { getModerationData } from "./data";
+import { getModerationAdminHealth, getModerationData } from "./data";
+import { AdminHealthPanel } from "./admin-health-panel";
+import { DataSourceBadge } from "./data-source-badge";
+import { FallbackWarningPanel } from "./fallback-warning-panel";
 import { getMemberAttentionSummary } from "./formatters";
 import { ReportFeed } from "./report-feed";
 import { WorkloadRebalance } from "./workload-rebalance";
@@ -581,8 +584,26 @@ type ModerationPageProps = {
 
 export default async function ModerationPage({ searchParams }: ModerationPageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
-  const adminUsername = (await headers()).get("x-admin-username") ?? "";
-  const { adminUser, adminUsers, reports, blocks, isFallback, configurationError } = await getModerationData(adminUsername);
+  const requestHeaders = await headers();
+  const adminUsername = requestHeaders.get("x-admin-username") ?? "";
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
+  const proto = requestHeaders.get("x-forwarded-proto") ?? "http";
+  const webBaseUrl = `${proto}://${host}`;
+  const [
+    {
+      adminUser,
+      adminUsers,
+      reports,
+      blocks,
+      isFallback,
+      configurationError,
+      proxyStatuses,
+    },
+    adminHealth,
+  ] = await Promise.all([
+    getModerationData(adminUsername, webBaseUrl),
+    getModerationAdminHealth(adminUsername, webBaseUrl),
+  ]);
   const openReportCountByUserId = reports.reduce<Record<string, number>>(
     (accumulator, report) => {
       if ((report.status ?? "open") === "open") {
@@ -860,11 +881,10 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
         copy="This first ops view reads the safety events already stored in FastAPI and Supabase so moderators can see trust pressure forming early."
       />
 
-      {configurationError ? (
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 shadow-(--shadow-md)">
-          {configurationError}
-        </div>
-      ) : null}
+      <FallbackWarningPanel
+        configurationError={configurationError}
+        proxyStatuses={proxyStatuses}
+      />
 
       {adminUser ? (
         <section className="rounded-[30px] border border-(--color-line) bg-(--color-surface) px-5 py-4 shadow-(--shadow-sm)">
@@ -889,6 +909,8 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
         </section>
       ) : null}
 
+      <AdminHealthPanel health={adminHealth} />
+
       <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="rounded-[34px] border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -900,13 +922,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                 Current moderation volume
               </h2>
             </div>
-            <div
-              className={`rounded-full px-4 py-2 text-sm font-medium ${
-                isFallback ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"
-              }`}
-            >
-              {isFallback ? "Fallback dataset" : "Live API connected"}
-            </div>
+            <DataSourceBadge isFallback={isFallback} />
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
