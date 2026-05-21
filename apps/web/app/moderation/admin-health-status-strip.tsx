@@ -39,9 +39,33 @@ function getStripState(
   };
 }
 
+function getWorkflowMode(
+  statuses: ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"],
+) {
+  if (statuses.some((status) => !status.ok)) {
+    return {
+      classes: "border-rose-300 bg-rose-100 text-rose-950",
+      label: "Safe actions only",
+    };
+  }
+
+  if (statuses.some((status) => (status.durationMs ?? 0) >= VERY_SLOW_ROUTE_THRESHOLD_MS)) {
+    return {
+      classes: "border-amber-300 bg-amber-100 text-amber-950",
+      label: "Caution mode",
+    };
+  }
+
+  return {
+    classes: "border-emerald-300 bg-emerald-100 text-emerald-950",
+    label: "Normal mode",
+  };
+}
+
 export function AdminHealthStatusStrip() {
   const { currentHealth, isRefreshing } = useLiveAdminHealth();
   const stripState = getStripState(currentHealth.statuses);
+  const workflowMode = getWorkflowMode(currentHealth.statuses);
 
   return (
     <div className={`rounded-3xl border px-4 py-3 text-sm ${stripState.classes}`}>
@@ -50,9 +74,16 @@ export function AdminHealthStatusStrip() {
           <p className="font-semibold">{stripState.title}</p>
           <p className="mt-1">{stripState.detail}</p>
         </div>
-        <span className="rounded-full border border-current/20 bg-white/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">
-          {isRefreshing ? "Refreshing" : "Live"}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${workflowMode.classes}`}
+          >
+            {workflowMode.label}
+          </span>
+          <span className="rounded-full border border-current/20 bg-white/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]">
+            {isRefreshing ? "Refreshing" : "Live"}
+          </span>
+        </div>
       </div>
     </div>
   );
