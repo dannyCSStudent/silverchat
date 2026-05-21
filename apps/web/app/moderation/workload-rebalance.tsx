@@ -10,6 +10,7 @@ import {
   roleRank,
   type ModeratorWorkloadSnapshot,
 } from "./assignment-targets";
+import { useLiveAdminHealth } from "./use-live-admin-health";
 
 const MAX_REBALANCE_BATCH_SIZE = 3;
 
@@ -38,9 +39,11 @@ export function WorkloadRebalance({
   urgentCases,
 }: WorkloadRebalanceProps) {
   const { clearMessages, error, pendingKey, runAction, success } = useDashboardAction("");
+  const { currentHealth: liveAdminHealth } = useLiveAdminHealth();
   const [targetAdminUserId, setTargetAdminUserId] = useState("");
   const canRebalance =
     currentAdminRole === "lead" || currentAdminRole === "admin";
+  const hasFailedAdminRoute = liveAdminHealth.statuses.some((status) => !status.ok);
   const urgentBatch = urgentCases.slice(0, MAX_REBALANCE_BATCH_SIZE);
   const batchNeedsElevatedCapability = requiresElevatedCapability(
     urgentBatch.map((urgentCase) => urgentCase.attentionTitle),
@@ -118,6 +121,7 @@ export function WorkloadRebalance({
         <select
           value={targetAdminUserId}
           onChange={(event) => setTargetAdminUserId(event.target.value)}
+          disabled={hasFailedAdminRoute}
           className="min-w-0 flex-1 rounded-full border border-(--color-line) bg-(--color-surface-strong) px-4 py-3 text-sm text-slate-900 outline-none dark:text-stone-100"
         >
           <option value="">Move to moderator...</option>
@@ -139,6 +143,7 @@ export function WorkloadRebalance({
           <button
             type="button"
             onClick={() => setTargetAdminUserId(recommendedTarget.adminUser.id)}
+            disabled={hasFailedAdminRoute}
             className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-900 transition hover:opacity-92"
           >
             Use recommended
@@ -146,7 +151,9 @@ export function WorkloadRebalance({
         ) : null}
         <button
           type="button"
-          disabled={pendingKey !== null || targetAdminUserId.length === 0}
+          disabled={
+            hasFailedAdminRoute || pendingKey !== null || targetAdminUserId.length === 0
+          }
           onClick={async () => {
             if (!selectedAdminUser) {
               return;
@@ -198,6 +205,11 @@ export function WorkloadRebalance({
       {batchNeedsElevatedCapability ? (
         <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
           This urgent batch includes enforcement follow-up, so recommendation and target selection are limited to `lead` and `admin` moderators.
+        </p>
+      ) : null}
+      {hasFailedAdminRoute ? (
+        <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-900">
+          Rebalancing is temporarily disabled because one or more admin routes are failing. Wait for the admin path to recover before moving urgent workload in bulk.
         </p>
       ) : null}
       <div className="mt-3 rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-3">

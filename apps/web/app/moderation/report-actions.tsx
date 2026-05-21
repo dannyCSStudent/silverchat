@@ -1,6 +1,7 @@
 "use client";
 
 import { useDashboardAction } from "../use-dashboard-action";
+import { useLiveAdminHealth } from "./use-live-admin-health";
 
 type ReportActionsProps = {
   currentAdminRole?: "moderator" | "lead" | "admin";
@@ -16,8 +17,13 @@ const STATUS_OPTIONS = [
 
 export function ReportActions({ currentAdminRole, reportId, status }: ReportActionsProps) {
   const { clearMessages, error, pendingKey, runAction, success } = useDashboardAction("");
+  const { currentHealth: liveAdminHealth } = useLiveAdminHealth();
   const visibleOptions = STATUS_OPTIONS.filter((option) =>
     option.value === "reviewing" ? true : currentAdminRole === "lead" || currentAdminRole === "admin",
+  );
+  const hasFailedAdminRoute = liveAdminHealth.statuses.some((status) => !status.ok);
+  const hasVerySlowAdminRoute = liveAdminHealth.statuses.some(
+    (status) => status.durationMs !== null && status.durationMs >= 2000,
   );
 
   return (
@@ -31,7 +37,7 @@ export function ReportActions({ currentAdminRole, reportId, status }: ReportActi
             <button
               key={option.value}
               type="button"
-              disabled={pendingKey !== null || isCurrent}
+              disabled={hasFailedAdminRoute || pendingKey !== null || isCurrent}
               onClick={() => {
                 void runAction({
                   path: `/api/admin/reports/${reportId}`,
@@ -53,6 +59,15 @@ export function ReportActions({ currentAdminRole, reportId, status }: ReportActi
           );
         })}
       </div>
+      {hasFailedAdminRoute ? (
+        <p className="text-xs font-medium text-rose-700 dark:text-rose-300">
+          Status updates are temporarily paused because one or more admin routes are failing.
+        </p>
+      ) : hasVerySlowAdminRoute ? (
+        <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+          Status updates are available, but admin-route latency is high and changes may reflect slowly.
+        </p>
+      ) : null}
       {currentAdminRole === "moderator" ? (
         <p className="text-xs text-slate-500 dark:text-slate-400">
           Moderators can move cases into review. Lead and admin roles can resolve or dismiss.

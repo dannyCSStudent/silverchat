@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { AdminUser } from "@repo/types";
 
 import { useDashboardAction } from "../use-dashboard-action";
+import { useLiveAdminHealth } from "./use-live-admin-health";
 
 type ReportAssignmentProps = {
   adminUsers: AdminUser[];
@@ -25,12 +26,17 @@ export function ReportAssignment({
   currentAssignee,
 }: ReportAssignmentProps) {
   const { clearMessages, error, pendingKey, runAction, success } = useDashboardAction("");
+  const { currentHealth: liveAdminHealth } = useLiveAdminHealth();
   const [assigneeAdminUserId, setAssigneeAdminUserId] = useState(currentAssigneeAdminUserId ?? "");
   const canManageOtherAssignees =
     currentAdminRole === "lead" || currentAdminRole === "admin";
   const canClearAssignment =
     canManageOtherAssignees ||
     (currentAdminUsername !== undefined && currentAssignee === currentAdminUsername);
+  const hasFailedAdminRoute = liveAdminHealth.statuses.some((status) => !status.ok);
+  const hasVerySlowAdminRoute = liveAdminHealth.statuses.some(
+    (status) => status.durationMs !== null && status.durationMs >= 2000,
+  );
 
   return (
     <div className="mt-4 rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
@@ -41,7 +47,7 @@ export function ReportAssignment({
         <select
           value={assigneeAdminUserId}
           onChange={(event) => setAssigneeAdminUserId(event.target.value)}
-          disabled={!canManageOtherAssignees}
+          disabled={hasFailedAdminRoute || !canManageOtherAssignees}
           className="min-w-0 flex-1 rounded-full border border-(--color-line) bg-(--color-surface) px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-stone-100"
         >
           <option value="">Select moderator...</option>
@@ -55,7 +61,7 @@ export function ReportAssignment({
           {currentAdminUsername && currentAdminUserId ? (
             <button
               type="button"
-              disabled={pendingKey !== null}
+              disabled={hasFailedAdminRoute || pendingKey !== null}
               onClick={() => {
                 setAssigneeAdminUserId(currentAdminUserId);
                 void runAction({
@@ -74,7 +80,7 @@ export function ReportAssignment({
           ) : null}
           <button
             type="button"
-            disabled={pendingKey !== null || !canManageOtherAssignees}
+            disabled={hasFailedAdminRoute || pendingKey !== null || !canManageOtherAssignees}
             onClick={() => {
               const selectedAdminUser = adminUsers.find(
                 (adminUser) => adminUser.id === assigneeAdminUserId,
@@ -96,7 +102,12 @@ export function ReportAssignment({
           </button>
           <button
             type="button"
-            disabled={pendingKey !== null || assigneeAdminUserId.length === 0 || !canClearAssignment}
+            disabled={
+              hasFailedAdminRoute ||
+              pendingKey !== null ||
+              assigneeAdminUserId.length === 0 ||
+              !canClearAssignment
+            }
             onClick={() => {
               setAssigneeAdminUserId("");
               void runAction({
@@ -114,6 +125,15 @@ export function ReportAssignment({
           </button>
         </div>
       </div>
+      {hasFailedAdminRoute ? (
+        <p className="mt-3 text-xs font-medium text-rose-700 dark:text-rose-300">
+          Assignment updates are temporarily paused because one or more admin routes are failing.
+        </p>
+      ) : hasVerySlowAdminRoute ? (
+        <p className="mt-3 text-xs font-medium text-amber-700 dark:text-amber-300">
+          Assignment updates are available, but admin-route latency is high and changes may reflect slowly.
+        </p>
+      ) : null}
       {canManageOtherAssignees ? null : (
         <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
           Moderators can only claim cases for themselves and clear assignments they currently own.

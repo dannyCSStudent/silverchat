@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { useDashboardAction } from "../use-dashboard-action";
+import { useLiveAdminHealth } from "./use-live-admin-health";
 
 type ReportEnforcementProps = {
   currentAdminRole?: "moderator" | "lead" | "admin";
@@ -21,11 +22,16 @@ export function ReportEnforcement({
   reportId,
 }: ReportEnforcementProps) {
   const { clearMessages, error, pendingKey, runAction, success } = useDashboardAction("");
+  const { currentHealth: liveAdminHealth } = useLiveAdminHealth();
   const [action, setAction] =
     useState<(typeof ENFORCEMENT_OPTIONS)[number]["value"]>("warning");
   const [durationHours, setDurationHours] = useState("72");
   const [note, setNote] = useState("");
   const canEnforce = currentAdminRole === "lead" || currentAdminRole === "admin";
+  const hasFailedAdminRoute = liveAdminHealth.statuses.some((status) => !status.ok);
+  const hasVerySlowAdminRoute = liveAdminHealth.statuses.some(
+    (status) => status.durationMs !== null && status.durationMs >= 2000,
+  );
 
   if (!canEnforce) {
     return null;
@@ -40,6 +46,7 @@ export function ReportEnforcement({
         <select
           value={action}
           onChange={(event) => setAction(event.target.value as (typeof ENFORCEMENT_OPTIONS)[number]["value"])}
+          disabled={hasFailedAdminRoute}
           className="rounded-full border border-(--color-line) bg-(--color-surface) px-4 py-3 text-sm text-slate-900 outline-none dark:text-stone-100"
         >
           {ENFORCEMENT_OPTIONS.map((option) => (
@@ -52,7 +59,7 @@ export function ReportEnforcement({
           value={durationHours}
           onChange={(event) => setDurationHours(event.target.value)}
           placeholder="Hours for temp ban"
-          disabled={action !== "temporary_ban"}
+          disabled={hasFailedAdminRoute || action !== "temporary_ban"}
           inputMode="numeric"
           className="rounded-full border border-(--color-line) bg-(--color-surface) px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:text-stone-100"
         />
@@ -61,12 +68,13 @@ export function ReportEnforcement({
         value={note}
         onChange={(event) => setNote(event.target.value)}
         placeholder="Record why this enforcement action is appropriate..."
+        disabled={hasFailedAdminRoute}
         className="mt-3 min-h-24 w-full rounded-2xl border border-(--color-line) bg-(--color-surface) px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-stone-100"
       />
       <div className="mt-3 flex items-center gap-3">
         <button
           type="button"
-          disabled={pendingKey !== null}
+          disabled={hasFailedAdminRoute || pendingKey !== null}
           onClick={() => {
             const trimmedNote = note.trim();
             const parsedDuration =
@@ -114,6 +122,15 @@ export function ReportEnforcement({
           </button>
         ) : null}
       </div>
+      {hasFailedAdminRoute ? (
+        <p className="mt-3 text-xs font-medium text-rose-700 dark:text-rose-300">
+          Enforcement actions are temporarily paused because one or more admin routes are failing.
+        </p>
+      ) : hasVerySlowAdminRoute ? (
+        <p className="mt-3 text-xs font-medium text-amber-700 dark:text-amber-300">
+          Enforcement actions are available, but admin-route latency is high and updates may reflect slowly.
+        </p>
+      ) : null}
     </div>
   );
 }

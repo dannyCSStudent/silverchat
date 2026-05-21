@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ModerationReport } from "@repo/types";
 
 import { useDashboardAction } from "../use-dashboard-action";
+import { useLiveAdminHealth } from "./use-live-admin-health";
 
 type ReportEnforcementReviewProps = {
   currentAdminRole?: "moderator" | "lead" | "admin";
@@ -15,11 +16,16 @@ export function ReportEnforcementReview({
   report,
 }: ReportEnforcementReviewProps) {
   const { clearMessages, error, pendingKey, runAction, success } = useDashboardAction("");
+  const { currentHealth: liveAdminHealth } = useLiveAdminHealth();
   const [durationHours, setDurationHours] = useState("72");
   const [note, setNote] = useState("");
   const enforcement = report.latest_enforcement;
   const review = report.latest_enforcement_review;
   const canReview = currentAdminRole === "lead" || currentAdminRole === "admin";
+  const hasFailedAdminRoute = liveAdminHealth.statuses.some((status) => !status.ok);
+  const hasVerySlowAdminRoute = liveAdminHealth.statuses.some(
+    (status) => status.durationMs !== null && status.durationMs >= 2000,
+  );
 
   if (!canReview || !enforcement) {
     return null;
@@ -45,7 +51,7 @@ export function ReportEnforcementReview({
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={pendingKey !== null}
+            disabled={hasFailedAdminRoute || pendingKey !== null}
             onClick={() => {
               void runAction({
                 path: `/api/admin/reports/${report.id}/enforcement-review`,
@@ -65,11 +71,12 @@ export function ReportEnforcementReview({
             onChange={(event) => setDurationHours(event.target.value)}
             inputMode="numeric"
             placeholder="Extend hours"
+            disabled={hasFailedAdminRoute}
             className="w-36 rounded-full border border-(--color-line) bg-(--color-surface) px-4 py-2 text-xs text-slate-900 outline-none placeholder:text-slate-400 dark:text-stone-100"
           />
           <button
             type="button"
-            disabled={pendingKey !== null}
+            disabled={hasFailedAdminRoute || pendingKey !== null}
             onClick={() => {
               const parsedDuration = Number.parseInt(durationHours, 10);
               void runAction({
@@ -95,7 +102,7 @@ export function ReportEnforcementReview({
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={pendingKey !== null}
+            disabled={hasFailedAdminRoute || pendingKey !== null}
             onClick={() => {
               void runAction({
                 path: `/api/admin/reports/${report.id}/enforcement-review`,
@@ -118,8 +125,18 @@ export function ReportEnforcementReview({
         value={note}
         onChange={(event) => setNote(event.target.value)}
         placeholder="Add follow-up review context..."
+        disabled={hasFailedAdminRoute}
         className="mt-3 min-h-20 w-full rounded-2xl border border-(--color-line) bg-(--color-surface) px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-stone-100"
       />
+      {hasFailedAdminRoute ? (
+        <p className="mt-3 text-xs font-medium text-rose-700 dark:text-rose-300">
+          Follow-up review actions are temporarily paused because one or more admin routes are failing.
+        </p>
+      ) : hasVerySlowAdminRoute ? (
+        <p className="mt-3 text-xs font-medium text-amber-700 dark:text-amber-300">
+          Follow-up review actions are available, but admin-route latency is high and updates may reflect slowly.
+        </p>
+      ) : null}
       {success ? (
         <button
           type="button"

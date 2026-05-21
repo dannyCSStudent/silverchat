@@ -599,11 +599,16 @@ export function ReportFeed({
                       <p className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
                         Current assignee can review this urgent case, but a lead or admin may be needed to complete enforcement follow-up.
                       </p>
+                      {hasFailedAdminRoute ? (
+                        <p className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-900">
+                          Escalation shortcut is paused until admin routes recover.
+                        </p>
+                      ) : null}
                       {preferredEscalationTarget && canManageOtherAssignees ? (
                         <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            disabled={pendingKey !== null}
+                            disabled={hasFailedAdminRoute || pendingKey !== null}
                             onClick={() => {
                               void runSingleAssignment({
                                 reportId: report.id,
