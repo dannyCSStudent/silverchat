@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { Hero } from "../../../components/hero";
 import { AdminHealthPanel } from "../../admin-health-panel";
+import { AdminHealthContextNote } from "../../admin-health-context-note";
+import { AdminHealthStatusStrip } from "../../admin-health-status-strip";
 import { getModerationAdminHealth, getModerationData } from "../../data";
 import { DataSourceBadge } from "../../data-source-badge";
 import { FallbackWarningPanel } from "../../fallback-warning-panel";
@@ -252,6 +254,7 @@ export default async function ModerationMemberPage({
         proxyStatuses={proxyStatuses}
       />
 
+      <AdminHealthStatusStrip />
       <AdminHealthPanel />
 
       <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
@@ -290,6 +293,13 @@ export default async function ModerationMemberPage({
                 </p>
               </div>
             </div>
+
+            <AdminHealthContextNote
+              degradedDetail="Member safety and report counts may be partially stale while admin routes are failing. Reconfirm before making high-impact case decisions."
+              healthyDetail="Member detail counts and safety state are backed by a healthy admin data path."
+              slowDetail="Member detail data is available, but recent moderation changes may take longer to appear."
+              verySlowDetail="Member case data may lag behind current moderation state while admin routes are very slow."
+            />
 
             <div className="mt-4 grid gap-4 xl:grid-cols-4">
               <div className="rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5">
@@ -428,6 +438,11 @@ export default async function ModerationMemberPage({
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-stone-100">
               Block history
             </h2>
+            <AdminHealthContextNote
+              degradedDetail="Block history may be incomplete while admin routes are failing. Reconfirm before treating this as the full relationship record."
+              slowDetail="Block history is available, but recent block changes may take longer to appear."
+              verySlowDetail="Block history may lag behind current state while admin routes are very slow."
+            />
             <div className="mt-6 space-y-3">
               {relatedBlocks.length > 0 ? (
                 relatedBlocks.map((block) => (
@@ -466,6 +481,11 @@ export default async function ModerationMemberPage({
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-stone-100">
               Reports against this member
             </h2>
+            <AdminHealthContextNote
+              degradedDetail="Use caution with multi-step triage on this member while admin routes are failing. Prefer single-case actions and verify refresh after each change."
+              slowDetail="Report actions remain available, but updates for this member may reflect slowly."
+              verySlowDetail="Member report actions may appear delayed while admin routes are very slow."
+            />
             <div className="mt-6">
               {reportsAgainstMember.length > 0 ? (
                 <ReportFeed
@@ -490,6 +510,11 @@ export default async function ModerationMemberPage({
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-stone-100">
               Recent moderation history
             </h2>
+            <AdminHealthContextNote
+              degradedDetail="Timeline interpretation may be incomplete while admin routes are failing. Reconfirm before using missing history as evidence of no action."
+              slowDetail="Timeline entries are available, but the latest moderation events may take longer to show up."
+              verySlowDetail="Timeline history may lag behind current enforcement and assignment state while admin routes are very slow."
+            />
             <div className="mt-6 flex flex-wrap gap-2">
               {eventFilters.map((filter) => (
                 <Link

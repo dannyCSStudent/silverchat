@@ -11,6 +11,8 @@ import type {
 import { Hero } from "../components/hero";
 import { getModerationAdminHealth, getModerationData } from "./data";
 import { AdminHealthPanel } from "./admin-health-panel";
+import { AdminHealthContextNote } from "./admin-health-context-note";
+import { AdminHealthStatusStrip } from "./admin-health-status-strip";
 import { DataSourceBadge } from "./data-source-badge";
 import { FallbackWarningPanel } from "./fallback-warning-panel";
 import { getMemberAttentionSummary } from "./formatters";
@@ -911,6 +913,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
         </section>
       ) : null}
 
+      <AdminHealthStatusStrip />
       <AdminHealthPanel />
 
       <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
@@ -926,6 +929,13 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
             </div>
             <DataSourceBadge isFallback={isFallback} />
           </div>
+
+          <AdminHealthContextNote
+            degradedDetail="Queue counts may be partially stale while admin routes are failing. Reconfirm before making high-volume triage decisions."
+            healthyDetail="Queue counts are being backed by a healthy admin data path."
+            slowDetail="Queue counts are available, but refresh may lag behind incoming moderation changes."
+            verySlowDetail="Queue counts may reflect the current moderation state slowly while admin routes are very slow."
+          />
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             <Link href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, reason: selectedReason || undefined, safety: selectedSafety || undefined, subject: selectedSubject || undefined, status: "open" })} className="rounded-3xl bg-(--color-surface-dark) p-5 text-white transition hover:opacity-92">
@@ -1145,6 +1155,11 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
               Enforcement-heavy urgent work should stay with `lead` or `admin` moderators.
             </p>
+            <AdminHealthContextNote
+              degradedDetail="Moderator workload counts may be incomplete while admin routes are failing. Avoid large rebalancing moves until the admin path recovers."
+              slowDetail="Workload counts are available, but ownership changes may take longer to show up."
+              verySlowDetail="Workload counts may lag behind current assignment state while admin routes are very slow."
+            />
             <div className="mt-6 space-y-3">
               {moderatorWorkloads.length > 0 ? (
                 moderatorWorkloads.map((workload) => (
@@ -1262,6 +1277,11 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-stone-100">
               Members who need action first
             </h2>
+            <AdminHealthContextNote
+              degradedDetail="This priority list may be incomplete while admin routes are failing. Reconfirm before treating missing members as low priority."
+              slowDetail="The attention list is available, but recent priority shifts may take longer to surface."
+              verySlowDetail="The attention list may lag behind current moderation state while admin routes are very slow."
+            />
             <div className="mt-6 space-y-3">
               {membersNeedingAttention.length > 0 ? (
                 membersNeedingAttention.map((member) => (
@@ -1341,6 +1361,11 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-stone-100">
               Fast drill-down targets
             </h2>
+            <AdminHealthContextNote
+              degradedDetail="Repeat-offender counts may be understated while admin routes are failing. Reconfirm before ruling out repeated-report patterns."
+              slowDetail="Repeat-offender counts are available, but new clusters may take longer to appear."
+              verySlowDetail="Repeat-offender grouping may lag behind current reports while admin routes are very slow."
+            />
             <div className="mt-6 space-y-3">
               {repeatOffenders.length > 0 ? (
                 repeatOffenders.map((offender) => (
@@ -1370,6 +1395,11 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-stone-100">
               Recent self-protection signals
             </h2>
+            <AdminHealthContextNote
+              degradedDetail="Recent block signals may be incomplete while admin routes are failing. Reconfirm before treating low block volume as low risk."
+              slowDetail="Recent block signals are available, but the latest self-protection actions may take longer to appear."
+              verySlowDetail="Recent block signals may lag behind current user actions while admin routes are very slow."
+            />
             <div className="mt-6 space-y-4">
               {filteredBlocks.length > 0 ? (
                 filteredBlocks.map((block) => (
