@@ -14,10 +14,12 @@ export async function GET(request: NextRequest) {
     upstreamPaths.map((path) => getAdminProxyStatus({ path, request })),
   );
   const ok = statuses.every((status) => status.ok);
+  const sampledAt = new Date().toISOString();
 
   return NextResponse.json(
     {
       ok,
+      sampledAt,
       statuses,
     },
     {

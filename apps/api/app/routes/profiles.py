@@ -31,8 +31,12 @@ def create_my_profile(payload: ProfileCreate, user=Depends(get_current_user)):
     if not is_eligible_age(payload.date_of_birth):
         raise HTTPException(status_code=400, detail="SilverChat is currently for adults 40+.")
 
-    return profiles.upsert({**payload.model_dump(), "user_id": user.id})
-
+    return profiles.upsert(
+        {
+            **payload.model_dump(mode="json"),
+            "user_id": user.id,
+        }
+    )
 
 @router.patch("/me", response_model=ProfileRecord)
 def update_my_profile(payload: ProfileUpdate, user=Depends(get_current_user)):
@@ -40,8 +44,18 @@ def update_my_profile(payload: ProfileUpdate, user=Depends(get_current_user)):
     if not existing:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    merged = {**existing, **payload.model_dump(exclude_none=True), "user_id": user.id}
-    if "date_of_birth" in merged and not is_eligible_age(date.fromisoformat(str(merged["date_of_birth"]))):
-        raise HTTPException(status_code=400, detail="SilverChat is currently for adults 40+.")
+    merged = {
+        **existing,
+        **payload.model_dump(mode="json", exclude_none=True),
+        "user_id": user.id,
+    }
+
+    if "date_of_birth" in merged and not is_eligible_age(
+        date.fromisoformat(str(merged["date_of_birth"]))
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="SilverChat is currently for adults 40+.",
+        )
 
     return profiles.upsert(merged)

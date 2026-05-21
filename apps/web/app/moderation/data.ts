@@ -100,6 +100,7 @@ type ProxyStatus = ModerationData["proxyStatuses"][number];
 
 export type ModerationAdminHealth = {
   ok: boolean;
+  sampledAt: string | null;
   statuses: ProxyStatus[];
 };
 
@@ -249,11 +250,13 @@ export async function getModerationAdminHealth(
 
     return {
       ok: response.ok && payload.ok,
+      sampledAt: payload.sampledAt ?? null,
       statuses: payload.statuses ?? [],
     };
   } catch (error) {
     return {
       ok: false,
+      sampledAt: null,
       statuses: [
         {
           path: "/api/admin/health",

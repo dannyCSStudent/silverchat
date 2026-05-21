@@ -25,6 +25,7 @@ import { ReportAssignment } from "./report-assignment";
 import { ReportEnforcement } from "./report-enforcement";
 import { ReportEnforcementReview } from "./report-enforcement-review";
 import { ReportNotes } from "./report-notes";
+import { useLiveAdminHealth } from "./use-live-admin-health";
 
 type ReportFeedProps = {
   adminUsers: AdminUser[];
@@ -123,6 +124,7 @@ export function ReportFeed({
   reports,
 }: ReportFeedProps) {
   const router = useRouter();
+  const { currentHealth: liveAdminHealth } = useLiveAdminHealth();
   const [assigneeAdminUserId, setAssigneeAdminUserId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
@@ -133,6 +135,26 @@ export function ReportFeed({
   const selectedSet = new Set(selectedIds);
   const canResolveOrDismiss =
     currentAdminRole === "lead" || currentAdminRole === "admin";
+  const hasFailedAdminRoute = liveAdminHealth.statuses.some((status) => !status.ok);
+  const hasVerySlowAdminRoute = liveAdminHealth.statuses.some(
+    (status) => status.durationMs !== null && status.durationMs >= 2000,
+  );
+  const actionRiskBanner = hasFailedAdminRoute
+    ? {
+        classes: "border-rose-200 bg-rose-50 text-rose-900",
+        detail:
+          "One or more admin routes are failing. Prefer targeted moderation actions and verify queue refresh before repeating changes.",
+        title: "Moderation actions are at elevated risk",
+      }
+    : hasVerySlowAdminRoute
+      ? {
+          classes: "border-amber-200 bg-amber-50 text-amber-900",
+          detail:
+            "Admin route latency is currently very high. Queue refresh and moderation actions may reflect slowly.",
+          title: "Moderation actions may appear delayed",
+        }
+      : null;
+  const disableBulkActions = hasFailedAdminRoute;
   const canManageOtherAssignees =
     currentAdminRole === "lead" || currentAdminRole === "admin";
   const bulkStatusOptions = BULK_STATUS_OPTIONS.filter((option) =>
@@ -325,6 +347,12 @@ export function ReportFeed({
 
   return (
     <div className="mt-4 space-y-4">
+      {actionRiskBanner ? (
+        <div className={`rounded-3xl border px-4 py-3 text-sm ${actionRiskBanner.classes}`}>
+          <p className="font-semibold">{actionRiskBanner.title}</p>
+          <p className="mt-1">{actionRiskBanner.detail}</p>
+        </div>
+      ) : null}
       <div className="rounded-3xl border border-(--color-line) bg-(--color-surface) p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -357,7 +385,11 @@ export function ReportFeed({
             {currentAdminUsername && currentAdminUserId ? (
               <button
                 type="button"
-                disabled={pendingKey !== null || urgentClaimTargets.length === 0}
+                disabled={
+                  disableBulkActions ||
+                  pendingKey !== null ||
+                  urgentClaimTargets.length === 0
+                }
                 onClick={() => {
                   const urgentIds = urgentClaimTargets.map((report) => report.id);
                   setSelectedIds(urgentIds);
@@ -380,7 +412,7 @@ export function ReportFeed({
               <button
                 key={option.value}
                 type="button"
-                disabled={pendingKey !== null}
+                disabled={disableBulkActions || pendingKey !== null}
                 onClick={() => {
                   void runBulkAction({
                     actionKey: `bulk-status-${option.value}`,
@@ -402,7 +434,7 @@ export function ReportFeed({
           <select
             value={assigneeAdminUserId}
             onChange={(event) => setAssigneeAdminUserId(event.target.value)}
-            disabled={!canManageOtherAssignees}
+            disabled={disableBulkActions || !canManageOtherAssignees}
             className="min-w-0 flex-1 rounded-full border border-(--color-line) bg-(--color-surface-strong) px-4 py-3 text-sm text-slate-900 outline-none dark:text-stone-100"
           >
             <option value="">Select moderator...</option>
@@ -416,7 +448,7 @@ export function ReportFeed({
             {currentAdminUsername && currentAdminUserId ? (
               <button
                 type="button"
-                disabled={pendingKey !== null}
+                disabled={disableBulkActions || pendingKey !== null}
                 onClick={() => {
                   setAssigneeAdminUserId(currentAdminUserId);
                   void runBulkAction({
@@ -434,7 +466,7 @@ export function ReportFeed({
             ) : null}
             <button
               type="button"
-              disabled={pendingKey !== null || !canManageOtherAssignees}
+              disabled={disableBulkActions || pendingKey !== null || !canManageOtherAssignees}
               onClick={() => {
                 const selectedAdminUser = adminUsers.find(
                   (adminUser) => adminUser.id === assigneeAdminUserId,
@@ -455,7 +487,7 @@ export function ReportFeed({
             </button>
             <button
               type="button"
-              disabled={pendingKey !== null || !canManageOtherAssignees}
+              disabled={disableBulkActions || pendingKey !== null || !canManageOtherAssignees}
               onClick={() => {
                 setAssigneeAdminUserId("");
                 void runBulkAction({
@@ -499,6 +531,11 @@ export function ReportFeed({
         {sortMode === "attention" && urgentClaimTargets.length > 0 ? (
           <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
             Urgent claim uses the current attention ranking and only targets open, unassigned reports.
+          </p>
+        ) : null}
+        {disableBulkActions ? (
+          <p className="mt-2 text-xs text-rose-700 dark:text-rose-300">
+            Bulk triage is temporarily disabled because one or more admin routes are failing. Use single-case actions until the admin data path recovers.
           </p>
         ) : null}
       </div>

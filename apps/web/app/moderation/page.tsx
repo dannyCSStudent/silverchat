@@ -15,6 +15,7 @@ import { DataSourceBadge } from "./data-source-badge";
 import { FallbackWarningPanel } from "./fallback-warning-panel";
 import { getMemberAttentionSummary } from "./formatters";
 import { ReportFeed } from "./report-feed";
+import { LiveAdminHealthProvider } from "./use-live-admin-health";
 import { WorkloadRebalance } from "./workload-rebalance";
 
 function profileLabel(profile?: {
@@ -874,7 +875,8 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
   const activeFilterCount = [selectedQueue, selectedAssignee, selectedActor, selectedEnforcement, selectedEnforcementFollowUp, selectedSafety, selectedStatus, selectedReason, selectedSubject].filter(Boolean).length;
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-6 py-2">
+    <LiveAdminHealthProvider initialHealth={adminHealth}>
+      <main className="flex w-full flex-1 flex-col gap-6 py-2">
       <Hero
         eyebrow="Moderation"
         title="Triage reports and block signals before live video expands."
@@ -909,7 +911,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
         </section>
       ) : null}
 
-      <AdminHealthPanel health={adminHealth} />
+      <AdminHealthPanel />
 
       <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="rounded-[34px] border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">
@@ -1419,6 +1421,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
           </div>
         </div>
       </section>
-    </main>
+      </main>
+    </LiveAdminHealthProvider>
   );
 }

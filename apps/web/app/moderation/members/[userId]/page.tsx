@@ -13,6 +13,7 @@ import {
   formatModerationEventBody,
 } from "../../formatters";
 import { ReportFeed } from "../../report-feed";
+import { LiveAdminHealthProvider } from "../../use-live-admin-health";
 
 function profileLabel(profile?: { display_name?: string; user_id: string }) {
   return profile?.display_name ?? profile?.user_id ?? "Unknown profile";
@@ -223,7 +224,8 @@ export default async function ModerationMemberPage({
   ].filter((filter) => filter.value === "" || filter.count > 0);
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-6 py-2">
+    <LiveAdminHealthProvider initialHealth={adminHealth}>
+      <main className="flex w-full flex-1 flex-col gap-6 py-2">
       <Hero
         eyebrow="Member Detail"
         title={profileLabel(subjectProfile)}
@@ -250,7 +252,7 @@ export default async function ModerationMemberPage({
         proxyStatuses={proxyStatuses}
       />
 
-      <AdminHealthPanel health={adminHealth} />
+      <AdminHealthPanel />
 
       <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="space-y-6">
@@ -534,6 +536,7 @@ export default async function ModerationMemberPage({
           </div>
         </div>
       </section>
-    </main>
+      </main>
+    </LiveAdminHealthProvider>
   );
 }

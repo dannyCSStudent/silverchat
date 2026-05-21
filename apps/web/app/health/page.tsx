@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 
 import { AdminHealthPanel } from "../moderation/admin-health-panel";
 import { getModerationAdminHealth } from "../moderation/data";
+import { LiveAdminHealthProvider } from "../moderation/use-live-admin-health";
 
 const apiBaseUrl = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001";
 
@@ -99,7 +100,9 @@ export default async function HealthPage() {
           {renderStatus("DB Health", db)}
         </div>
 
-        <AdminHealthPanel health={adminHealth} />
+        <LiveAdminHealthProvider initialHealth={adminHealth}>
+          <AdminHealthPanel />
+        </LiveAdminHealthProvider>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="rounded-3xl border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">
