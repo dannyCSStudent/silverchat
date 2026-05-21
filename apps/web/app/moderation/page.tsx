@@ -1334,6 +1334,11 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-stone-100">
               One-click moderation views
             </h2>
+            <AdminHealthContextNote
+              degradedDetail="Saved queue views may be incomplete while admin routes are failing. Reconfirm before using them as the sole moderation source."
+              slowDetail="Saved queue views are available, but their counts and contents may refresh more slowly than usual."
+              verySlowDetail="Saved queue views may lag behind current moderation state while admin routes are very slow."
+            />
             <div className="mt-6 space-y-3">
               {savedQueues.map((queue) => (
                 <Link
@@ -1443,6 +1448,11 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-stone-100">
               What this dashboard still needs
             </h2>
+            <AdminHealthContextNote
+              degradedDetail="Treat roadmap follow-up ideas cautiously while the admin path is degraded; stabilizing route health remains the more urgent operational concern."
+              slowDetail="The dashboard is operational, but route latency should stay in view while planning the next moderation slice."
+              verySlowDetail="Route latency is high enough that reliability work may be more urgent than additional dashboard expansion."
+            />
             <ol className="mt-4 space-y-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
               <li>1. Enforce moderator role boundaries on blocks and future enforcement tools.</li>
               <li>2. Add durable escalation outcomes beyond status changes, like strikes or suspension recommendations.</li>
