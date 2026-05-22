@@ -148,6 +148,118 @@ function buildEventsRows(reports: ModerationReport[]) {
   ];
 }
 
+function buildSummaryRows(reports: ModerationReport[]) {
+  const perModerator = new Map<
+    string,
+    {
+      actorRole: string;
+      enforcementActions: number;
+      noteEvents: number;
+      reviewActions: number;
+      statusChanges: number;
+      totalEvents: number;
+    }
+  >();
+  let totalEvents = 0;
+  let totalStatusChanges = 0;
+  let totalNotes = 0;
+  let totalEnforcementActions = 0;
+  let totalReviewActions = 0;
+
+  const seenEventIds = new Set<string>();
+  for (const report of reports) {
+    for (const event of report.events ?? []) {
+      if (seenEventIds.has(event.id)) {
+        continue;
+      }
+      seenEventIds.add(event.id);
+
+      totalEvents += 1;
+      const actorLabel =
+        event.actor_admin_user?.display_name ??
+        event.actor_admin_user?.username ??
+        "Unattributed";
+      const actorRole = event.actor_admin_user?.role ?? "";
+      const current =
+        perModerator.get(actorLabel) ??
+        {
+          actorRole,
+          enforcementActions: 0,
+          noteEvents: 0,
+          reviewActions: 0,
+          statusChanges: 0,
+          totalEvents: 0,
+        };
+      current.totalEvents += 1;
+      if (!current.actorRole && actorRole) {
+        current.actorRole = actorRole;
+      }
+
+      if (event.event_type === "report_status_changed") {
+        current.statusChanges += 1;
+        totalStatusChanges += 1;
+      } else if (event.event_type === "moderation_note_added") {
+        current.noteEvents += 1;
+        totalNotes += 1;
+      } else if (event.event_type === "enforcement_action_recorded") {
+        current.enforcementActions += 1;
+        totalEnforcementActions += 1;
+      } else if (event.event_type === "enforcement_review_recorded") {
+        current.reviewActions += 1;
+        totalReviewActions += 1;
+      }
+
+      perModerator.set(actorLabel, current);
+    }
+  }
+
+  return [
+    [
+      "summary_type",
+      "label",
+      "role",
+      "report_count",
+      "block_count",
+      "event_count",
+      "status_changes",
+      "notes",
+      "enforcement_actions",
+      "enforcement_reviews",
+    ],
+    [
+      "overview",
+      "current_filtered_view",
+      "",
+      reports.length,
+      "",
+      totalEvents,
+      totalStatusChanges,
+      totalNotes,
+      totalEnforcementActions,
+      totalReviewActions,
+    ],
+    ...Array.from(perModerator.entries()).map(([actorLabel, counts]) => [
+      "moderator",
+      actorLabel,
+      counts.actorRole,
+      reports.filter((report) =>
+        (report.events ?? []).some(
+          (event) =>
+            (event.actor_admin_user?.display_name ??
+              event.actor_admin_user?.username ??
+              "Unattributed") === actorLabel,
+        ),
+      ).length,
+      "",
+      counts.totalEvents,
+      counts.statusChanges,
+      counts.noteEvents,
+      counts.enforcementActions,
+      counts.reviewActions,
+    ]),
+  ];
+}
+
 function fileSafeLabel(value: string) {
   return value
     .trim()
@@ -162,7 +274,7 @@ export function ModerationExportPanel({
   reports,
 }: ModerationExportPanelProps) {
   const { currentHealth } = useLiveAdminHealth();
-  const [pendingExport, setPendingExport] = useState<"blocks" | "events" | "reports" | null>(null);
+  const [pendingExport, setPendingExport] = useState<"blocks" | "events" | "reports" | "summary" | null>(null);
   const hasFailedAdminRoute = currentHealth.statuses.some((status) => !status.ok);
   const hasVerySlowAdminRoute = currentHealth.statuses.some(
     (status) => (status.durationMs ?? 0) >= 2000,
@@ -261,6 +373,23 @@ export function ModerationExportPanel({
           {pendingExport === "events"
             ? "Preparing events..."
             : `Export events (${reports.reduce((count, report) => count + (report.events?.length ?? 0), 0)})`}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setPendingExport("summary");
+            downloadCsv(
+              `moderation-summary-${label}-${today}.csv`,
+              buildSummaryRows(reports),
+            );
+            setPendingExport(null);
+          }}
+          className="rounded-full border border-(--color-line) bg-white/70 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-stone-950/30 dark:text-stone-100 dark:hover:bg-stone-950/50"
+          disabled={pendingExport !== null}
+        >
+          {pendingExport === "summary"
+            ? "Preparing summary..."
+            : "Export summary"}
         </button>
       </div>
     </div>
