@@ -62,10 +62,38 @@ export function getWorkflowMode(
   };
 }
 
+export function getActiveGuardrails(
+  statuses: ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"],
+) {
+  if (statuses.some((status) => !status.ok)) {
+    return [
+      "Bulk triage paused",
+      "Urgent workload rebalancing paused",
+      "Escalation shortcuts paused",
+      "Per-card mutations restricted to safer actions only",
+    ];
+  }
+
+  if (statuses.some((status) => (status.durationMs ?? 0) >= VERY_SLOW_ROUTE_THRESHOLD_MS)) {
+    return [
+      "Mutations remain available",
+      "Queue refresh may lag",
+      "Verify updates before repeating actions",
+    ];
+  }
+
+  if (statuses.some((status) => (status.durationMs ?? 0) >= SLOW_ROUTE_THRESHOLD_MS)) {
+    return ["Healthy enough to operate", "Expect mildly delayed refresh"];
+  }
+
+  return ["No extra moderation guardrails active"];
+}
+
 export function AdminHealthStatusStrip() {
   const { currentHealth, isRefreshing } = useLiveAdminHealth();
   const stripState = getStripState(currentHealth.statuses);
   const workflowMode = getWorkflowMode(currentHealth.statuses);
+  const activeGuardrails = getActiveGuardrails(currentHealth.statuses);
 
   return (
     <div className={`rounded-3xl border px-4 py-3 text-sm ${stripState.classes}`}>
@@ -84,6 +112,16 @@ export function AdminHealthStatusStrip() {
             {isRefreshing ? "Refreshing" : "Live"}
           </span>
         </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {activeGuardrails.map((guardrail) => (
+          <span
+            key={guardrail}
+            className="rounded-full border border-current/20 bg-white/40 px-3 py-1 text-xs font-medium"
+          >
+            {guardrail}
+          </span>
+        ))}
       </div>
     </div>
   );

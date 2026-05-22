@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { AdminUser } from "@repo/types";
 
 import { useDashboardAction } from "../use-dashboard-action";
-import { getWorkflowMode } from "./admin-health-status-strip";
+import { getActiveGuardrails, getWorkflowMode } from "./admin-health-status-strip";
 import {
   rankAssignmentTargets,
   requiresElevatedCapability,
@@ -46,6 +46,7 @@ export function WorkloadRebalance({
     currentAdminRole === "lead" || currentAdminRole === "admin";
   const hasFailedAdminRoute = liveAdminHealth.statuses.some((status) => !status.ok);
   const workflowMode = getWorkflowMode(liveAdminHealth.statuses);
+  const activeGuardrails = getActiveGuardrails(liveAdminHealth.statuses);
   const urgentBatch = urgentCases.slice(0, MAX_REBALANCE_BATCH_SIZE);
   const batchNeedsElevatedCapability = requiresElevatedCapability(
     urgentBatch.map((urgentCase) => urgentCase.attentionTitle),
@@ -126,6 +127,9 @@ export function WorkloadRebalance({
           {workflowMode.label}
         </span>
       </div>
+      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+        {activeGuardrails.join(" · ")}
+      </p>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row">
         <select
           value={targetAdminUserId}

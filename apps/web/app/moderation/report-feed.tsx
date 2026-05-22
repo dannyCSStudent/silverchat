@@ -11,7 +11,7 @@ import {
   requiresElevatedCapability,
   type ModeratorWorkloadSnapshot,
 } from "./assignment-targets";
-import { getWorkflowMode } from "./admin-health-status-strip";
+import { getActiveGuardrails, getWorkflowMode } from "./admin-health-status-strip";
 import {
   formatActorSuffix,
   formatDate,
@@ -141,6 +141,7 @@ export function ReportFeed({
     (status) => status.durationMs !== null && status.durationMs >= 2000,
   );
   const workflowMode = getWorkflowMode(liveAdminHealth.statuses);
+  const activeGuardrails = getActiveGuardrails(liveAdminHealth.statuses);
   const actionRiskBanner = hasFailedAdminRoute
     ? {
         classes: "border-rose-200 bg-rose-50 text-rose-900",
@@ -368,6 +369,9 @@ export function ReportFeed({
             </div>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
               {selectedIds.length} of {reports.length} filtered reports selected
+            </p>
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              {activeGuardrails.join(" · ")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
