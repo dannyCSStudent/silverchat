@@ -105,6 +105,49 @@ function buildBlocksRows(blocks: ModerationBlock[]) {
   ];
 }
 
+function buildEventsRows(reports: ModerationReport[]) {
+  const seenEventIds = new Set<string>();
+  const eventRows = reports.flatMap((report) =>
+    (report.events ?? [])
+      .filter((event) => {
+        if (seenEventIds.has(event.id)) {
+          return false;
+        }
+
+        seenEventIds.add(event.id);
+        return true;
+      })
+      .map((event) => [
+        event.id,
+        event.created_at ?? "",
+        event.event_type,
+        event.subject_user_id ?? report.reported_user_id,
+        report.id,
+        report.reason,
+        event.actor_admin_user?.display_name ??
+          event.actor_admin_user?.username ??
+          "",
+        event.actor_admin_user?.role ?? "",
+        JSON.stringify(event.payload ?? {}),
+      ]),
+  );
+
+  return [
+    [
+      "event_id",
+      "created_at",
+      "event_type",
+      "subject_user_id",
+      "report_id",
+      "report_reason",
+      "actor_admin_user",
+      "actor_admin_role",
+      "payload_json",
+    ],
+    ...eventRows,
+  ];
+}
+
 function fileSafeLabel(value: string) {
   return value
     .trim()
@@ -119,7 +162,7 @@ export function ModerationExportPanel({
   reports,
 }: ModerationExportPanelProps) {
   const { currentHealth } = useLiveAdminHealth();
-  const [pendingExport, setPendingExport] = useState<"blocks" | "reports" | null>(null);
+  const [pendingExport, setPendingExport] = useState<"blocks" | "events" | "reports" | null>(null);
   const hasFailedAdminRoute = currentHealth.statuses.some((status) => !status.ok);
   const hasVerySlowAdminRoute = currentHealth.statuses.some(
     (status) => (status.durationMs ?? 0) >= 2000,
@@ -201,6 +244,23 @@ export function ModerationExportPanel({
           {pendingExport === "blocks"
             ? "Preparing blocks..."
             : `Export blocks (${blocks.length})`}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setPendingExport("events");
+            downloadCsv(
+              `moderation-events-${label}-${today}.csv`,
+              buildEventsRows(reports),
+            );
+            setPendingExport(null);
+          }}
+          className="rounded-full border border-(--color-line) bg-white/70 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-stone-950/30 dark:text-stone-100 dark:hover:bg-stone-950/50"
+          disabled={pendingExport !== null}
+        >
+          {pendingExport === "events"
+            ? "Preparing events..."
+            : `Export events (${reports.reduce((count, report) => count + (report.events?.length ?? 0), 0)})`}
         </button>
       </div>
     </div>
