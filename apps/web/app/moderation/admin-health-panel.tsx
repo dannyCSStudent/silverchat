@@ -7,6 +7,13 @@ import {
   getRouteLabel,
   getRouteRecoveryHint,
 } from "./admin-health-status-strip";
+import {
+  getHealthSummary,
+  getRouteSeverity,
+  getRouteTone,
+  SLOW_ROUTE_THRESHOLD_MS,
+  VERY_SLOW_ROUTE_THRESHOLD_MS,
+} from "./admin-health-utils";
 import { LocalRecoveryHint } from "./local-recovery-hint";
 import { useLiveAdminHealth } from "./use-live-admin-health";
 
@@ -16,8 +23,6 @@ type HealthHistoryEntry = {
   summary: string;
 };
 
-const SLOW_ROUTE_THRESHOLD_MS = 750;
-const VERY_SLOW_ROUTE_THRESHOLD_MS = 2000;
 const STALE_SAMPLE_THRESHOLD_MS = 90_000;
 const VERY_STALE_SAMPLE_THRESHOLD_MS = 180_000;
 const HEALTH_HISTORY_LIMIT = 5;
@@ -27,75 +32,6 @@ const routeTargets: Record<string, string> = {
   "/reports/": "/api/admin/reports",
   "/blocks/": "/api/admin/blocks",
 };
-
-function getRouteTone(status: ModerationAdminHealth["statuses"][number]) {
-  if (!status.ok) {
-    return {
-      classes: "border-amber-200 bg-amber-50 text-amber-900",
-      label: `Failed (${status.status ?? "no status"})`,
-    };
-  }
-
-  if (status.durationMs !== null && status.durationMs >= VERY_SLOW_ROUTE_THRESHOLD_MS) {
-    return {
-      classes: "border-rose-200 bg-rose-50 text-rose-900",
-      label: `Very slow (${status.status ?? "ok"})`,
-    };
-  }
-
-  if (status.durationMs !== null && status.durationMs >= SLOW_ROUTE_THRESHOLD_MS) {
-    return {
-      classes: "border-amber-200 bg-amber-50 text-amber-900",
-      label: `Slow (${status.status ?? "ok"})`,
-    };
-  }
-
-  return {
-    classes: "border-emerald-200 bg-emerald-50 text-emerald-900",
-    label: `Healthy (${status.status ?? "ok"})`,
-  };
-}
-
-function getHealthSummary(health: ModerationAdminHealth) {
-  if (health.statuses.some((status) => !status.ok)) {
-    return "Degraded";
-  }
-
-  if (
-    health.statuses.some(
-      (status) =>
-        status.durationMs !== null && status.durationMs >= VERY_SLOW_ROUTE_THRESHOLD_MS,
-    )
-  ) {
-    return "Very slow";
-  }
-
-  if (
-    health.statuses.some(
-      (status) => status.durationMs !== null && status.durationMs >= SLOW_ROUTE_THRESHOLD_MS,
-    )
-  ) {
-    return "Slow";
-  }
-
-  return "Healthy";
-}
-
-function getRouteSeverity(status: ModerationAdminHealth["statuses"][number]) {
-  if (!status.ok) {
-    return 3;
-  }
-
-  if (status.durationMs !== null && status.durationMs >= VERY_SLOW_ROUTE_THRESHOLD_MS) {
-    return 2;
-  }
-
-  if (status.durationMs !== null && status.durationMs >= SLOW_ROUTE_THRESHOLD_MS) {
-    return 1;
-  }
-
-  return 0;
-}
 
 function getRouteTarget(path: string) {
   return routeTargets[path] ?? null;

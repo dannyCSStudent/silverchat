@@ -1,10 +1,12 @@
 "use client";
 
+import {
+  getRouteSeverity,
+  SLOW_ROUTE_THRESHOLD_MS,
+  VERY_SLOW_ROUTE_THRESHOLD_MS,
+} from "./admin-health-utils";
 import { useLiveAdminHealth } from "./use-live-admin-health";
 import { LocalRecoveryHint, type RecoveryHintRoute } from "./local-recovery-hint";
-
-const VERY_SLOW_ROUTE_THRESHOLD_MS = 2000;
-const SLOW_ROUTE_THRESHOLD_MS = 750;
 
 type HealthStatus =
   ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"][number];
@@ -49,23 +51,9 @@ export function getRouteRecoveryHint(path: string) {
   return `Inspect ${path} before trusting this part of the moderation surface.`;
 }
 
-function getStatusSeverity(status: HealthStatus) {
-  if (!status.ok) {
-    return 3;
-  }
-  if ((status.durationMs ?? 0) >= VERY_SLOW_ROUTE_THRESHOLD_MS) {
-    return 2;
-  }
-  if ((status.durationMs ?? 0) >= SLOW_ROUTE_THRESHOLD_MS) {
-    return 1;
-  }
-
-  return 0;
-}
-
 export function getHighestAttentionRoute(statuses: HealthStatus[]): RecoveryHintRoute | null {
   const sortedStatuses = [...statuses].sort((left, right) => {
-    const severityDelta = getStatusSeverity(right) - getStatusSeverity(left);
+    const severityDelta = getRouteSeverity(right) - getRouteSeverity(left);
     if (severityDelta !== 0) {
       return severityDelta;
     }
@@ -74,7 +62,7 @@ export function getHighestAttentionRoute(statuses: HealthStatus[]): RecoveryHint
   });
   const status = sortedStatuses[0];
 
-  if (!status || getStatusSeverity(status) === 0) {
+  if (!status || getRouteSeverity(status) === 0) {
     return null;
   }
 
