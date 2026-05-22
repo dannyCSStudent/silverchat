@@ -4,15 +4,11 @@ import { useEffect, useState } from "react";
 
 import type { ModerationAdminHealth } from "./data";
 import {
-  getRouteLabel,
-  getRouteRecoveryHint,
-} from "./admin-health-status-strip";
-import {
   getHealthSummary,
+  getRecoveryRoute,
   getRouteSeverity,
   getRouteTone,
   SLOW_ROUTE_THRESHOLD_MS,
-  VERY_SLOW_ROUTE_THRESHOLD_MS,
 } from "./admin-health-utils";
 import { LocalRecoveryHint } from "./local-recovery-hint";
 import { useLiveAdminHealth } from "./use-live-admin-health";
@@ -26,30 +22,6 @@ type HealthHistoryEntry = {
 const STALE_SAMPLE_THRESHOLD_MS = 90_000;
 const VERY_STALE_SAMPLE_THRESHOLD_MS = 180_000;
 const HEALTH_HISTORY_LIMIT = 5;
-const routeTargets: Record<string, string> = {
-  "/admin-users/me": "/api/admin/me",
-  "/admin-users/": "/api/admin/admin-users",
-  "/reports/": "/api/admin/reports",
-  "/blocks/": "/api/admin/blocks",
-};
-
-function getRouteTarget(path: string) {
-  return routeTargets[path] ?? null;
-}
-
-function getRecoveryRoute(path: string) {
-  const endpointHref = getRouteTarget(path);
-  if (!endpointHref) {
-    return null;
-  }
-
-  return {
-    endpointHref,
-    hint: getRouteRecoveryHint(path),
-    label: getRouteLabel(path),
-    path,
-  };
-}
 
 function getSampleAgeMs(sampledAt: string | null) {
   if (!sampledAt) {

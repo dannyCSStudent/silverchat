@@ -1,6 +1,9 @@
 "use client";
 
 import {
+  getRecoveryRoute,
+  getRouteLabel,
+  getRouteRecoveryHint,
   getRouteSeverity,
   SLOW_ROUTE_THRESHOLD_MS,
   VERY_SLOW_ROUTE_THRESHOLD_MS,
@@ -10,46 +13,6 @@ import { LocalRecoveryHint, type RecoveryHintRoute } from "./local-recovery-hint
 
 type HealthStatus =
   ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"][number];
-
-export function getRouteLabel(path: string) {
-  if (path === "/api/admin/reports") {
-    return "report queue";
-  }
-  if (path === "/api/admin/admin-users") {
-    return "moderator directory";
-  }
-  if (path === "/api/admin/blocks") {
-    return "block history";
-  }
-  if (path === "/api/admin/me") {
-    return "admin identity";
-  }
-  if (path === "/api/admin/health") {
-    return "admin health proxy";
-  }
-
-  return path;
-}
-
-export function getRouteRecoveryHint(path: string) {
-  if (path === "/api/admin/reports") {
-    return "Check whether the reports proxy is recovering before trusting queue counts or repeating report actions.";
-  }
-  if (path === "/api/admin/admin-users") {
-    return "Check the moderator directory before reassigning or escalating cases to another admin user.";
-  }
-  if (path === "/api/admin/blocks") {
-    return "Check the blocks proxy before relying on block history or self-protection signals.";
-  }
-  if (path === "/api/admin/me") {
-    return "Check the admin identity route before trusting role-based controls or assignee-to-me behavior.";
-  }
-  if (path === "/api/admin/health") {
-    return "Refresh the admin health sample before trusting the current moderation status summary.";
-  }
-
-  return `Inspect ${path} before trusting this part of the moderation surface.`;
-}
 
 export function getHighestAttentionRoute(statuses: HealthStatus[]): RecoveryHintRoute | null {
   const sortedStatuses = [...statuses].sort((left, right) => {
@@ -66,12 +29,14 @@ export function getHighestAttentionRoute(statuses: HealthStatus[]): RecoveryHint
     return null;
   }
 
+  const route = getRecoveryRoute(status.path);
+  if (!route) {
+    return null;
+  }
+
   return {
+    ...route,
     detail: status.detail,
-    endpointHref: status.path,
-    hint: getRouteRecoveryHint(status.path),
-    label: getRouteLabel(status.path),
-    path: status.path,
     status,
   };
 }
