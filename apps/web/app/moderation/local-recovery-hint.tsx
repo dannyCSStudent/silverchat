@@ -2,18 +2,21 @@
 
 import Link from "next/link";
 
-import { getHighestAttentionRoute } from "./admin-health-status-strip";
-
-type HighestAttentionRoute = NonNullable<
-  ReturnType<typeof getHighestAttentionRoute>
->;
+export type RecoveryHintRoute = {
+  detail?: string;
+  endpointHref: string;
+  hint: string;
+  label: string;
+  path: string;
+  status?: unknown;
+};
 
 type LocalRecoveryHintProps = {
   className?: string;
   endpointClassName?: string;
   pathClassName?: string;
   prefix?: string;
-  route: HighestAttentionRoute;
+  route: RecoveryHintRoute;
   showPath?: boolean;
 };
 

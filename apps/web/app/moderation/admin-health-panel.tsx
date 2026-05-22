@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 
 import type { ModerationAdminHealth } from "./data";
+import {
+  getRouteLabel,
+  getRouteRecoveryHint,
+} from "./admin-health-status-strip";
+import { LocalRecoveryHint } from "./local-recovery-hint";
 import { useLiveAdminHealth } from "./use-live-admin-health";
 
 type HealthHistoryEntry = {
@@ -94,6 +99,20 @@ function getRouteSeverity(status: ModerationAdminHealth["statuses"][number]) {
 
 function getRouteTarget(path: string) {
   return routeTargets[path] ?? null;
+}
+
+function getRecoveryRoute(path: string) {
+  const endpointHref = getRouteTarget(path);
+  if (!endpointHref) {
+    return null;
+  }
+
+  return {
+    endpointHref,
+    hint: getRouteRecoveryHint(path),
+    label: getRouteLabel(path),
+    path,
+  };
 }
 
 function getSampleAgeMs(sampledAt: string | null) {
@@ -448,8 +467,8 @@ export function AdminHealthPanel() {
     lastFailureAge,
     refreshError,
   });
-  const implicatedRouteTarget = refreshFailureNotice?.implicatedRoutePath
-    ? getRouteTarget(refreshFailureNotice.implicatedRoutePath)
+  const implicatedRoute = refreshFailureNotice?.implicatedRoutePath
+    ? getRecoveryRoute(refreshFailureNotice.implicatedRoutePath)
     : null;
 
   return (
@@ -516,7 +535,7 @@ export function AdminHealthPanel() {
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {sortedStatuses.map((status) => {
             const tone = getRouteTone(status);
-            const target = getRouteTarget(status.path);
+            const recoveryRoute = getRecoveryRoute(status.path);
 
             return (
               <div
@@ -532,15 +551,14 @@ export function AdminHealthPanel() {
                     ? `${status.durationMs} ms`
                     : "Latency unavailable"}
                 </p>
-                {target ? (
-                  <a
-                    href={target}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-3 inline-flex text-xs font-semibold underline underline-offset-2"
-                  >
-                    Open endpoint
-                  </a>
+                {recoveryRoute ? (
+                  <LocalRecoveryHint
+                    route={recoveryRoute}
+                    prefix=""
+                    showPath={false}
+                    className="mt-3 flex flex-col items-start gap-2 text-xs"
+                    endpointClassName="inline-flex font-semibold underline underline-offset-2"
+                  />
                 ) : null}
               </div>
             );
@@ -568,15 +586,14 @@ export function AdminHealthPanel() {
               </span>
             </p>
           ) : null}
-          {implicatedRouteTarget ? (
-            <a
-              href={implicatedRouteTarget}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-flex text-xs font-semibold underline underline-offset-2"
-            >
-              Open implicated endpoint
-            </a>
+          {implicatedRoute ? (
+            <LocalRecoveryHint
+              route={implicatedRoute}
+              prefix=""
+              showPath={false}
+              className="mt-2 flex flex-col items-start gap-2 text-xs"
+              endpointClassName="inline-flex font-semibold underline underline-offset-2"
+            />
           ) : null}
           <p className="mt-2 break-all font-mono text-xs opacity-80">{refreshError}</p>
         </div>

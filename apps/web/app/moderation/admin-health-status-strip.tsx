@@ -1,7 +1,7 @@
 "use client";
 
 import { useLiveAdminHealth } from "./use-live-admin-health";
-import { LocalRecoveryHint } from "./local-recovery-hint";
+import { LocalRecoveryHint, type RecoveryHintRoute } from "./local-recovery-hint";
 
 const VERY_SLOW_ROUTE_THRESHOLD_MS = 2000;
 const SLOW_ROUTE_THRESHOLD_MS = 750;
@@ -9,7 +9,7 @@ const SLOW_ROUTE_THRESHOLD_MS = 750;
 type HealthStatus =
   ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"][number];
 
-function getRouteLabel(path: string) {
+export function getRouteLabel(path: string) {
   if (path === "/api/admin/reports") {
     return "report queue";
   }
@@ -29,7 +29,7 @@ function getRouteLabel(path: string) {
   return path;
 }
 
-function getRouteRecoveryHint(path: string) {
+export function getRouteRecoveryHint(path: string) {
   if (path === "/api/admin/reports") {
     return "Check whether the reports proxy is recovering before trusting queue counts or repeating report actions.";
   }
@@ -63,7 +63,7 @@ function getStatusSeverity(status: HealthStatus) {
   return 0;
 }
 
-export function getHighestAttentionRoute(statuses: HealthStatus[]) {
+export function getHighestAttentionRoute(statuses: HealthStatus[]): RecoveryHintRoute | null {
   const sortedStatuses = [...statuses].sort((left, right) => {
     const severityDelta = getStatusSeverity(right) - getStatusSeverity(left);
     if (severityDelta !== 0) {
