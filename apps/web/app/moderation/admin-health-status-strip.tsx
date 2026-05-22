@@ -1,6 +1,7 @@
 "use client";
 
 import { useLiveAdminHealth } from "./use-live-admin-health";
+import { LocalRecoveryHint } from "./local-recovery-hint";
 
 const VERY_SLOW_ROUTE_THRESHOLD_MS = 2000;
 const SLOW_ROUTE_THRESHOLD_MS = 750;
@@ -271,10 +272,14 @@ export function AdminHealthStatusStrip() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em]">
             Highest attention route
           </p>
-          <p className="mt-2 text-sm font-semibold">
-            {highestAttentionRoute.label} · {highestAttentionRoute.path}
-          </p>
-          <p className="mt-1 text-xs">{highestAttentionRoute.hint}</p>
+          <LocalRecoveryHint
+            route={highestAttentionRoute}
+            prefix=""
+            showPath
+            className="mt-2 flex flex-col items-start gap-2 text-xs"
+            pathClassName="text-sm font-semibold"
+            endpointClassName="inline-flex rounded-full border border-current/20 bg-white/40 px-3 py-1 text-xs font-semibold transition hover:bg-white/60"
+          />
         </div>
       ) : null}
     </div>

@@ -11,15 +11,19 @@ type HighestAttentionRoute = NonNullable<
 type LocalRecoveryHintProps = {
   className?: string;
   endpointClassName?: string;
+  pathClassName?: string;
   prefix?: string;
   route: HighestAttentionRoute;
+  showPath?: boolean;
 };
 
 export function LocalRecoveryHint({
   className,
   endpointClassName,
+  pathClassName,
   prefix = "Check next:",
   route,
+  showPath = false,
 }: LocalRecoveryHintProps) {
   const message = prefix
     ? `${prefix} ${route.label} · ${route.hint}`
@@ -27,6 +31,11 @@ export function LocalRecoveryHint({
 
   return (
     <div className={className}>
+      {showPath ? (
+        <p className={pathClassName}>
+          {route.label} · {route.path}
+        </p>
+      ) : null}
       <span>{message}</span>
       <Link
         href={route.endpointHref}
