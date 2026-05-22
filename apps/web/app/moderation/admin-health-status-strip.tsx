@@ -89,11 +89,56 @@ export function getActiveGuardrails(
   return ["No extra moderation guardrails active"];
 }
 
+function getRecommendedBehavior(
+  statuses: ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"],
+) {
+  if (statuses.some((status) => !status.ok)) {
+    return {
+      title: "Recommended behavior",
+      steps: [
+        "Use single-case actions only",
+        "Avoid bulk triage and urgent rebalancing",
+        "Verify queue refresh after every change",
+      ],
+    };
+  }
+
+  if (statuses.some((status) => (status.durationMs ?? 0) >= VERY_SLOW_ROUTE_THRESHOLD_MS)) {
+    return {
+      title: "Recommended behavior",
+      steps: [
+        "Proceed, but avoid repeating actions quickly",
+        "Wait for queue refresh before escalating further",
+        "Prefer smaller batches over high-fanout moves",
+      ],
+    };
+  }
+
+  if (statuses.some((status) => (status.durationMs ?? 0) >= SLOW_ROUTE_THRESHOLD_MS)) {
+    return {
+      title: "Recommended behavior",
+      steps: [
+        "Operate normally",
+        "Expect mildly delayed refresh",
+      ],
+    };
+  }
+
+  return {
+    title: "Recommended behavior",
+    steps: [
+      "Operate normally",
+      "Use full moderation workflow as needed",
+    ],
+  };
+}
+
 export function AdminHealthStatusStrip() {
   const { currentHealth, isRefreshing } = useLiveAdminHealth();
   const stripState = getStripState(currentHealth.statuses);
   const workflowMode = getWorkflowMode(currentHealth.statuses);
   const activeGuardrails = getActiveGuardrails(currentHealth.statuses);
+  const recommendedBehavior = getRecommendedBehavior(currentHealth.statuses);
 
   return (
     <div className={`rounded-3xl border px-4 py-3 text-sm ${stripState.classes}`}>
@@ -122,6 +167,21 @@ export function AdminHealthStatusStrip() {
             {guardrail}
           </span>
         ))}
+      </div>
+      <div className="mt-4 rounded-2xl border border-current/20 bg-white/30 px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em]">
+          {recommendedBehavior.title}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {recommendedBehavior.steps.map((step) => (
+            <span
+              key={step}
+              className="rounded-full border border-current/20 bg-white/40 px-3 py-1 text-xs font-medium"
+            >
+              {step}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
