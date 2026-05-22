@@ -260,6 +260,31 @@ function buildSummaryRows(reports: ModerationReport[]) {
   ];
 }
 
+function buildSummaryPreview(reports: ModerationReport[]) {
+  const rows = buildSummaryRows(reports);
+  const [, overviewRow, ...moderatorRows] = rows;
+
+  return {
+    moderatorRows: moderatorRows.map((row) => ({
+      actor: String(row[1] ?? ""),
+      enforcementActions: Number(row[8] ?? 0),
+      noteEvents: Number(row[7] ?? 0),
+      reviewActions: Number(row[9] ?? 0),
+      role: String(row[2] ?? ""),
+      statusChanges: Number(row[6] ?? 0),
+      totalEvents: Number(row[5] ?? 0),
+    })),
+    overview: {
+      enforcementActions: Number(overviewRow?.[8] ?? 0),
+      eventCount: Number(overviewRow?.[5] ?? 0),
+      noteCount: Number(overviewRow?.[7] ?? 0),
+      reportCount: Number(overviewRow?.[3] ?? 0),
+      reviewCount: Number(overviewRow?.[9] ?? 0),
+      statusChangeCount: Number(overviewRow?.[6] ?? 0),
+    },
+  };
+}
+
 function fileSafeLabel(value: string) {
   return value
     .trim()
@@ -284,6 +309,7 @@ export function ModerationExportPanel({
   const highestAttentionRoute = getHighestAttentionRoute(currentHealth.statuses);
   const today = new Date().toISOString().slice(0, 10);
   const label = fileSafeLabel(filterLabel);
+  const summaryPreview = buildSummaryPreview(reports);
 
   return (
     <div className="rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5">
@@ -303,6 +329,92 @@ export function ModerationExportPanel({
       <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
         Filter scope: {filterLabel}
       </p>
+      <div className="mt-4 rounded-2xl border border-(--color-line) bg-(--color-surface) p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+          Activity summary
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-5">
+          <div className="rounded-2xl bg-(--color-surface-strong) px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Reports
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-stone-100">
+              {summaryPreview.overview.reportCount}
+            </p>
+          </div>
+          <div className="rounded-2xl bg-(--color-surface-strong) px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Events
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-stone-100">
+              {summaryPreview.overview.eventCount}
+            </p>
+          </div>
+          <div className="rounded-2xl bg-(--color-surface-strong) px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Status
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-stone-100">
+              {summaryPreview.overview.statusChangeCount}
+            </p>
+          </div>
+          <div className="rounded-2xl bg-(--color-surface-strong) px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Enforcement
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-stone-100">
+              {summaryPreview.overview.enforcementActions}
+            </p>
+          </div>
+          <div className="rounded-2xl bg-(--color-surface-strong) px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Notes
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-stone-100">
+              {summaryPreview.overview.noteCount}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-left text-slate-500 dark:text-slate-400">
+              <tr>
+                <th className="px-3 py-2 font-semibold">Moderator</th>
+                <th className="px-3 py-2 font-semibold">Role</th>
+                <th className="px-3 py-2 font-semibold">Events</th>
+                <th className="px-3 py-2 font-semibold">Status</th>
+                <th className="px-3 py-2 font-semibold">Notes</th>
+                <th className="px-3 py-2 font-semibold">Enforcement</th>
+                <th className="px-3 py-2 font-semibold">Reviews</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summaryPreview.moderatorRows.length > 0 ? (
+                summaryPreview.moderatorRows.map((row) => (
+                  <tr
+                    key={row.actor}
+                    className="border-t border-(--color-line) text-slate-700 dark:text-stone-200"
+                  >
+                    <td className="px-3 py-2 font-medium">{row.actor}</td>
+                    <td className="px-3 py-2">{row.role || "Unknown"}</td>
+                    <td className="px-3 py-2">{row.totalEvents}</td>
+                    <td className="px-3 py-2">{row.statusChanges}</td>
+                    <td className="px-3 py-2">{row.noteEvents}</td>
+                    <td className="px-3 py-2">{row.enforcementActions}</td>
+                    <td className="px-3 py-2">{row.reviewActions}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr className="border-t border-(--color-line) text-slate-500 dark:text-slate-400">
+                  <td className="px-3 py-3" colSpan={7}>
+                    No moderation events in the current filtered report set.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
       {(hasFailedAdminRoute || hasVerySlowAdminRoute) ? (
         <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           <p className="text-xs font-medium">

@@ -2,8 +2,6 @@
 
 import {
   getRecoveryRoute,
-  getRouteLabel,
-  getRouteRecoveryHint,
   getRouteSeverity,
   SLOW_ROUTE_THRESHOLD_MS,
   VERY_SLOW_ROUTE_THRESHOLD_MS,
