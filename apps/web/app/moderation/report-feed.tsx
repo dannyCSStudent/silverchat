@@ -11,6 +11,7 @@ import {
   requiresElevatedCapability,
   type ModeratorWorkloadSnapshot,
 } from "./assignment-targets";
+import { getWorkflowMode } from "./admin-health-status-strip";
 import {
   formatActorSuffix,
   formatDate,
@@ -139,6 +140,7 @@ export function ReportFeed({
   const hasVerySlowAdminRoute = liveAdminHealth.statuses.some(
     (status) => status.durationMs !== null && status.durationMs >= 2000,
   );
+  const workflowMode = getWorkflowMode(liveAdminHealth.statuses);
   const actionRiskBanner = hasFailedAdminRoute
     ? {
         classes: "border-rose-200 bg-rose-50 text-rose-900",
@@ -356,7 +358,14 @@ export function ReportFeed({
       <div className="rounded-3xl border border-(--color-line) bg-(--color-surface) p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-semibold text-slate-950 dark:text-stone-100">Bulk triage</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-slate-950 dark:text-stone-100">Bulk triage</p>
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${workflowMode.classes}`}
+              >
+                {workflowMode.label}
+              </span>
+            </div>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
               {selectedIds.length} of {reports.length} filtered reports selected
             </p>

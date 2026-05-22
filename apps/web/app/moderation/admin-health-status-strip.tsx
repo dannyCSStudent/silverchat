@@ -39,7 +39,7 @@ function getStripState(
   };
 }
 
-function getWorkflowMode(
+export function getWorkflowMode(
   statuses: ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"],
 ) {
   if (statuses.some((status) => !status.ok)) {

@@ -403,17 +403,23 @@ export function AdminHealthPanel() {
   }, [currentHealth.sampledAt]);
 
   useEffect(() => {
-    setHealthHistory((currentEntries) => {
-      const nextEntry = buildHealthHistoryEntry(currentHealth);
-      const withoutDuplicateHead =
-        currentEntries[0]?.sampledAt === nextEntry.sampledAt &&
-        currentEntries[0]?.summary === nextEntry.summary &&
-        currentEntries[0]?.implicatedRoutePath === nextEntry.implicatedRoutePath
-          ? currentEntries.slice(1)
-          : currentEntries;
+    const nextEntry = buildHealthHistoryEntry(currentHealth);
+    const timeoutId = window.setTimeout(() => {
+      setHealthHistory((currentEntries) => {
+        const withoutDuplicateHead =
+          currentEntries[0]?.sampledAt === nextEntry.sampledAt &&
+          currentEntries[0]?.summary === nextEntry.summary &&
+          currentEntries[0]?.implicatedRoutePath === nextEntry.implicatedRoutePath
+            ? currentEntries.slice(1)
+            : currentEntries;
 
-      return [nextEntry, ...withoutDuplicateHead].slice(0, HEALTH_HISTORY_LIMIT);
-    });
+        return [nextEntry, ...withoutDuplicateHead].slice(0, HEALTH_HISTORY_LIMIT);
+      });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [currentHealth]);
 
   const summary = getHealthSummary(currentHealth);

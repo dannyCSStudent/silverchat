@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { AdminUser } from "@repo/types";
 
 import { useDashboardAction } from "../use-dashboard-action";
+import { getWorkflowMode } from "./admin-health-status-strip";
 import {
   rankAssignmentTargets,
   requiresElevatedCapability,
@@ -44,6 +45,7 @@ export function WorkloadRebalance({
   const canRebalance =
     currentAdminRole === "lead" || currentAdminRole === "admin";
   const hasFailedAdminRoute = liveAdminHealth.statuses.some((status) => !status.ok);
+  const workflowMode = getWorkflowMode(liveAdminHealth.statuses);
   const urgentBatch = urgentCases.slice(0, MAX_REBALANCE_BATCH_SIZE);
   const batchNeedsElevatedCapability = requiresElevatedCapability(
     urgentBatch.map((urgentCase) => urgentCase.attentionTitle),
@@ -114,9 +116,16 @@ export function WorkloadRebalance({
 
   return (
     <div className="mt-3 rounded-2xl border border-(--color-line) bg-(--color-surface) p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-        Rebalance urgent cases
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+          Rebalance urgent cases
+        </p>
+        <span
+          className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${workflowMode.classes}`}
+        >
+          {workflowMode.label}
+        </span>
+      </div>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row">
         <select
           value={targetAdminUserId}
