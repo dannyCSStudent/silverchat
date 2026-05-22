@@ -79,6 +79,7 @@ export function getHighestAttentionRoute(statuses: HealthStatus[]) {
 
   return {
     detail: status.detail,
+    endpointHref: status.path,
     hint: getRouteRecoveryHint(status.path),
     label: getRouteLabel(status.path),
     path: status.path,

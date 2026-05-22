@@ -370,6 +370,14 @@ export function ReportFeed({
                 {highestAttentionRoute.label} · {highestAttentionRoute.path}
               </p>
               <p className="mt-1 text-xs">{highestAttentionRoute.hint}</p>
+              <Link
+                href={highestAttentionRoute.endpointHref}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 inline-flex rounded-full border border-current/20 bg-white/50 px-3 py-1 text-xs font-semibold transition hover:bg-white/70"
+              >
+                Open endpoint
+              </Link>
             </div>
           ) : null}
         </div>
@@ -395,9 +403,19 @@ export function ReportFeed({
               What to do now: {recommendedBehavior.steps.join(" · ")}
             </p>
             {highestAttentionRoute ? (
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                Check next: {highestAttentionRoute.label} · {highestAttentionRoute.hint}
-              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <span>
+                  Check next: {highestAttentionRoute.label} · {highestAttentionRoute.hint}
+                </span>
+                <Link
+                  href={highestAttentionRoute.endpointHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-(--color-line) bg-(--color-surface-strong) px-3 py-1 font-semibold text-slate-700 transition hover:bg-(--color-chip-muted) dark:text-stone-100"
+                >
+                  Open endpoint
+                </Link>
+              </div>
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { AdminUser } from "@repo/types";
 
 import { useDashboardAction } from "../use-dashboard-action";
@@ -141,9 +142,19 @@ export function WorkloadRebalance({
         What to do now: {recommendedBehavior.steps.join(" · ")}
       </p>
       {highestAttentionRoute ? (
-        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-          Check next: {highestAttentionRoute.label} · {highestAttentionRoute.hint}
-        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <span>
+            Check next: {highestAttentionRoute.label} · {highestAttentionRoute.hint}
+          </span>
+          <Link
+            href={highestAttentionRoute.endpointHref}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-(--color-line) bg-(--color-surface-strong) px-3 py-1 font-semibold text-slate-700 transition hover:bg-(--color-chip-muted) dark:text-stone-100"
+          >
+            Open endpoint
+          </Link>
+        </div>
       ) : null}
       <div className="mt-3 flex flex-col gap-3 sm:flex-row">
         <select
@@ -241,11 +252,21 @@ export function WorkloadRebalance({
         </p>
       ) : null}
       {hasFailedAdminRoute && highestAttentionRoute ? (
-        <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
-          Most relevant route right now: <span className="font-semibold">{highestAttentionRoute.label}</span>
-          {` · ${highestAttentionRoute.path}. `}
-          {highestAttentionRoute.hint}
-        </p>
+        <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+          <p>
+            Most relevant route right now: <span className="font-semibold">{highestAttentionRoute.label}</span>
+            {` · ${highestAttentionRoute.path}. `}
+            {highestAttentionRoute.hint}
+          </p>
+          <Link
+            href={highestAttentionRoute.endpointHref}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex rounded-full border border-rose-300 bg-white/70 px-3 py-1 font-semibold text-rose-900 transition hover:bg-white"
+          >
+            Open endpoint
+          </Link>
+        </div>
       ) : null}
       <div className="mt-3 rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
