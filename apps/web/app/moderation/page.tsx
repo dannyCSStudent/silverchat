@@ -18,6 +18,7 @@ import { FallbackWarningPanel } from "./fallback-warning-panel";
 import { getMemberAttentionSummary } from "./formatters";
 import { ModerationAttentionPanel } from "./moderation-attention-panel";
 import { ModerationBlockSignals } from "./moderation-block-signals";
+import { ModerationExportPanel } from "./moderation-export-panel";
 import { ModerationRepeatOffenders } from "./moderation-repeat-offenders";
 import { ModerationSavedQueues } from "./moderation-saved-queues";
 import { ReportFeed } from "./report-feed";
@@ -928,6 +929,21 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
     id: block.id,
     reason: block.reason ?? "No reason submitted.",
   }));
+  const exportFilterLabel =
+    activeFilterCount > 0
+      ? [
+          selectedQueue && `queue:${selectedQueue}`,
+          selectedStatus && `status:${selectedStatus}`,
+          selectedReason && `reason:${selectedReason}`,
+          selectedSubject && `subject:${selectedSubject}`,
+          selectedActor && `actor:${selectedActor}`,
+          selectedAssignee && `assignee:${selectedAssignee}`,
+          selectedEnforcement && `enforcement:${selectedEnforcement}`,
+          selectedSafety && `safety:${selectedSafety}`,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : "all moderation data";
 
   return (
     <LiveAdminHealthProvider initialHealth={adminHealth}>
@@ -1180,6 +1196,13 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                   Scam
                 </Link>
               </div>
+            </div>
+            <div className="mt-4">
+              <ModerationExportPanel
+                reports={filteredReports}
+                blocks={filteredBlocks}
+                filterLabel={exportFilterLabel}
+              />
             </div>
             {filteredReports.length > 0 ? (
               <ReportFeed
