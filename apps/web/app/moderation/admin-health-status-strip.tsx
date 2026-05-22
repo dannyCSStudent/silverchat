@@ -5,8 +5,89 @@ import { useLiveAdminHealth } from "./use-live-admin-health";
 const VERY_SLOW_ROUTE_THRESHOLD_MS = 2000;
 const SLOW_ROUTE_THRESHOLD_MS = 750;
 
+type HealthStatus =
+  ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"][number];
+
+function getRouteLabel(path: string) {
+  if (path === "/api/admin/reports") {
+    return "report queue";
+  }
+  if (path === "/api/admin/admin-users") {
+    return "moderator directory";
+  }
+  if (path === "/api/admin/blocks") {
+    return "block history";
+  }
+  if (path === "/api/admin/me") {
+    return "admin identity";
+  }
+  if (path === "/api/admin/health") {
+    return "admin health proxy";
+  }
+
+  return path;
+}
+
+function getRouteRecoveryHint(path: string) {
+  if (path === "/api/admin/reports") {
+    return "Check whether the reports proxy is recovering before trusting queue counts or repeating report actions.";
+  }
+  if (path === "/api/admin/admin-users") {
+    return "Check the moderator directory before reassigning or escalating cases to another admin user.";
+  }
+  if (path === "/api/admin/blocks") {
+    return "Check the blocks proxy before relying on block history or self-protection signals.";
+  }
+  if (path === "/api/admin/me") {
+    return "Check the admin identity route before trusting role-based controls or assignee-to-me behavior.";
+  }
+  if (path === "/api/admin/health") {
+    return "Refresh the admin health sample before trusting the current moderation status summary.";
+  }
+
+  return `Inspect ${path} before trusting this part of the moderation surface.`;
+}
+
+function getStatusSeverity(status: HealthStatus) {
+  if (!status.ok) {
+    return 3;
+  }
+  if ((status.durationMs ?? 0) >= VERY_SLOW_ROUTE_THRESHOLD_MS) {
+    return 2;
+  }
+  if ((status.durationMs ?? 0) >= SLOW_ROUTE_THRESHOLD_MS) {
+    return 1;
+  }
+
+  return 0;
+}
+
+export function getHighestAttentionRoute(statuses: HealthStatus[]) {
+  const sortedStatuses = [...statuses].sort((left, right) => {
+    const severityDelta = getStatusSeverity(right) - getStatusSeverity(left);
+    if (severityDelta !== 0) {
+      return severityDelta;
+    }
+
+    return (right.durationMs ?? 0) - (left.durationMs ?? 0);
+  });
+  const status = sortedStatuses[0];
+
+  if (!status || getStatusSeverity(status) === 0) {
+    return null;
+  }
+
+  return {
+    detail: status.detail,
+    hint: getRouteRecoveryHint(status.path),
+    label: getRouteLabel(status.path),
+    path: status.path,
+    status,
+  };
+}
+
 function getStripState(
-  statuses: ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"],
+  statuses: HealthStatus[],
 ) {
   if (statuses.some((status) => !status.ok)) {
     return {
@@ -40,7 +121,7 @@ function getStripState(
 }
 
 export function getWorkflowMode(
-  statuses: ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"],
+  statuses: HealthStatus[],
 ) {
   if (statuses.some((status) => !status.ok)) {
     return {
@@ -63,7 +144,7 @@ export function getWorkflowMode(
 }
 
 export function getActiveGuardrails(
-  statuses: ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"],
+  statuses: HealthStatus[],
 ) {
   if (statuses.some((status) => !status.ok)) {
     return [
@@ -90,7 +171,7 @@ export function getActiveGuardrails(
 }
 
 export function getRecommendedBehavior(
-  statuses: ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"],
+  statuses: HealthStatus[],
 ) {
   if (statuses.some((status) => !status.ok)) {
     return {
@@ -139,6 +220,7 @@ export function AdminHealthStatusStrip() {
   const workflowMode = getWorkflowMode(currentHealth.statuses);
   const activeGuardrails = getActiveGuardrails(currentHealth.statuses);
   const recommendedBehavior = getRecommendedBehavior(currentHealth.statuses);
+  const highestAttentionRoute = getHighestAttentionRoute(currentHealth.statuses);
 
   return (
     <div className={`rounded-3xl border px-4 py-3 text-sm ${stripState.classes}`}>
@@ -183,6 +265,17 @@ export function AdminHealthStatusStrip() {
           ))}
         </div>
       </div>
+      {highestAttentionRoute ? (
+        <div className="mt-4 rounded-2xl border border-current/20 bg-white/30 px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em]">
+            Highest attention route
+          </p>
+          <p className="mt-2 text-sm font-semibold">
+            {highestAttentionRoute.label} · {highestAttentionRoute.path}
+          </p>
+          <p className="mt-1 text-xs">{highestAttentionRoute.hint}</p>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from "./assignment-targets";
 import {
   getActiveGuardrails,
+  getHighestAttentionRoute,
   getRecommendedBehavior,
   getWorkflowMode,
 } from "./admin-health-status-strip";
@@ -147,6 +148,7 @@ export function ReportFeed({
   const workflowMode = getWorkflowMode(liveAdminHealth.statuses);
   const activeGuardrails = getActiveGuardrails(liveAdminHealth.statuses);
   const recommendedBehavior = getRecommendedBehavior(liveAdminHealth.statuses);
+  const highestAttentionRoute = getHighestAttentionRoute(liveAdminHealth.statuses);
   const actionRiskBanner = hasFailedAdminRoute
     ? {
         classes: "border-rose-200 bg-rose-50 text-rose-900",
@@ -359,6 +361,17 @@ export function ReportFeed({
         <div className={`rounded-3xl border px-4 py-3 text-sm ${actionRiskBanner.classes}`}>
           <p className="font-semibold">{actionRiskBanner.title}</p>
           <p className="mt-1">{actionRiskBanner.detail}</p>
+          {highestAttentionRoute ? (
+            <div className="mt-3 rounded-2xl border border-current/20 bg-white/40 px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em]">
+                Check next
+              </p>
+              <p className="mt-1 text-sm font-semibold">
+                {highestAttentionRoute.label} · {highestAttentionRoute.path}
+              </p>
+              <p className="mt-1 text-xs">{highestAttentionRoute.hint}</p>
+            </div>
+          ) : null}
         </div>
       ) : null}
       <div className="rounded-3xl border border-(--color-line) bg-(--color-surface) p-5">
@@ -381,6 +394,11 @@ export function ReportFeed({
             <p className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-300">
               What to do now: {recommendedBehavior.steps.join(" · ")}
             </p>
+            {highestAttentionRoute ? (
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                Check next: {highestAttentionRoute.label} · {highestAttentionRoute.hint}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
