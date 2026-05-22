@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import type { AdminUser } from "@repo/types";
 
 import { useDashboardAction } from "../use-dashboard-action";
@@ -17,6 +16,7 @@ import {
   roleRank,
   type ModeratorWorkloadSnapshot,
 } from "./assignment-targets";
+import { LocalRecoveryHint } from "./local-recovery-hint";
 import { useLiveAdminHealth } from "./use-live-admin-health";
 
 const MAX_REBALANCE_BATCH_SIZE = 3;
@@ -142,19 +142,11 @@ export function WorkloadRebalance({
         What to do now: {recommendedBehavior.steps.join(" · ")}
       </p>
       {highestAttentionRoute ? (
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <span>
-            Check next: {highestAttentionRoute.label} · {highestAttentionRoute.hint}
-          </span>
-          <Link
-            href={highestAttentionRoute.endpointHref}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-full border border-(--color-line) bg-(--color-surface-strong) px-3 py-1 font-semibold text-slate-700 transition hover:bg-(--color-chip-muted) dark:text-stone-100"
-          >
-            Open endpoint
-          </Link>
-        </div>
+        <LocalRecoveryHint
+          route={highestAttentionRoute}
+          className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+          endpointClassName="rounded-full border border-(--color-line) bg-(--color-surface-strong) px-3 py-1 font-semibold text-slate-700 transition hover:bg-(--color-chip-muted) dark:text-stone-100"
+        />
       ) : null}
       <div className="mt-3 flex flex-col gap-3 sm:flex-row">
         <select
@@ -253,19 +245,15 @@ export function WorkloadRebalance({
       ) : null}
       {hasFailedAdminRoute && highestAttentionRoute ? (
         <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
-          <p>
-            Most relevant route right now: <span className="font-semibold">{highestAttentionRoute.label}</span>
-            {` · ${highestAttentionRoute.path}. `}
-            {highestAttentionRoute.hint}
+          <p className="font-semibold">
+            Most relevant route right now: {highestAttentionRoute.label} · {highestAttentionRoute.path}
           </p>
-          <Link
-            href={highestAttentionRoute.endpointHref}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 inline-flex rounded-full border border-rose-300 bg-white/70 px-3 py-1 font-semibold text-rose-900 transition hover:bg-white"
-          >
-            Open endpoint
-          </Link>
+          <LocalRecoveryHint
+            route={highestAttentionRoute}
+            prefix=""
+            className="mt-2 flex flex-col items-start gap-2"
+            endpointClassName="inline-flex rounded-full border border-rose-300 bg-white/70 px-3 py-1 font-semibold text-rose-900 transition hover:bg-white"
+          />
         </div>
       ) : null}
       <div className="mt-3 rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-3">
