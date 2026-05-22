@@ -17,6 +17,8 @@ import { DataSourceBadge } from "./data-source-badge";
 import { FallbackWarningPanel } from "./fallback-warning-panel";
 import { getMemberAttentionSummary } from "./formatters";
 import { ModerationAttentionPanel } from "./moderation-attention-panel";
+import { ModerationBlockSignals } from "./moderation-block-signals";
+import { ModerationRepeatOffenders } from "./moderation-repeat-offenders";
 import { ModerationSavedQueues } from "./moderation-saved-queues";
 import { ReportFeed } from "./report-feed";
 import { LiveAdminHealthProvider } from "./use-live-admin-health";
@@ -905,6 +907,27 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
     title: member.attention.title,
     userId: member.userId,
   }));
+  const repeatOffenderItems = repeatOffenders.map((offender) => ({
+    count: offender.count,
+    label: offender.label,
+    memberHref: `/moderation/members/${offender.userId}`,
+    queueHref: buildModerationHref({
+      status: "open",
+      subject: offender.userId,
+    }),
+    userId: offender.userId,
+  }));
+  const blockSignalItems = filteredBlocks.map((block) => ({
+    blockedCountry: block.blocked_profile?.country_code ?? "Country unknown",
+    blockedHref: `/moderation/members/${block.blocked_user_id}`,
+    blockedLabel: profileLabel(block.blocked_profile),
+    blockerCountry: block.blocker_profile?.country_code ?? "Country unknown",
+    blockerHref: `/moderation/members/${block.blocker_user_id}`,
+    blockerLabel: profileLabel(block.blocker_profile),
+    createdAtLabel: formatDate(block.created_at),
+    id: block.id,
+    reason: block.reason ?? "No reason submitted.",
+  }));
 
   return (
     <LiveAdminHealthProvider initialHealth={adminHealth}>
@@ -1342,26 +1365,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
               slowDetail="Repeat-offender counts are available, but new clusters may take longer to appear."
               verySlowDetail="Repeat-offender grouping may lag behind current reports while admin routes are very slow."
             />
-            <div className="mt-6 space-y-3">
-              {repeatOffenders.length > 0 ? (
-                repeatOffenders.map((offender) => (
-                  <Link
-                    key={offender.userId}
-                    href={`/moderation/members/${offender.userId}`}
-                    className="block rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5 transition hover:bg-(--color-surface)"
-                  >
-                    <p className="text-sm font-semibold text-slate-950 dark:text-stone-100">{offender.label}</p>
-                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                      {offender.count} reports tied to this member
-                    </p>
-                  </Link>
-                ))
-              ) : (
-                <div className="rounded-3xl border border-dashed border-(--color-line) bg-(--color-surface-strong) p-5 text-sm text-slate-600 dark:text-slate-300">
-                  No repeated reported users yet.
-                </div>
-              )}
-            </div>
+            <ModerationRepeatOffenders offenders={repeatOffenderItems} />
           </div>
 
           <div className="rounded-[34px] border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">
@@ -1376,40 +1380,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
               slowDetail="Recent block signals are available, but the latest self-protection actions may take longer to appear."
               verySlowDetail="Recent block signals may lag behind current user actions while admin routes are very slow."
             />
-            <div className="mt-6 space-y-4">
-              {filteredBlocks.length > 0 ? (
-                filteredBlocks.map((block) => (
-                  <div
-                    key={block.id}
-                    className="rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5"
-                  >
-                    <p className="text-sm font-semibold text-slate-950 dark:text-stone-100">
-                      <Link href={`/moderation/members/${block.blocker_user_id}`} className="underline decoration-slate-300 underline-offset-4 transition hover:decoration-slate-950">
-                        {profileLabel(block.blocker_profile)}
-                      </Link>{" "}
-                      blocked{" "}
-                      <Link href={`/moderation/members/${block.blocked_user_id}`} className="underline decoration-slate-300 underline-offset-4 transition hover:decoration-slate-950">
-                        {profileLabel(block.blocked_profile)}
-                      </Link>
-                    </p>
-                    <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
-                      {block.reason ?? "No reason submitted."}
-                    </p>
-                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                      {block.blocker_profile?.country_code ?? "Country unknown"} to{" "}
-                      {block.blocked_profile?.country_code ?? "Country unknown"}
-                    </p>
-                    <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      {formatDate(block.created_at)}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-3xl border border-dashed border-(--color-line) bg-(--color-surface-strong) p-5 text-sm text-slate-600 dark:text-slate-300">
-                  No blocks match the current filters.
-                </div>
-              )}
-            </div>
+            <ModerationBlockSignals blocks={blockSignalItems} />
           </div>
 
           <div className="rounded-[34px] border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">
