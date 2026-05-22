@@ -58,6 +58,7 @@ async function fetchHealth(): Promise<HealthResponse> {
 export default async function HealthPage() {
   const requestHeaders = await headers();
   const adminUsername = requestHeaders.get("x-admin-username") ?? "";
+  const authorization = requestHeaders.get("authorization");
   const host =
     requestHeaders.get("x-forwarded-host") ??
     requestHeaders.get("host") ??
@@ -65,7 +66,11 @@ export default async function HealthPage() {
   const proto = requestHeaders.get("x-forwarded-proto") ?? "http";
   const webBaseUrl = `${proto}://${host}`;
   const { api, db, error } = await fetchHealth();
-  const adminHealth = await getModerationAdminHealth(adminUsername, webBaseUrl);
+  const adminHealth = await getModerationAdminHealth(
+    adminUsername,
+    webBaseUrl,
+    authorization,
+  );
   const missingTables = db.missing_tables ?? [];
   const tableEntries = Object.entries(db.tables ?? {});
   const dbReady = db.ready === true && db.status === "ok";

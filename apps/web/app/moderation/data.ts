@@ -156,6 +156,7 @@ async function fetchAdminProxyJson<T>(
 export async function getModerationData(
   adminUsername: string,
   webBaseUrl: string,
+  authorization: string | null = null,
 ): Promise<ModerationData> {
   if (!adminApiToken) {
     return {
@@ -170,6 +171,7 @@ export async function getModerationData(
   }
 
   const baseHeaders: Record<string, string> = {
+    ...(authorization ? { Authorization: authorization } : {}),
     ...(adminUsername ? { "X-Admin-Username": adminUsername } : {}),
   };
   const [adminUserResult, adminUsersResult, reportsResult, blocksResult] =
@@ -236,8 +238,10 @@ export async function getModerationData(
 export async function getModerationAdminHealth(
   adminUsername: string,
   webBaseUrl: string,
+  authorization: string | null = null,
 ): Promise<ModerationAdminHealth> {
   const headers: Record<string, string> = {
+    ...(authorization ? { Authorization: authorization } : {}),
     ...(adminUsername ? { "X-Admin-Username": adminUsername } : {}),
   };
 

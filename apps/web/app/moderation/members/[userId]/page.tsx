@@ -134,6 +134,7 @@ export default async function ModerationMemberPage({
   const resolvedSearchParams = (await searchParams) ?? {};
   const requestHeaders = await headers();
   const adminUsername = requestHeaders.get("x-admin-username") ?? "";
+  const authorization = requestHeaders.get("authorization");
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
   const proto = requestHeaders.get("x-forwarded-proto") ?? "http";
   const webBaseUrl = `${proto}://${host}`;
@@ -145,8 +146,12 @@ export default async function ModerationMemberPage({
     configurationError,
     isFallback,
     proxyStatuses,
-  } = await getModerationData(adminUsername, webBaseUrl);
-  const adminHealth = await getModerationAdminHealth(adminUsername, webBaseUrl);
+  } = await getModerationData(adminUsername, webBaseUrl, authorization);
+  const adminHealth = await getModerationAdminHealth(
+    adminUsername,
+    webBaseUrl,
+    authorization,
+  );
 
   const reportsAgainstMember = reports.filter(
     (report) => report.reported_user_id === userId,

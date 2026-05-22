@@ -11,7 +11,11 @@ import {
   requiresElevatedCapability,
   type ModeratorWorkloadSnapshot,
 } from "./assignment-targets";
-import { getActiveGuardrails, getWorkflowMode } from "./admin-health-status-strip";
+import {
+  getActiveGuardrails,
+  getRecommendedBehavior,
+  getWorkflowMode,
+} from "./admin-health-status-strip";
 import {
   formatActorSuffix,
   formatDate,
@@ -142,6 +146,7 @@ export function ReportFeed({
   );
   const workflowMode = getWorkflowMode(liveAdminHealth.statuses);
   const activeGuardrails = getActiveGuardrails(liveAdminHealth.statuses);
+  const recommendedBehavior = getRecommendedBehavior(liveAdminHealth.statuses);
   const actionRiskBanner = hasFailedAdminRoute
     ? {
         classes: "border-rose-200 bg-rose-50 text-rose-900",
@@ -372,6 +377,9 @@ export function ReportFeed({
             </p>
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
               {activeGuardrails.join(" · ")}
+            </p>
+            <p className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+              What to do now: {recommendedBehavior.steps.join(" · ")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">

@@ -589,6 +589,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
   const resolvedSearchParams = (await searchParams) ?? {};
   const requestHeaders = await headers();
   const adminUsername = requestHeaders.get("x-admin-username") ?? "";
+  const authorization = requestHeaders.get("authorization");
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
   const proto = requestHeaders.get("x-forwarded-proto") ?? "http";
   const webBaseUrl = `${proto}://${host}`;
@@ -604,8 +605,8 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
     },
     adminHealth,
   ] = await Promise.all([
-    getModerationData(adminUsername, webBaseUrl),
-    getModerationAdminHealth(adminUsername, webBaseUrl),
+    getModerationData(adminUsername, webBaseUrl, authorization),
+    getModerationAdminHealth(adminUsername, webBaseUrl, authorization),
   ]);
   const openReportCountByUserId = reports.reduce<Record<string, number>>(
     (accumulator, report) => {

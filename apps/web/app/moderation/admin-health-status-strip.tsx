@@ -89,7 +89,7 @@ export function getActiveGuardrails(
   return ["No extra moderation guardrails active"];
 }
 
-function getRecommendedBehavior(
+export function getRecommendedBehavior(
   statuses: ReturnType<typeof useLiveAdminHealth>["currentHealth"]["statuses"],
 ) {
   if (statuses.some((status) => !status.ok)) {
