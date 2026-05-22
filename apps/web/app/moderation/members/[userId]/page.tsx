@@ -14,6 +14,7 @@ import {
   getMemberAttentionSummary,
   formatModerationEventBody,
 } from "../../formatters";
+import { MemberAttentionActions } from "../../member-attention-actions";
 import { ReportFeed } from "../../report-feed";
 import { LiveAdminHealthProvider } from "../../use-live-admin-health";
 
@@ -390,28 +391,13 @@ export default async function ModerationMemberPage({
               >
                 {attentionSummary.detail}
               </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Link
-                  href={attentionActions.primaryHref}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    attentionSummary.tone === "rose"
-                      ? "bg-rose-900 text-white hover:bg-rose-950"
-                      : attentionSummary.tone === "amber"
-                        ? "bg-amber-900 text-white hover:bg-amber-950"
-                        : attentionSummary.tone === "emerald"
-                          ? "bg-emerald-900 text-white hover:bg-emerald-950"
-                          : "bg-slate-900 text-white hover:bg-slate-950 dark:bg-stone-100 dark:text-slate-950"
-                  }`}
-                >
-                  {attentionActions.primaryLabel}
-                </Link>
-                <Link
-                  href={attentionActions.secondaryHref}
-                  className="rounded-full border border-(--color-line) bg-white/70 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white dark:bg-stone-950/30 dark:text-stone-100 dark:hover:bg-stone-950/50"
-                >
-                  {attentionActions.secondaryLabel}
-                </Link>
-              </div>
+              <MemberAttentionActions
+                primaryHref={attentionActions.primaryHref}
+                primaryLabel={attentionActions.primaryLabel}
+                secondaryHref={attentionActions.secondaryHref}
+                secondaryLabel={attentionActions.secondaryLabel}
+                tone={attentionSummary.tone}
+              />
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">

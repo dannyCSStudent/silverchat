@@ -16,6 +16,8 @@ import { AdminHealthStatusStrip } from "./admin-health-status-strip";
 import { DataSourceBadge } from "./data-source-badge";
 import { FallbackWarningPanel } from "./fallback-warning-panel";
 import { getMemberAttentionSummary } from "./formatters";
+import { ModerationAttentionPanel } from "./moderation-attention-panel";
+import { ModerationSavedQueues } from "./moderation-saved-queues";
 import { ReportFeed } from "./report-feed";
 import { LiveAdminHealthProvider } from "./use-live-admin-health";
 import { WorkloadRebalance } from "./workload-rebalance";
@@ -876,6 +878,33 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
     .sort((left, right) => right.count - left.count)
     .slice(0, 5);
   const activeFilterCount = [selectedQueue, selectedAssignee, selectedActor, selectedEnforcement, selectedEnforcementFollowUp, selectedSafety, selectedStatus, selectedReason, selectedSubject].filter(Boolean).length;
+  const savedQueueItems = savedQueues.map((queue) => ({
+    description: queue.description,
+    href: buildModerationHref({
+      actor: selectedActor || undefined,
+      enforcement: selectedEnforcement || undefined,
+      queue: queue.key,
+      safety: selectedSafety || undefined,
+      subject: selectedSubject || undefined,
+    }),
+    key: queue.key,
+    label: queue.label,
+    selected: selectedQueue === queue.key,
+  }));
+  const attentionMembers = membersNeedingAttention.map((member) => ({
+    detail: member.attention.detail,
+    label: member.label,
+    lastSeenAtLabel: formatDate(member.lastSeenAt),
+    memberHref: `/moderation/members/${member.userId}`,
+    openReportCount: member.openReportCount,
+    queueHref: buildModerationHref({
+      status: "open",
+      subject: member.userId,
+    }),
+    tone: member.attention.tone,
+    title: member.attention.title,
+    userId: member.userId,
+  }));
 
   return (
     <LiveAdminHealthProvider initialHealth={adminHealth}>
@@ -1283,49 +1312,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
               slowDetail="The attention list is available, but recent priority shifts may take longer to surface."
               verySlowDetail="The attention list may lag behind current moderation state while admin routes are very slow."
             />
-            <div className="mt-6 space-y-3">
-              {membersNeedingAttention.length > 0 ? (
-                membersNeedingAttention.map((member) => (
-                  <Link
-                    key={member.userId}
-                    href={`/moderation/members/${member.userId}`}
-                    className="block rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5 transition hover:bg-(--color-surface)"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-950 dark:text-stone-100">
-                          {member.label}
-                        </p>
-                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                          {member.attention.title}
-                        </p>
-                      </div>
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          member.attention.tone === "rose"
-                            ? "bg-rose-100 text-rose-900"
-                            : member.attention.tone === "amber"
-                              ? "bg-amber-100 text-amber-900"
-                              : "bg-slate-200 text-slate-800"
-                        }`}
-                      >
-                        {member.openReportCount} open
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                      {member.attention.detail}
-                    </p>
-                    <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      Last report {formatDate(member.lastSeenAt)}
-                    </p>
-                  </Link>
-                ))
-              ) : (
-                <div className="rounded-3xl border border-dashed border-(--color-line) bg-(--color-surface-strong) p-5 text-sm text-slate-600 dark:text-slate-300">
-                  No members currently need immediate moderation follow-up.
-                </div>
-              )}
-            </div>
+            <ModerationAttentionPanel members={attentionMembers} />
           </div>
 
           <div className="rounded-[34px] border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">
@@ -1340,24 +1327,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
               slowDetail="Saved queue views are available, but their counts and contents may refresh more slowly than usual."
               verySlowDetail="Saved queue views may lag behind current moderation state while admin routes are very slow."
             />
-            <div className="mt-6 space-y-3">
-              {savedQueues.map((queue) => (
-                <Link
-                  key={queue.key}
-                  href={buildModerationHref({ actor: selectedActor || undefined, enforcement: selectedEnforcement || undefined, queue: queue.key, safety: selectedSafety || undefined, subject: selectedSubject || undefined })}
-                  className={`block rounded-3xl border p-5 transition ${
-                    selectedQueue === queue.key
-                      ? "border-slate-900 bg-slate-900 text-white dark:border-stone-100 dark:bg-stone-100 dark:text-slate-950"
-                      : "border-(--color-line) bg-(--color-surface-strong) hover:bg-(--color-surface)"
-                  }`}
-                >
-                  <p className="text-sm font-semibold">{queue.label}</p>
-                  <p className={`mt-2 text-sm ${selectedQueue === queue.key ? "text-white/72 dark:text-slate-700" : "text-slate-600 dark:text-slate-300"}`}>
-                    {queue.description}
-                  </p>
-                </Link>
-              ))}
-            </div>
+            <ModerationSavedQueues queues={savedQueueItems} />
           </div>
 
           <div className="rounded-[34px] border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">
