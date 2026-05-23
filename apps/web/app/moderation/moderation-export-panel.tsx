@@ -263,10 +263,13 @@ function buildSummaryRows(reports: ModerationReport[]) {
 function buildSummaryPreview(reports: ModerationReport[]) {
   const rows = buildSummaryRows(reports);
   const [, overviewRow, ...moderatorRows] = rows;
+  const enforcementTrendCounts = new Map<string, number>();
   const enforcementCounts = new Map<string, number>();
   const reasonCounts = new Map<string, number>();
   const safetyStateCounts = new Map<string, number>();
+  const statusTrendCounts = new Map<string, number>();
   const statusCounts = new Map<string, number>();
+  const seenEventIds = new Set<string>();
 
   for (const report of reports) {
     const enforcement = report.latest_enforcement?.action || "none";
@@ -277,6 +280,30 @@ function buildSummaryPreview(reports: ModerationReport[]) {
     reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
     safetyStateCounts.set(safetyState, (safetyStateCounts.get(safetyState) ?? 0) + 1);
     statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
+
+    for (const event of report.events ?? []) {
+      if (seenEventIds.has(event.id)) {
+        continue;
+      }
+      seenEventIds.add(event.id);
+
+      const eventDay = event.created_at?.slice(0, 10);
+      if (!eventDay) {
+        continue;
+      }
+
+      if (event.event_type === "report_status_changed") {
+        statusTrendCounts.set(
+          eventDay,
+          (statusTrendCounts.get(eventDay) ?? 0) + 1,
+        );
+      } else if (event.event_type === "enforcement_action_recorded") {
+        enforcementTrendCounts.set(
+          eventDay,
+          (enforcementTrendCounts.get(eventDay) ?? 0) + 1,
+        );
+      }
+    }
   }
 
   return {
@@ -309,6 +336,14 @@ function buildSummaryPreview(reports: ModerationReport[]) {
     safetyStateRows: Array.from(safetyStateCounts.entries())
       .map(([state, count]) => ({ state, count }))
       .sort((left, right) => right.count - left.count),
+    enforcementTrendRows: Array.from(enforcementTrendCounts.entries())
+      .map(([day, count]) => ({ day, count }))
+      .sort((left, right) => left.day.localeCompare(right.day))
+      .slice(-7),
+    statusTrendRows: Array.from(statusTrendCounts.entries())
+      .map(([day, count]) => ({ day, count }))
+      .sort((left, right) => left.day.localeCompare(right.day))
+      .slice(-7),
   };
 }
 
@@ -707,6 +742,52 @@ export function ModerationExportPanel({
                   No reports in the selected range.
                 </p>
               ) : null}
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Daily status changes
+            </p>
+            <div className="mt-3 space-y-2">
+              {summaryPreview.statusTrendRows.length > 0 ? (
+                summaryPreview.statusTrendRows.map((row) => (
+                  <div
+                    key={row.day}
+                    className="flex items-center justify-between rounded-2xl bg-(--color-surface) px-3 py-2 text-sm text-slate-700 dark:text-stone-200"
+                  >
+                    <span className="font-medium">{row.day}</span>
+                    <span className="font-semibold">{row.count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No status changes in the selected range.
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Daily enforcement actions
+            </p>
+            <div className="mt-3 space-y-2">
+              {summaryPreview.enforcementTrendRows.length > 0 ? (
+                summaryPreview.enforcementTrendRows.map((row) => (
+                  <div
+                    key={row.day}
+                    className="flex items-center justify-between rounded-2xl bg-(--color-surface) px-3 py-2 text-sm text-slate-700 dark:text-stone-200"
+                  >
+                    <span className="font-medium">{row.day}</span>
+                    <span className="font-semibold">{row.count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No enforcement actions in the selected range.
+                </p>
+              )}
             </div>
           </div>
         </div>
