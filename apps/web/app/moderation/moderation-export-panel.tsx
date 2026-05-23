@@ -263,12 +263,15 @@ function buildSummaryRows(reports: ModerationReport[]) {
 function buildSummaryPreview(reports: ModerationReport[]) {
   const rows = buildSummaryRows(reports);
   const [, overviewRow, ...moderatorRows] = rows;
+  const enforcementCounts = new Map<string, number>();
   const reasonCounts = new Map<string, number>();
   const statusCounts = new Map<string, number>();
 
   for (const report of reports) {
+    const enforcement = report.latest_enforcement?.action || "none";
     const reason = report.reason || "unknown";
     const status = report.status || "open";
+    enforcementCounts.set(enforcement, (enforcementCounts.get(enforcement) ?? 0) + 1);
     reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
     statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
   }
@@ -296,6 +299,9 @@ function buildSummaryPreview(reports: ModerationReport[]) {
       .sort((left, right) => right.count - left.count),
     statusRows: Array.from(statusCounts.entries())
       .map(([status, count]) => ({ status, count }))
+      .sort((left, right) => right.count - left.count),
+    enforcementRows: Array.from(enforcementCounts.entries())
+      .map(([action, count]) => ({ action, count }))
       .sort((left, right) => right.count - left.count),
   };
 }
@@ -576,7 +582,7 @@ export function ModerationExportPanel({
             </tbody>
           </table>
         </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="mt-4 grid gap-4 xl:grid-cols-3">
           <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
               Report reasons
@@ -611,6 +617,28 @@ export function ModerationExportPanel({
                     className="flex items-center justify-between rounded-2xl bg-(--color-surface) px-3 py-2 text-sm text-slate-700 dark:text-stone-200"
                   >
                     <span className="font-medium">{row.status}</span>
+                    <span className="font-semibold">{row.count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No reports in the selected range.
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Enforcement actions
+            </p>
+            <div className="mt-3 space-y-2">
+              {summaryPreview.enforcementRows.length > 0 ? (
+                summaryPreview.enforcementRows.map((row) => (
+                  <div
+                    key={row.action}
+                    className="flex items-center justify-between rounded-2xl bg-(--color-surface) px-3 py-2 text-sm text-slate-700 dark:text-stone-200"
+                  >
+                    <span className="font-medium">{row.action}</span>
                     <span className="font-semibold">{row.count}</span>
                   </div>
                 ))
