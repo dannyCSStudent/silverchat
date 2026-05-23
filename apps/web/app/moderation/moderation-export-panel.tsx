@@ -267,6 +267,10 @@ function buildSummaryPreview(reports: ModerationReport[]) {
   const enforcementTrendCounts = new Map<string, number>();
   const enforcementCounts = new Map<string, number>();
   const moderatorActivityCounts = new Map<string, number>();
+  const moderatorActivityLeaders = new Map<
+    string,
+    { eventCount: number; role: string }
+  >();
   const reasonCounts = new Map<string, number>();
   const resolutionTrendCounts = new Map<string, number>();
   const safetyStateCounts = new Map<string, number>();
@@ -303,6 +307,21 @@ function buildSummaryPreview(reports: ModerationReport[]) {
         eventDay,
         (moderatorActivityCounts.get(eventDay) ?? 0) + 1,
       );
+      const actorLabel =
+        event.actor_admin_user?.display_name ??
+        event.actor_admin_user?.username ??
+        "Unattributed";
+      const actorRole = event.actor_admin_user?.role ?? "";
+      const existingLeader =
+        moderatorActivityLeaders.get(actorLabel) ?? {
+          eventCount: 0,
+          role: actorRole,
+        };
+      existingLeader.eventCount += 1;
+      if (!existingLeader.role && actorRole) {
+        existingLeader.role = actorRole;
+      }
+      moderatorActivityLeaders.set(actorLabel, existingLeader);
 
       if (event.event_type === "report_status_changed") {
         statusTrendCounts.set(
@@ -360,6 +379,14 @@ function buildSummaryPreview(reports: ModerationReport[]) {
       .map(([day, count]) => ({ day, count }))
       .sort((left, right) => left.day.localeCompare(right.day))
       .slice(-7),
+    moderatorLeaderRows: Array.from(moderatorActivityLeaders.entries())
+      .map(([actor, value]) => ({
+        actor,
+        role: value.role,
+        eventCount: value.eventCount,
+      }))
+      .sort((left, right) => right.eventCount - left.eventCount)
+      .slice(0, 5),
     safetyStateRows: Array.from(safetyStateCounts.entries())
       .map(([state, count]) => ({ state, count }))
       .sort((left, right) => right.count - left.count),
@@ -671,6 +698,38 @@ export function ModerationExportPanel({
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mt-4 rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+            Most active moderators
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            {summaryPreview.moderatorLeaderRows.length > 0 ? (
+              summaryPreview.moderatorLeaderRows.map((row) => (
+                <div
+                  key={row.actor}
+                  className="rounded-2xl bg-(--color-surface) px-3 py-3 text-sm text-slate-700 dark:text-stone-200"
+                >
+                  <p className="font-semibold text-slate-950 dark:text-stone-100">
+                    {row.actor}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {row.role || "Unknown role"}
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-slate-950 dark:text-stone-100">
+                    {row.eventCount}
+                  </p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                    actions
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-slate-500 dark:text-slate-400 sm:col-span-2 xl:col-span-5">
+                No moderator activity in the selected range.
+              </p>
+            )}
+          </div>
         </div>
         <div className="mt-4 grid gap-4 xl:grid-cols-5">
           <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
