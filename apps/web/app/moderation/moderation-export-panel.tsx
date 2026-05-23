@@ -300,6 +300,8 @@ export function ModerationExportPanel({
 }: ModerationExportPanelProps) {
   const { currentHealth } = useLiveAdminHealth();
   const [pendingExport, setPendingExport] = useState<"blocks" | "events" | "reports" | "summary" | null>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const hasFailedAdminRoute = currentHealth.statuses.some((status) => !status.ok);
   const hasVerySlowAdminRoute = currentHealth.statuses.some(
     (status) => (status.durationMs ?? 0) >= 2000,
@@ -309,7 +311,61 @@ export function ModerationExportPanel({
   const highestAttentionRoute = getHighestAttentionRoute(currentHealth.statuses);
   const today = new Date().toISOString().slice(0, 10);
   const label = fileSafeLabel(filterLabel);
-  const summaryPreview = buildSummaryPreview(reports);
+  const rangeLabel =
+    dateFrom || dateTo
+      ? `${dateFrom || "start"}_to_${dateTo || "now"}`
+      : "all-dates";
+  const withinRange = (value?: string) => {
+    if (!value) {
+      return false;
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return false;
+    }
+
+    if (dateFrom) {
+      const start = new Date(`${dateFrom}T00:00:00`);
+      if (date < start) {
+        return false;
+      }
+    }
+
+    if (dateTo) {
+      const end = new Date(`${dateTo}T23:59:59.999`);
+      if (date > end) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+  const scopedReports: ModerationReport[] = [];
+  if (dateFrom || dateTo) {
+    for (const report of reports) {
+      const reportInRange = withinRange(report.created_at);
+      const scopedEvents = (report.events ?? []).filter((event) =>
+        withinRange(event.created_at),
+      );
+
+      if (!reportInRange && scopedEvents.length === 0) {
+        continue;
+      }
+
+      scopedReports.push({
+        ...report,
+        events: scopedEvents,
+      });
+    }
+  } else {
+    scopedReports.push(...reports);
+  }
+  const scopedBlocks =
+    dateFrom || dateTo
+      ? blocks.filter((block) => withinRange(block.created_at))
+      : blocks;
+  const summaryPreview = buildSummaryPreview(scopedReports);
 
   return (
     <div className="rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5">
@@ -329,6 +385,47 @@ export function ModerationExportPanel({
       <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
         Filter scope: {filterLabel}
       </p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <label className="rounded-2xl border border-(--color-line) bg-(--color-surface) px-4 py-3 text-sm text-slate-700 dark:text-stone-200">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+            Date from
+          </span>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(event) => setDateFrom(event.target.value)}
+            className="mt-2 block w-full rounded-xl border border-(--color-line) bg-(--color-surface-strong) px-3 py-2 text-sm outline-none"
+          />
+        </label>
+        <label className="rounded-2xl border border-(--color-line) bg-(--color-surface) px-4 py-3 text-sm text-slate-700 dark:text-stone-200">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+            Date to
+          </span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(event) => setDateTo(event.target.value)}
+            className="mt-2 block w-full rounded-xl border border-(--color-line) bg-(--color-surface-strong) px-3 py-2 text-sm outline-none"
+          />
+        </label>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+        <span>
+          Date scope: {dateFrom || dateTo ? `${dateFrom || "start"} to ${dateTo || "now"}` : "all available dates"}
+        </span>
+        {(dateFrom || dateTo) ? (
+          <button
+            type="button"
+            onClick={() => {
+              setDateFrom("");
+              setDateTo("");
+            }}
+            className="rounded-full border border-(--color-line) bg-(--color-surface) px-3 py-1 font-semibold text-slate-700 transition hover:bg-(--color-chip-muted) dark:text-stone-100"
+          >
+            Clear dates
+          </button>
+        ) : null}
+      </div>
       <div className="mt-4 rounded-2xl border border-(--color-line) bg-(--color-surface) p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
           Activity summary
@@ -440,8 +537,8 @@ export function ModerationExportPanel({
           onClick={() => {
             setPendingExport("reports");
             downloadCsv(
-              `moderation-reports-${label}-${today}.csv`,
-              buildReportsRows(reports),
+              `moderation-reports-${label}-${rangeLabel}-${today}.csv`,
+              buildReportsRows(scopedReports),
             );
             setPendingExport(null);
           }}
@@ -450,15 +547,15 @@ export function ModerationExportPanel({
         >
           {pendingExport === "reports"
             ? "Preparing reports..."
-            : `Export reports (${reports.length})`}
+            : `Export reports (${scopedReports.length})`}
         </button>
         <button
           type="button"
           onClick={() => {
             setPendingExport("blocks");
             downloadCsv(
-              `moderation-blocks-${label}-${today}.csv`,
-              buildBlocksRows(blocks),
+              `moderation-blocks-${label}-${rangeLabel}-${today}.csv`,
+              buildBlocksRows(scopedBlocks),
             );
             setPendingExport(null);
           }}
@@ -467,15 +564,15 @@ export function ModerationExportPanel({
         >
           {pendingExport === "blocks"
             ? "Preparing blocks..."
-            : `Export blocks (${blocks.length})`}
+            : `Export blocks (${scopedBlocks.length})`}
         </button>
         <button
           type="button"
           onClick={() => {
             setPendingExport("events");
             downloadCsv(
-              `moderation-events-${label}-${today}.csv`,
-              buildEventsRows(reports),
+              `moderation-events-${label}-${rangeLabel}-${today}.csv`,
+              buildEventsRows(scopedReports),
             );
             setPendingExport(null);
           }}
@@ -484,15 +581,15 @@ export function ModerationExportPanel({
         >
           {pendingExport === "events"
             ? "Preparing events..."
-            : `Export events (${reports.reduce((count, report) => count + (report.events?.length ?? 0), 0)})`}
+            : `Export events (${scopedReports.reduce((count, report) => count + (report.events?.length ?? 0), 0)})`}
         </button>
         <button
           type="button"
           onClick={() => {
             setPendingExport("summary");
             downloadCsv(
-              `moderation-summary-${label}-${today}.csv`,
-              buildSummaryRows(reports),
+              `moderation-summary-${label}-${rangeLabel}-${today}.csv`,
+              buildSummaryRows(scopedReports),
             );
             setPendingExport(null);
           }}
