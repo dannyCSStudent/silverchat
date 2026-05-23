@@ -588,7 +588,7 @@ export function ModerationExportPanel({
             </tbody>
           </table>
         </div>
-        <div className="mt-4 grid gap-4 xl:grid-cols-4">
+        <div className="mt-4 grid gap-4 xl:grid-cols-5">
           <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
               Report reasons
@@ -675,6 +675,38 @@ export function ModerationExportPanel({
                   No reports in the selected range.
                 </p>
               )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Daily pressure
+            </p>
+            <div className="mt-3 space-y-2">
+              {(() => {
+                const dailyCounts = new Map<string, number>();
+                for (const report of scopedReports) {
+                  const key = report.created_at?.slice(0, 10) ?? "unknown";
+                  dailyCounts.set(key, (dailyCounts.get(key) ?? 0) + 1);
+                }
+
+                return Array.from(dailyCounts.entries())
+                  .sort((left, right) => left[0].localeCompare(right[0]))
+                  .slice(-7)
+                  .map(([day, count]) => (
+                    <div
+                      key={day}
+                      className="flex items-center justify-between rounded-2xl bg-(--color-surface) px-3 py-2 text-sm text-slate-700 dark:text-stone-200"
+                    >
+                      <span className="font-medium">{day}</span>
+                      <span className="font-semibold">{count}</span>
+                    </div>
+                  ));
+              })()}
+              {scopedReports.length === 0 ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No reports in the selected range.
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
