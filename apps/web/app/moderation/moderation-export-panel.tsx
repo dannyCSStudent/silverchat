@@ -266,6 +266,7 @@ function buildSummaryPreview(reports: ModerationReport[]) {
   const dailyPressureCounts = new Map<string, number>();
   const enforcementTrendCounts = new Map<string, number>();
   const enforcementCounts = new Map<string, number>();
+  const moderatorActivityCounts = new Map<string, number>();
   const reasonCounts = new Map<string, number>();
   const resolutionTrendCounts = new Map<string, number>();
   const safetyStateCounts = new Map<string, number>();
@@ -297,6 +298,11 @@ function buildSummaryPreview(reports: ModerationReport[]) {
       if (!eventDay) {
         continue;
       }
+
+      moderatorActivityCounts.set(
+        eventDay,
+        (moderatorActivityCounts.get(eventDay) ?? 0) + 1,
+      );
 
       if (event.event_type === "report_status_changed") {
         statusTrendCounts.set(
@@ -350,6 +356,10 @@ function buildSummaryPreview(reports: ModerationReport[]) {
     enforcementRows: Array.from(enforcementCounts.entries())
       .map(([action, count]) => ({ action, count }))
       .sort((left, right) => right.count - left.count),
+    moderatorActivityTrendRows: Array.from(moderatorActivityCounts.entries())
+      .map(([day, count]) => ({ day, count }))
+      .sort((left, right) => left.day.localeCompare(right.day))
+      .slice(-7),
     safetyStateRows: Array.from(safetyStateCounts.entries())
       .map(([state, count]) => ({ state, count }))
       .sort((left, right) => right.count - left.count),
@@ -774,7 +784,7 @@ export function ModerationExportPanel({
             </div>
           </div>
         </div>
-        <div className="mt-4 grid gap-4 xl:grid-cols-4">
+        <div className="mt-4 grid gap-4 xl:grid-cols-5">
           <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
               Daily status changes
@@ -874,6 +884,28 @@ export function ModerationExportPanel({
               ) : (
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   No trend comparison available in the selected range.
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Daily moderator actions
+            </p>
+            <div className="mt-3 space-y-2">
+              {summaryPreview.moderatorActivityTrendRows.length > 0 ? (
+                summaryPreview.moderatorActivityTrendRows.map((row) => (
+                  <div
+                    key={row.day}
+                    className="flex items-center justify-between rounded-2xl bg-(--color-surface) px-3 py-2 text-sm text-slate-700 dark:text-stone-200"
+                  >
+                    <span className="font-medium">{row.day}</span>
+                    <span className="font-semibold">{row.count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No moderator actions in the selected range.
                 </p>
               )}
             </div>
