@@ -293,6 +293,21 @@ function fileSafeLabel(value: string) {
     .replaceAll(/^-+|-+$/g, "") || "all";
 }
 
+function formatDateInputValue(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getPresetRange(days: number) {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - (days - 1));
+
+  return {
+    from: formatDateInputValue(start),
+    to: formatDateInputValue(end),
+  };
+}
+
 export function ModerationExportPanel({
   blocks,
   filterLabel,
@@ -408,6 +423,41 @@ export function ModerationExportPanel({
             className="mt-2 block w-full rounded-xl border border-(--color-line) bg-(--color-surface-strong) px-3 py-2 text-sm outline-none"
           />
         </label>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            const todayRange = getPresetRange(1);
+            setDateFrom(todayRange.from);
+            setDateTo(todayRange.to);
+          }}
+          className="rounded-full border border-(--color-line) bg-(--color-surface) px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-(--color-chip-muted) dark:text-stone-100"
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const last7Days = getPresetRange(7);
+            setDateFrom(last7Days.from);
+            setDateTo(last7Days.to);
+          }}
+          className="rounded-full border border-(--color-line) bg-(--color-surface) px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-(--color-chip-muted) dark:text-stone-100"
+        >
+          Last 7 days
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const last30Days = getPresetRange(30);
+            setDateFrom(last30Days.from);
+            setDateTo(last30Days.to);
+          }}
+          className="rounded-full border border-(--color-line) bg-(--color-surface) px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-(--color-chip-muted) dark:text-stone-100"
+        >
+          Last 30 days
+        </button>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
         <span>
