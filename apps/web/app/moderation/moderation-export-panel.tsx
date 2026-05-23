@@ -263,6 +263,7 @@ function buildSummaryRows(reports: ModerationReport[]) {
 function buildSummaryPreview(reports: ModerationReport[]) {
   const rows = buildSummaryRows(reports);
   const [, overviewRow, ...moderatorRows] = rows;
+  const dailyPressureCounts = new Map<string, number>();
   const enforcementTrendCounts = new Map<string, number>();
   const enforcementCounts = new Map<string, number>();
   const reasonCounts = new Map<string, number>();
@@ -277,10 +278,14 @@ function buildSummaryPreview(reports: ModerationReport[]) {
     const reason = report.reason || "unknown";
     const safetyState = report.member_safety_state?.state || "clear";
     const status = report.status || "open";
+    const reportDay = report.created_at?.slice(0, 10);
     enforcementCounts.set(enforcement, (enforcementCounts.get(enforcement) ?? 0) + 1);
     reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
     safetyStateCounts.set(safetyState, (safetyStateCounts.get(safetyState) ?? 0) + 1);
     statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
+    if (reportDay) {
+      dailyPressureCounts.set(reportDay, (dailyPressureCounts.get(reportDay) ?? 0) + 1);
+    }
 
     for (const event of report.events ?? []) {
       if (seenEventIds.has(event.id)) {
@@ -332,6 +337,10 @@ function buildSummaryPreview(reports: ModerationReport[]) {
       reviewCount: Number(overviewRow?.[9] ?? 0),
       statusChangeCount: Number(overviewRow?.[6] ?? 0),
     },
+    pressureTrendRows: Array.from(dailyPressureCounts.entries())
+      .map(([day, count]) => ({ day, count }))
+      .sort((left, right) => left.day.localeCompare(right.day))
+      .slice(-7),
     reasonRows: Array.from(reasonCounts.entries())
       .map(([reason, count]) => ({ reason, count }))
       .sort((left, right) => right.count - left.count),
@@ -356,6 +365,24 @@ function buildSummaryPreview(reports: ModerationReport[]) {
       .map(([day, count]) => ({ day, count }))
       .sort((left, right) => left.day.localeCompare(right.day))
       .slice(-7),
+    pressureVsResolvedRows: Array.from(
+      new Set([
+        ...dailyPressureCounts.keys(),
+        ...resolutionTrendCounts.keys(),
+      ]),
+    )
+      .sort((left, right) => left.localeCompare(right))
+      .slice(-7)
+      .map((day) => {
+        const pressure = dailyPressureCounts.get(day) ?? 0;
+        const resolved = resolutionTrendCounts.get(day) ?? 0;
+        return {
+          day,
+          pressure,
+          resolved,
+          delta: pressure - resolved,
+        };
+      }),
   };
 }
 
@@ -729,35 +756,25 @@ export function ModerationExportPanel({
               Daily pressure
             </p>
             <div className="mt-3 space-y-2">
-              {(() => {
-                const dailyCounts = new Map<string, number>();
-                for (const report of scopedReports) {
-                  const key = report.created_at?.slice(0, 10) ?? "unknown";
-                  dailyCounts.set(key, (dailyCounts.get(key) ?? 0) + 1);
-                }
-
-                return Array.from(dailyCounts.entries())
-                  .sort((left, right) => left[0].localeCompare(right[0]))
-                  .slice(-7)
-                  .map(([day, count]) => (
-                    <div
-                      key={day}
-                      className="flex items-center justify-between rounded-2xl bg-(--color-surface) px-3 py-2 text-sm text-slate-700 dark:text-stone-200"
-                    >
-                      <span className="font-medium">{day}</span>
-                      <span className="font-semibold">{count}</span>
-                    </div>
-                  ));
-              })()}
-              {scopedReports.length === 0 ? (
+              {summaryPreview.pressureTrendRows.length > 0 ? (
+                summaryPreview.pressureTrendRows.map((row) => (
+                  <div
+                    key={row.day}
+                    className="flex items-center justify-between rounded-2xl bg-(--color-surface) px-3 py-2 text-sm text-slate-700 dark:text-stone-200"
+                  >
+                    <span className="font-medium">{row.day}</span>
+                    <span className="font-semibold">{row.count}</span>
+                  </div>
+                ))
+              ) : (
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   No reports in the selected range.
                 </p>
-              ) : null}
+              )}
             </div>
           </div>
         </div>
-        <div className="mt-4 grid gap-4 xl:grid-cols-3">
+        <div className="mt-4 grid gap-4 xl:grid-cols-4">
           <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
               Daily status changes
@@ -820,6 +837,43 @@ export function ModerationExportPanel({
               ) : (
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   No resolved or dismissed outcomes in the selected range.
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Pressure vs resolved
+            </p>
+            <div className="mt-3 space-y-2">
+              {summaryPreview.pressureVsResolvedRows.length > 0 ? (
+                summaryPreview.pressureVsResolvedRows.map((row) => (
+                  <div
+                    key={row.day}
+                    className="rounded-2xl bg-(--color-surface) px-3 py-2 text-sm text-slate-700 dark:text-stone-200"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{row.day}</span>
+                      <span
+                        className={`font-semibold ${
+                          row.delta > 0
+                            ? "text-amber-700 dark:text-amber-300"
+                            : row.delta < 0
+                              ? "text-emerald-700 dark:text-emerald-300"
+                              : "text-slate-700 dark:text-stone-200"
+                        }`}
+                      >
+                        {row.delta > 0 ? `+${row.delta}` : row.delta}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {row.pressure} new · {row.resolved} closed
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No trend comparison available in the selected range.
                 </p>
               )}
             </div>
