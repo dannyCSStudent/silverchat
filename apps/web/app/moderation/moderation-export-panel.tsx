@@ -263,6 +263,15 @@ function buildSummaryRows(reports: ModerationReport[]) {
 function buildSummaryPreview(reports: ModerationReport[]) {
   const rows = buildSummaryRows(reports);
   const [, overviewRow, ...moderatorRows] = rows;
+  const reasonCounts = new Map<string, number>();
+  const statusCounts = new Map<string, number>();
+
+  for (const report of reports) {
+    const reason = report.reason || "unknown";
+    const status = report.status || "open";
+    reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
+    statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
+  }
 
   return {
     moderatorRows: moderatorRows.map((row) => ({
@@ -282,6 +291,12 @@ function buildSummaryPreview(reports: ModerationReport[]) {
       reviewCount: Number(overviewRow?.[9] ?? 0),
       statusChangeCount: Number(overviewRow?.[6] ?? 0),
     },
+    reasonRows: Array.from(reasonCounts.entries())
+      .map(([reason, count]) => ({ reason, count }))
+      .sort((left, right) => right.count - left.count),
+    statusRows: Array.from(statusCounts.entries())
+      .map(([status, count]) => ({ status, count }))
+      .sort((left, right) => right.count - left.count),
   };
 }
 
@@ -560,6 +575,52 @@ export function ModerationExportPanel({
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Report reasons
+            </p>
+            <div className="mt-3 space-y-2">
+              {summaryPreview.reasonRows.length > 0 ? (
+                summaryPreview.reasonRows.map((row) => (
+                  <div
+                    key={row.reason}
+                    className="flex items-center justify-between rounded-2xl bg-(--color-surface) px-3 py-2 text-sm text-slate-700 dark:text-stone-200"
+                  >
+                    <span className="font-medium">{row.reason}</span>
+                    <span className="font-semibold">{row.count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No reports in the selected range.
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Report statuses
+            </p>
+            <div className="mt-3 space-y-2">
+              {summaryPreview.statusRows.length > 0 ? (
+                summaryPreview.statusRows.map((row) => (
+                  <div
+                    key={row.status}
+                    className="flex items-center justify-between rounded-2xl bg-(--color-surface) px-3 py-2 text-sm text-slate-700 dark:text-stone-200"
+                  >
+                    <span className="font-medium">{row.status}</span>
+                    <span className="font-semibold">{row.count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No reports in the selected range.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
       {(hasFailedAdminRoute || hasVerySlowAdminRoute) ? (
