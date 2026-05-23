@@ -266,6 +266,10 @@ function buildSummaryPreview(reports: ModerationReport[]) {
   const dailyPressureCounts = new Map<string, number>();
   const enforcementTrendCounts = new Map<string, number>();
   const enforcementCounts = new Map<string, number>();
+  const enforcementLeaderRows = new Map<
+    string,
+    { enforcementCount: number; role: string }
+  >();
   const moderatorActivityCounts = new Map<string, number>();
   const moderatorActivityLeaders = new Map<
     string,
@@ -340,6 +344,16 @@ function buildSummaryPreview(reports: ModerationReport[]) {
           eventDay,
           (enforcementTrendCounts.get(eventDay) ?? 0) + 1,
         );
+        const existingEnforcementLeader =
+          enforcementLeaderRows.get(actorLabel) ?? {
+            enforcementCount: 0,
+            role: actorRole,
+          };
+        existingEnforcementLeader.enforcementCount += 1;
+        if (!existingEnforcementLeader.role && actorRole) {
+          existingEnforcementLeader.role = actorRole;
+        }
+        enforcementLeaderRows.set(actorLabel, existingEnforcementLeader);
       }
     }
   }
@@ -386,6 +400,14 @@ function buildSummaryPreview(reports: ModerationReport[]) {
         eventCount: value.eventCount,
       }))
       .sort((left, right) => right.eventCount - left.eventCount)
+      .slice(0, 5),
+    enforcementLeaderRows: Array.from(enforcementLeaderRows.entries())
+      .map(([actor, value]) => ({
+        actor,
+        role: value.role,
+        enforcementCount: value.enforcementCount,
+      }))
+      .sort((left, right) => right.enforcementCount - left.enforcementCount)
       .slice(0, 5),
     safetyStateRows: Array.from(safetyStateCounts.entries())
       .map(([state, count]) => ({ state, count }))
@@ -699,36 +721,70 @@ export function ModerationExportPanel({
             </tbody>
           </table>
         </div>
-        <div className="mt-4 rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-            Most active moderators
-          </p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-            {summaryPreview.moderatorLeaderRows.length > 0 ? (
-              summaryPreview.moderatorLeaderRows.map((row) => (
-                <div
-                  key={row.actor}
-                  className="rounded-2xl bg-(--color-surface) px-3 py-3 text-sm text-slate-700 dark:text-stone-200"
-                >
-                  <p className="font-semibold text-slate-950 dark:text-stone-100">
-                    {row.actor}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    {row.role || "Unknown role"}
-                  </p>
-                  <p className="mt-2 text-lg font-semibold text-slate-950 dark:text-stone-100">
-                    {row.eventCount}
-                  </p>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                    actions
-                  </p>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-slate-500 dark:text-slate-400 sm:col-span-2 xl:col-span-5">
-                No moderator activity in the selected range.
-              </p>
-            )}
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Most active moderators
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {summaryPreview.moderatorLeaderRows.length > 0 ? (
+                summaryPreview.moderatorLeaderRows.map((row) => (
+                  <div
+                    key={row.actor}
+                    className="rounded-2xl bg-(--color-surface) px-3 py-3 text-sm text-slate-700 dark:text-stone-200"
+                  >
+                    <p className="font-semibold text-slate-950 dark:text-stone-100">
+                      {row.actor}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {row.role || "Unknown role"}
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-slate-950 dark:text-stone-100">
+                      {row.eventCount}
+                    </p>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                      actions
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400 sm:col-span-2">
+                  No moderator activity in the selected range.
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Most active enforcers
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {summaryPreview.enforcementLeaderRows.length > 0 ? (
+                summaryPreview.enforcementLeaderRows.map((row) => (
+                  <div
+                    key={row.actor}
+                    className="rounded-2xl bg-(--color-surface) px-3 py-3 text-sm text-slate-700 dark:text-stone-200"
+                  >
+                    <p className="font-semibold text-slate-950 dark:text-stone-100">
+                      {row.actor}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {row.role || "Unknown role"}
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-slate-950 dark:text-stone-100">
+                      {row.enforcementCount}
+                    </p>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                      enforcement actions
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400 sm:col-span-2">
+                  No enforcement actions in the selected range.
+                </p>
+              )}
+            </div>
           </div>
         </div>
         <div className="mt-4 grid gap-4 xl:grid-cols-5">
