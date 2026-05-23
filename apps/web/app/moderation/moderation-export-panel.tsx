@@ -266,6 +266,7 @@ function buildSummaryPreview(reports: ModerationReport[]) {
   const enforcementTrendCounts = new Map<string, number>();
   const enforcementCounts = new Map<string, number>();
   const reasonCounts = new Map<string, number>();
+  const resolutionTrendCounts = new Map<string, number>();
   const safetyStateCounts = new Map<string, number>();
   const statusTrendCounts = new Map<string, number>();
   const statusCounts = new Map<string, number>();
@@ -297,6 +298,13 @@ function buildSummaryPreview(reports: ModerationReport[]) {
           eventDay,
           (statusTrendCounts.get(eventDay) ?? 0) + 1,
         );
+        const nextStatus = String(event.payload?.to_status ?? "");
+        if (nextStatus === "resolved" || nextStatus === "dismissed") {
+          resolutionTrendCounts.set(
+            eventDay,
+            (resolutionTrendCounts.get(eventDay) ?? 0) + 1,
+          );
+        }
       } else if (event.event_type === "enforcement_action_recorded") {
         enforcementTrendCounts.set(
           eventDay,
@@ -337,6 +345,10 @@ function buildSummaryPreview(reports: ModerationReport[]) {
       .map(([state, count]) => ({ state, count }))
       .sort((left, right) => right.count - left.count),
     enforcementTrendRows: Array.from(enforcementTrendCounts.entries())
+      .map(([day, count]) => ({ day, count }))
+      .sort((left, right) => left.day.localeCompare(right.day))
+      .slice(-7),
+    resolutionTrendRows: Array.from(resolutionTrendCounts.entries())
       .map(([day, count]) => ({ day, count }))
       .sort((left, right) => left.day.localeCompare(right.day))
       .slice(-7),
@@ -745,7 +757,7 @@ export function ModerationExportPanel({
             </div>
           </div>
         </div>
-        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <div className="mt-4 grid gap-4 xl:grid-cols-3">
           <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
               Daily status changes
@@ -786,6 +798,28 @@ export function ModerationExportPanel({
               ) : (
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   No enforcement actions in the selected range.
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-(--color-line) bg-(--color-surface-strong) p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Daily resolved work
+            </p>
+            <div className="mt-3 space-y-2">
+              {summaryPreview.resolutionTrendRows.length > 0 ? (
+                summaryPreview.resolutionTrendRows.map((row) => (
+                  <div
+                    key={row.day}
+                    className="flex items-center justify-between rounded-2xl bg-(--color-surface) px-3 py-2 text-sm text-slate-700 dark:text-stone-200"
+                  >
+                    <span className="font-medium">{row.day}</span>
+                    <span className="font-semibold">{row.count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No resolved or dismissed outcomes in the selected range.
                 </p>
               )}
             </div>
