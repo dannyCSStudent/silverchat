@@ -467,7 +467,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       await refreshData(session);
-      setMessage('Profile saved.');
+      setMessage('Profile saved. Match signals refreshed.');
     } finally {
       setLoading(false);
     }
@@ -498,7 +498,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       await refreshData(session);
-      setMessage('Interests saved.');
+      setMessage('Interests saved. Match signals refreshed.');
     } finally {
       setLoading(false);
     }
