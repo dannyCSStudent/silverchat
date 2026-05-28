@@ -108,6 +108,7 @@ type AuthContextValue = {
   loading: boolean;
   message: string | null;
   matchPreview: MatchPreviewResponse | null;
+  lastSyncedAt: string | null;
   onboardingChecklist: Array<{
     complete: boolean;
     id: 'email' | 'profile' | 'interests' | 'onboarding';
@@ -186,6 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [matchPreview, setMatchPreview] = useState<MatchPreviewResponse | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [sessionState, setSessionState] = useState<SessionState | null>(null);
@@ -272,6 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setInterests(snapshot.interests);
         await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
         lastRefreshAtRef.current = Date.now();
+        setLastSyncedAt(new Date().toISOString());
       } catch (error) {
         setMessage(error instanceof Error ? error.message : 'Unable to refresh account data.');
       }
@@ -568,6 +571,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       initialized,
       interests,
       matchPreview,
+      lastSyncedAt,
       joinQueue,
       loading,
       message,
@@ -595,6 +599,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       initialized,
       interests,
       matchPreview,
+      lastSyncedAt,
       joinQueue,
       loading,
       message,

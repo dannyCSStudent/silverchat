@@ -28,6 +28,7 @@ export default function AccountScreen() {
     signOut,
     user,
     saveProfile,
+    lastSyncedAt,
     refreshData,
   } = useAuth();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
@@ -154,6 +155,11 @@ export default function AccountScreen() {
             <ThemedText style={styles.cardCopy}>
               {sessionState?.user.email_confirmed_at ? 'Email confirmed' : 'Email confirmation pending'}
             </ThemedText>
+            {lastSyncedAt ? (
+              <ThemedText style={styles.cardCopy}>
+                Last synced: {new Date(lastSyncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </ThemedText>
+            ) : null}
           </View>
           <Pressable disabled={loading} onPress={() => void signOut()}>
             <ThemedText style={styles.linkText}>Sign out</ThemedText>

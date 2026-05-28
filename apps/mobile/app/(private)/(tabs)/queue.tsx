@@ -25,6 +25,7 @@ export default function QueueScreen() {
     profile,
     queueEligible,
     refreshData,
+    lastSyncedAt,
   } = useAuth();
   const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [matchedProfile, setMatchedProfile] = useState<{
@@ -133,6 +134,11 @@ export default function QueueScreen() {
         <ThemedText style={styles.cardCopy}>
           Profile status: {profile?.profile_status ?? 'pending'}
         </ThemedText>
+        {lastSyncedAt ? (
+          <ThemedText style={styles.cardCopy}>
+            Last synced: {new Date(lastSyncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+          </ThemedText>
+        ) : null}
       </ThemedView>
 
       <ThemedView style={styles.card}>

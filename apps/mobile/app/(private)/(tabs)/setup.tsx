@@ -23,6 +23,7 @@ export default function SetupScreen() {
     queueEligible,
     saveInterests,
     refreshData,
+    lastSyncedAt,
   } = useAuth();
   const [selectedInterests, setSelectedInterests] = useState<string[]>(interests);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -105,6 +106,11 @@ export default function SetupScreen() {
         <ThemedText style={styles.cardCopy}>
           Queue eligible: {queueEligible ? 'Yes' : 'No'}
         </ThemedText>
+        {lastSyncedAt ? (
+          <ThemedText style={styles.cardCopy}>
+            Last synced: {new Date(lastSyncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+          </ThemedText>
+        ) : null}
       </ThemedView>
 
       <ThemedView style={styles.card}>
