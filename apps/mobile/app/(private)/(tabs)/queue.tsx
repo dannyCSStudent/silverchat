@@ -103,7 +103,14 @@ export default function QueueScreen() {
                 );
 
                 if (strongestMissingCategory && strongestMissingCategory.kind === 'profile') {
-                  return `Finish ${strongestMissingCategory.sample ?? 'your profile'} to unlock better matching.`;
+                  const missingProfileFields =
+                    strongestMissingCategory.missingProfileFields?.join(', ') ??
+                    strongestMissingCategory.sample ??
+                    'profile basics';
+                  const missingFlowSteps = strongestMissingCategory.missingFlowSteps?.length
+                    ? ` Flow step: ${strongestMissingCategory.missingFlowSteps.join(', ')}.`
+                    : '';
+                  return `Still missing: ${missingProfileFields}.${missingFlowSteps}`;
                 }
 
                 if (strongestMissingCategory && interests.length < 3) {

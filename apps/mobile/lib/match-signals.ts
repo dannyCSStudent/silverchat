@@ -1,8 +1,10 @@
 export type MatchSignalSuggestion = {
   category: string;
   count: number;
-  sample: string | null;
   kind: 'interest' | 'profile';
+  sample: string | null;
+  missingFlowSteps?: string[];
+  missingProfileFields?: string[];
 };
 
 export function getMatchSignalSuggestion(
@@ -19,15 +21,19 @@ export function getMatchSignalSuggestion(
     !profile?.display_name?.trim() ? 'display name' : null,
     !profile?.date_of_birth ? 'date of birth' : null,
     !profile?.country_code?.trim() ? 'country code' : null,
-    !profile?.onboarding_completed_at ? 'finished onboarding' : null,
   ].filter(Boolean) as string[];
+  const missingFlowSteps = [!profile?.onboarding_completed_at ? 'finished onboarding' : null].filter(
+    Boolean,
+  ) as string[];
 
-  if (missingProfileFields.length > 0) {
+  if (missingProfileFields.length > 0 || missingFlowSteps.length > 0) {
     return {
       category: 'Profile',
-      count: missingProfileFields.length,
-      sample: missingProfileFields[0],
+      count: missingProfileFields.length + missingFlowSteps.length,
+      sample: missingProfileFields[0] ?? missingFlowSteps[0] ?? null,
       kind: 'profile' as const,
+      missingFlowSteps,
+      missingProfileFields,
     };
   }
 

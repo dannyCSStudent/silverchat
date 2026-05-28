@@ -102,12 +102,20 @@ export default function SetupScreen() {
             <ThemedText style={styles.suggestionLabel}>Match boost</ThemedText>
             <ThemedText style={styles.suggestionCopy}>
               {matchInterestSuggestion.kind === 'profile'
-                ? `Finish ${matchInterestSuggestion.sample ?? 'your profile'} to unlock better matching.`
+                ? `Still missing: ${
+                    matchInterestSuggestion.missingProfileFields?.join(', ') ??
+                    matchInterestSuggestion.sample ??
+                    'profile basics'
+                  }.`
                 : `${matchInterestSuggestion.count} unselected ${matchInterestSuggestion.category} interest${matchInterestSuggestion.count === 1 ? '' : 's'} remain.`}
             </ThemedText>
             <ThemedText style={styles.suggestionCopy}>
               {matchInterestSuggestion.kind === 'profile'
-                ? 'Complete the profile basics first, then return here to tune your interest mix.'
+                ? `${
+                    matchInterestSuggestion.missingFlowSteps?.length
+                      ? `Flow step: ${matchInterestSuggestion.missingFlowSteps.join(', ')}. `
+                      : ''
+                  }Complete those profile fields first, then return here to tune your interest mix.`
                 : `Add ${matchInterestSuggestion.sample ?? 'one interest'} to strengthen future matches.`}
             </ThemedText>
           </View>

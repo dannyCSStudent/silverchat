@@ -7,6 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
+import { getMatchSignalSuggestion } from '@/lib/match-signals';
 import { pickAvatarAsset, uploadAvatar } from '@/lib/storage';
 
 function formatDateInput(value: string) {
@@ -34,6 +35,7 @@ export default function AccountScreen() {
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? '');
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const profileMatchSuggestion = profile ? getMatchSignalSuggestion([], [], profile) : null;
 
   useEffect(() => {
     setDisplayName(profile?.display_name ?? '');
@@ -122,6 +124,30 @@ export default function AccountScreen() {
           </Pressable>
         </View>
       </ThemedView>
+
+      {profileMatchSuggestion?.kind === 'profile' ? (
+        <ThemedView style={[styles.card, styles.attentionCard]}>
+          <ThemedText style={styles.attentionLabel}>Match readiness</ThemedText>
+          <ThemedText type="subtitle">Finish profile basics first</ThemedText>
+          <ThemedText style={styles.cardCopy}>
+            {profileMatchSuggestion.missingProfileFields?.length
+              ? `Still missing: ${profileMatchSuggestion.missingProfileFields.join(', ')}.`
+              : 'Complete the remaining editable profile fields before joining matchmaking.'}
+          </ThemedText>
+          {profileMatchSuggestion.missingFlowSteps?.length ? (
+            <ThemedText style={styles.cardCopy}>
+              Flow step: {profileMatchSuggestion.missingFlowSteps.join(', ')}.
+            </ThemedText>
+          ) : null}
+          <View style={styles.missingFieldList}>
+            {profileMatchSuggestion.missingProfileFields?.map((field) => (
+              <View key={field} style={styles.missingFieldChip}>
+                <ThemedText style={styles.missingFieldText}>{field}</ThemedText>
+              </View>
+            ))}
+          </View>
+        </ThemedView>
+      ) : null}
 
       <ThemedView style={styles.card}>
         <ThemedText style={styles.cardLabel}>Profile</ThemedText>
@@ -226,10 +252,24 @@ const styles = StyleSheet.create({
   title: { fontSize: 32, lineHeight: 36 },
   copy: { fontSize: 16, lineHeight: 24, opacity: 0.8 },
   card: { borderRadius: 24, padding: 18, gap: 12 },
+  attentionCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(183,68,68,0.18)',
+    backgroundColor: 'rgba(183,68,68,0.06)',
+  },
   cardLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, opacity: 0.62 },
+  attentionLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, color: '#B74444' },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
   copyGroup: { flex: 1, gap: 4 },
   rowBetween: { flexDirection: 'row', gap: 12, justifyContent: 'space-between', alignItems: 'flex-start' },
+  missingFieldList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  missingFieldChip: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  missingFieldText: { fontSize: 13, fontWeight: '700', color: '#B74444' },
   avatarSection: { gap: 10 },
   avatarLabel: { fontSize: 13, fontWeight: '700', opacity: 0.7, textTransform: 'uppercase' },
   avatarPreview: { width: 112, height: 112, borderRadius: 56, backgroundColor: 'rgba(24,33,43,0.08)' },
