@@ -25,12 +25,6 @@ export default function QueueScreen() {
     queueEligible,
     refreshData,
   } = useAuth();
-  const profileReady = Boolean(
-    profile?.display_name.trim() &&
-      profile?.date_of_birth &&
-      profile?.country_code?.trim() &&
-      profile?.onboarding_completed_at,
-  );
   const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [matchedProfile, setMatchedProfile] = useState<{
     user_id: string;
@@ -105,8 +99,12 @@ export default function QueueScreen() {
                 const strongestMissingCategory = getMatchSignalSuggestion(
                   availableInterests,
                   interests,
-                  profileReady,
+                  profile,
                 );
+
+                if (strongestMissingCategory && strongestMissingCategory.kind === 'profile') {
+                  return `Finish ${strongestMissingCategory.sample ?? 'your profile'} to unlock better matching.`;
+                }
 
                 if (strongestMissingCategory && interests.length < 3) {
                   const { category, count } = strongestMissingCategory;

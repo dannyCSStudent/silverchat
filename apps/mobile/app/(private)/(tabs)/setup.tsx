@@ -22,12 +22,6 @@ export default function SetupScreen() {
     queueEligible,
     saveInterests,
   } = useAuth();
-  const profileReady = Boolean(
-    profile?.display_name.trim() &&
-      profile?.date_of_birth &&
-      profile?.country_code?.trim() &&
-      profile?.onboarding_completed_at,
-  );
   const [selectedInterests, setSelectedInterests] = useState<string[]>(interests);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -47,8 +41,8 @@ export default function SetupScreen() {
   }, [availableInterests]);
 
   const matchInterestSuggestion = useMemo(
-    () => getMatchSignalSuggestion(availableInterests, selectedInterests, profileReady),
-    [availableInterests, selectedInterests, profileReady],
+    () => getMatchSignalSuggestion(availableInterests, selectedInterests, profile),
+    [availableInterests, profile, selectedInterests],
   );
 
   function toggleInterest(interestId: string) {
@@ -107,11 +101,14 @@ export default function SetupScreen() {
           <View style={styles.suggestionCard}>
             <ThemedText style={styles.suggestionLabel}>Match boost</ThemedText>
             <ThemedText style={styles.suggestionCopy}>
-              {matchInterestSuggestion.count} unselected {matchInterestSuggestion.category}{' '}
-              interest{matchInterestSuggestion.count === 1 ? '' : 's'} remain.
+              {matchInterestSuggestion.kind === 'profile'
+                ? `Finish ${matchInterestSuggestion.sample ?? 'your profile'} to unlock better matching.`
+                : `${matchInterestSuggestion.count} unselected ${matchInterestSuggestion.category} interest${matchInterestSuggestion.count === 1 ? '' : 's'} remain.`}
             </ThemedText>
             <ThemedText style={styles.suggestionCopy}>
-              Add {matchInterestSuggestion.sample ?? 'one interest'} to strengthen future matches.
+              {matchInterestSuggestion.kind === 'profile'
+                ? 'Complete the profile basics first, then return here to tune your interest mix.'
+                : `Add ${matchInterestSuggestion.sample ?? 'one interest'} to strengthen future matches.`}
             </ThemedText>
           </View>
         ) : null}
