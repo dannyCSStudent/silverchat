@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from app.db.supabase_client import supabase
 
 
@@ -38,7 +40,7 @@ class ReportRepository:
         )
         return result[0] if result else None
 
-    def list_by_ids(self, report_ids: list[str]):
+    def list_by_ids(self, report_ids: Sequence[str]):
         if not report_ids:
             return []
 
@@ -69,7 +71,7 @@ class ModerationEventRepository:
         result = supabase.table(self.table).insert(payload).execute().data
         return result[0] if result else None
 
-    def list_for_subjects(self, subject_user_ids: list[str]):
+    def list_for_subjects(self, subject_user_ids: Sequence[str]):
         if not subject_user_ids:
             return []
 
@@ -110,7 +112,7 @@ class BlockRepository:
             .data
         )
 
-    def list_by_ids(self, block_ids: list[str]):
+    def list_by_ids(self, block_ids: Sequence[str]):
         if not block_ids:
             return []
 

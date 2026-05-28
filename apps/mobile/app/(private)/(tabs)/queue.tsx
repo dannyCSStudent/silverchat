@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth';
 export default function QueueScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const { joinQueue, loading, message, onboardingChecklist, profile, queueEligible } = useAuth();
+  const { joinQueue, loading, matchPreview, message, onboardingChecklist, profile, queueEligible } = useAuth();
   const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [matchedProfile, setMatchedProfile] = useState<{
     user_id: string;
@@ -112,6 +112,32 @@ export default function QueueScreen() {
         </ThemedView>
       )}
 
+      {queueEligible && matchPreview ? (
+        <ThemedView style={styles.card}>
+          <ThemedText type="subtitle">Match signals</ThemedText>
+          <ThemedText style={styles.cardCopy}>{matchPreview.recommendation}</ThemedText>
+          <View style={styles.signalGrid}>
+            <View style={styles.signalChip}>
+              <ThemedText style={styles.signalValue}>{matchPreview.available_candidates}</ThemedText>
+              <ThemedText style={styles.signalLabel}>Available</ThemedText>
+            </View>
+            <View style={styles.signalChip}>
+              <ThemedText style={styles.signalValue}>{matchPreview.preferred_candidates}</ThemedText>
+              <ThemedText style={styles.signalLabel}>Preferred</ThemedText>
+            </View>
+            <View style={styles.signalChip}>
+              <ThemedText style={styles.signalValue}>{matchPreview.fallback_candidates}</ThemedText>
+              <ThemedText style={styles.signalLabel}>Fallback</ThemedText>
+            </View>
+          </View>
+          {matchPreview.shared_interests.length > 0 ? (
+            <ThemedText style={styles.cardCopy}>
+              Shared interests: {matchPreview.shared_interests.join(', ')}
+            </ThemedText>
+          ) : null}
+        </ThemedView>
+      ) : null}
+
       {matchedProfile ? (
         <ThemedView style={styles.card}>
           <ThemedText type="subtitle">Latest match</ThemedText>
@@ -180,6 +206,17 @@ const styles = StyleSheet.create({
   checkIndicator: { width: 12, height: 12, borderRadius: 6, backgroundColor: 'rgba(183,68,68,0.7)' },
   checkIndicatorComplete: { backgroundColor: '#1F7A61' },
   checkText: { fontSize: 15, lineHeight: 22 },
+  signalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  signalChip: {
+    minWidth: 92,
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(24,33,43,0.06)',
+    gap: 2,
+  },
+  signalLabel: { fontSize: 12, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 0.7 },
+  signalValue: { fontSize: 20, fontWeight: '700' },
   matchCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   matchCopy: { flex: 1, gap: 4 },
   matchContextCard: {

@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 MatchStatus = Literal["queued", "matched"]
+MatchPool = Literal["preferred", "fallback", "queue"]
 
 
 class MatchJoinRequest(BaseModel):
@@ -46,3 +47,12 @@ class MatchJoinResponse(BaseModel):
     session_id: str | None = None
     matched_profile: MatchedProfile | None = None
     match_context: MatchContext | None = None
+
+
+class MatchPreviewResponse(BaseModel):
+    available_candidates: int
+    fallback_candidates: int
+    preferred_candidates: int
+    recommendation: str
+    recommended_pool: MatchPool
+    shared_interests: list[str] = Field(default_factory=list)

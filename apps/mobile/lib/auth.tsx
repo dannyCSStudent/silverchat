@@ -70,6 +70,15 @@ type MatchJoinResponse = {
   } | null;
 };
 
+type MatchPreviewResponse = {
+  available_candidates: number;
+  fallback_candidates: number;
+  preferred_candidates: number;
+  recommendation: string;
+  recommended_pool: 'preferred' | 'fallback' | 'queue';
+  shared_interests: string[];
+};
+
 type SaveProfileInput = {
   display_name: string;
   date_of_birth: string;
@@ -91,6 +100,7 @@ type AuthContextValue = {
   interests: string[];
   loading: boolean;
   message: string | null;
+  matchPreview: MatchPreviewResponse | null;
   onboardingChecklist: Array<{
     complete: boolean;
     id: 'email' | 'profile' | 'interests' | 'onboarding';
@@ -168,6 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [interests, setInterests] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [matchPreview, setMatchPreview] = useState<MatchPreviewResponse | null>(null);
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [sessionState, setSessionState] = useState<SessionState | null>(null);
@@ -197,6 +208,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onboardingChecklist.every((item) => item.complete) &&
     profile?.profile_status === 'active';
 
+  function isQueueEligibleSnapshot(
+    nextProfile: ProfileRecord | null,
+    nextInterests: string[],
+    nextSessionState: SessionState | null,
+  ) {
+    return Boolean(
+      nextSessionState?.onboarding_complete &&
+        nextProfile &&
+        nextProfile.display_name.trim() &&
+        nextProfile.date_of_birth &&
+        nextProfile.country_code?.trim() &&
+        nextProfile.onboarding_completed_at &&
+        nextInterests.length > 0 &&
+        nextProfile.profile_status === 'active',
+    );
+  }
+
+  async function loadMatchPreview(
+    nextSession: Session | null,
+    nextProfile: ProfileRecord | null,
+    nextInterests: string[],
+    nextSessionState: SessionState | null,
+  ) {
+    if (!nextSession || !isQueueEligibleSnapshot(nextProfile, nextInterests, nextSessionState)) {
+      setMatchPreview(null);
+      return;
+    }
+
+    try {
+      const preview = await authorizedRequest<MatchPreviewResponse>(nextSession, '/match/preview');
+      setMatchPreview(preview);
+    } catch {
+      setMatchPreview(null);
+    }
+  }
+
   async function refreshData(nextSession = session) {
     try {
       const snapshot = await loadAccountSnapshot(nextSession);
@@ -204,6 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(snapshot.profile);
       setSessionState(snapshot.sessionState);
       setInterests(snapshot.interests);
+      await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to refresh account data.');
     }
@@ -218,6 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const snapshot = await loadAccountSnapshot(null);
           if (active) {
             setAvailableInterests(snapshot.availableInterests);
+            setMatchPreview(null);
           }
         } catch {
           // Ignore API bootstrap failures when auth env is not configured.
@@ -250,6 +299,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(snapshot.profile);
         setSessionState(snapshot.sessionState);
         setInterests(snapshot.interests);
+        await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
       } catch (snapshotError) {
         setMessage(
           snapshotError instanceof Error
@@ -495,6 +545,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasCompletedProfile,
       initialized,
       interests,
+      matchPreview,
       joinQueue,
       loading,
       message,
@@ -521,6 +572,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasCompletedProfile,
       initialized,
       interests,
+      matchPreview,
       joinQueue,
       loading,
       message,

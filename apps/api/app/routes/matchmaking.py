@@ -7,7 +7,13 @@ from app.repositories.interests import InterestRepository
 from app.repositories.matchmaking import MatchQueueRepository
 from app.repositories.moderation import BlockRepository
 from app.repositories.profiles import ProfileRepository
-from app.schemas.matchmaking import MatchContext, MatchJoinRequest, MatchJoinResponse, MatchedProfile
+from app.schemas.matchmaking import (
+    MatchContext,
+    MatchJoinRequest,
+    MatchJoinResponse,
+    MatchPreviewResponse,
+    MatchedProfile,
+)
 
 router = APIRouter(prefix="/match", tags=["Matchmaking"])
 queue = MatchQueueRepository()
@@ -59,29 +65,20 @@ def _build_match_context(
     )
 
 
-@router.post("/join", response_model=MatchJoinResponse)
-def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
-    if not _is_queue_eligible(user.id):
-        raise HTTPException(
-            status_code=400,
-            detail="Finish onboarding and activate the profile before joining matchmaking.",
-        )
-
-    blocked_user_ids = blocks.list_related_user_ids(user.id)
-    current_profile = profiles.get_by_user_id(user.id)
+def _rank_candidates(user_id: str, payload_country_code: str | None):
+    current_profile = profiles.get_by_user_id(user_id)
+    blocked_user_ids = blocks.list_related_user_ids(user_id)
     interest_name_by_id = {
         interest["id"]: interest["name"] for interest in interests.list_interests() if interest.get("id")
     }
     current_interest_ids = {
         item["interest_id"]
-        for item in interests.list_user_interests(user.id)
+        for item in interests.list_user_interests(user_id)
         if item.get("interest_id")
     }
-    candidates = queue.list_available_candidates(user.id)
+    ranked_candidates = []
 
-    scored_candidates = []
-
-    for index, candidate in enumerate(candidates):
+    for index, candidate in enumerate(queue.list_available_candidates(user_id)):
         candidate_user_id = candidate["user_id"]
         if candidate_user_id in blocked_user_ids:
             continue
@@ -107,32 +104,41 @@ def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
         ]
         country_matched = bool(
             (
-                payload.country_code
-                and candidate.get("country_code") == payload.country_code
+                payload_country_code
+                and candidate.get("country_code") == payload_country_code
             )
             or (
-                not payload.country_code
+                not payload_country_code
                 and current_profile
                 and current_profile.get("country_code")
                 and candidate.get("country_code") == current_profile.get("country_code")
             )
         )
 
-        scored_candidates.append(
-            (
-                country_matched,
-                len(shared_interest_names),
-                -index,
-                candidate,
-                candidate_profile,
-                shared_interest_names,
-            )
+        ranked_candidates.append(
+            {
+                "candidate": candidate,
+                "candidate_profile": candidate_profile,
+                "country_matched": country_matched,
+                "score": (1 if country_matched else 0, len(shared_interest_names), -index),
+                "shared_interest_names": shared_interest_names,
+            }
         )
 
-    preferred_candidates = [item for item in scored_candidates if item[0]]
-    fallback_candidates = [item for item in scored_candidates if not item[0]]
+    ranked_candidates.sort(key=lambda item: item["score"], reverse=True)
+    return current_profile, ranked_candidates
 
-    selected = max(preferred_candidates or fallback_candidates, default=None)
+
+@router.post("/join", response_model=MatchJoinResponse)
+def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
+    if not _is_queue_eligible(user.id):
+        raise HTTPException(
+            status_code=400,
+            detail="Finish onboarding and activate the profile before joining matchmaking.",
+        )
+
+    current_profile, ranked_candidates = _rank_candidates(user.id, payload.country_code)
+    selected = ranked_candidates[0] if ranked_candidates else None
 
     if not selected:
         queue_entry = queue.upsert_queue_entry(
@@ -146,11 +152,13 @@ def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
         )
         return MatchJoinResponse(status="queued", queue_entry=queue_entry)
 
-    _, _, _, candidate, candidate_profile, shared_interest_names = selected
+    candidate = selected["candidate"]
+    candidate_profile = selected["candidate_profile"]
+    shared_interest_names = selected["shared_interest_names"]
     session = queue.create_session(user.id, candidate["user_id"])
     queue.remove_from_queue(user.id)
     queue.remove_from_queue(candidate["user_id"])
-    country_matched = bool(selected[0])
+    country_matched = bool(selected["country_matched"])
     preferred_pool = country_matched
 
     return MatchJoinResponse(
@@ -167,4 +175,43 @@ def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
             preferred_pool=preferred_pool,
             country_matched=country_matched,
         ),
+    )
+
+
+@router.get("/preview", response_model=MatchPreviewResponse)
+def preview_matchmaking(user=Depends(get_current_user)):
+    if not _is_queue_eligible(user.id):
+        raise HTTPException(
+            status_code=400,
+            detail="Finish onboarding and activate the profile before previewing matchmaking.",
+        )
+
+    current_profile, ranked_candidates = _rank_candidates(user.id, None)
+    preferred_candidates = [candidate for candidate in ranked_candidates if candidate["country_matched"]]
+    fallback_candidates = [candidate for candidate in ranked_candidates if not candidate["country_matched"]]
+    shared_interests = []
+    if ranked_candidates:
+        shared_interests = ranked_candidates[0]["shared_interest_names"]
+
+    recommendation = (
+        "We should match you with same-country members first."
+        if preferred_candidates
+        else (
+            "No same-country candidates are available right now, so we will use the best fallback."
+            if fallback_candidates
+            else "You are ready for matchmaking, but nobody is available right now."
+        )
+    )
+
+    return MatchPreviewResponse(
+        available_candidates=len(ranked_candidates),
+        fallback_candidates=len(fallback_candidates),
+        preferred_candidates=len(preferred_candidates),
+        recommendation=recommendation,
+        recommended_pool=(
+            "preferred"
+            if preferred_candidates
+            else ("fallback" if fallback_candidates else "queue")
+        ),
+        shared_interests=shared_interests,
     )
