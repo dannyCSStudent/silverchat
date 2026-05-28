@@ -7,7 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
-import { getMatchSignalSuggestion } from '@/lib/match-signals';
+import { getMatchGuidanceCopy, getMatchSignalSuggestion } from '@/lib/match-signals';
 
 export default function SetupScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -43,6 +43,10 @@ export default function SetupScreen() {
   const matchInterestSuggestion = useMemo(
     () => getMatchSignalSuggestion(availableInterests, selectedInterests, profile),
     [availableInterests, profile, selectedInterests],
+  );
+  const matchBoostGuidance = getMatchGuidanceCopy(
+    matchInterestSuggestion?.kind === 'profile' ? 'profile' : 'interest',
+    'setup',
   );
 
   function toggleInterest(interestId: string) {
@@ -99,7 +103,7 @@ export default function SetupScreen() {
         <ThemedText type="subtitle">Interest selection</ThemedText>
         {matchInterestSuggestion ? (
           <View style={styles.suggestionCard}>
-            <ThemedText style={styles.suggestionLabel}>Match boost</ThemedText>
+            <ThemedText style={styles.suggestionLabel}>{matchBoostGuidance.title}</ThemedText>
             <ThemedText style={styles.suggestionCopy}>
               {matchInterestSuggestion.kind === 'profile'
                 ? `Still missing: ${
@@ -118,6 +122,13 @@ export default function SetupScreen() {
                   }Complete those profile fields first, then return here to tune your interest mix.`
                 : `Add ${matchInterestSuggestion.sample ?? 'one interest'} to strengthen future matches.`}
             </ThemedText>
+            {matchInterestSuggestion.kind === 'profile' ? (
+              <Link href="/(private)/(tabs)" style={styles.suggestionLink}>
+                <ThemedText style={styles.secondaryButtonText}>
+                  {matchBoostGuidance.actionLabel}
+                </ThemedText>
+              </Link>
+            ) : null}
           </View>
         ) : null}
         {Object.entries(groupedInterests).map(([category, items]) => (
@@ -186,6 +197,7 @@ const styles = StyleSheet.create({
   },
   suggestionLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', opacity: 0.68 },
   suggestionCopy: { fontSize: 14, lineHeight: 20, opacity: 0.84 },
+  suggestionLink: { paddingTop: 6, alignSelf: 'flex-start' },
   group: { gap: 10 },
   groupLabel: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', opacity: 0.64 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

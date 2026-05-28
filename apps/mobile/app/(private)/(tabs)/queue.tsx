@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
-import { getMatchSignalSuggestion } from '@/lib/match-signals';
+import { getMatchGuidanceCopy, getMatchSignalSuggestion } from '@/lib/match-signals';
 
 export default function QueueScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -76,6 +76,12 @@ export default function QueueScreen() {
   }
 
   const incompleteSteps = onboardingChecklist.filter((item) => !item.complete);
+  const hasProfileBlocker = onboardingChecklist.some((item) => item.id === 'profile' && !item.complete);
+  const hasInterestBlocker = onboardingChecklist.some((item) => item.id === 'interests' && !item.complete);
+  const queueBlockerGuidance = getMatchGuidanceCopy(
+    hasProfileBlocker ? 'profile' : hasInterestBlocker ? 'interest' : 'boost',
+    'queue',
+  );
   const matchPoolLabel =
     matchPreview?.recommended_pool === 'preferred'
       ? 'Preferred pool'
@@ -84,6 +90,19 @@ export default function QueueScreen() {
         : matchPreview?.recommended_pool === 'queue'
           ? 'Waiting queue'
           : null;
+  const matchImprovementTitle = !queueEligible
+    ? queueBlockerGuidance.title
+    : !matchPreview
+      ? null
+      : matchPreview.recommended_pool === 'queue'
+        ? getMatchGuidanceCopy('queue', 'queue').title
+        : matchPreview.shared_interests.length === 0
+          ? getMatchGuidanceCopy('interest', 'queue').title
+          : matchPreview.top_shared_category &&
+              matchPreview.top_shared_category_count != null &&
+              matchPreview.top_shared_category_count < 2
+            ? getMatchGuidanceCopy('overlap', 'queue').title
+            : getMatchGuidanceCopy('boost', 'queue').title;
   const matchImprovementHint =
     !queueEligible || !matchPreview
       ? null
@@ -159,16 +178,20 @@ export default function QueueScreen() {
 
       {!queueEligible ? (
         <ThemedView style={styles.card}>
-          <ThemedText type="subtitle">Next actions</ThemedText>
+          <ThemedText type="subtitle">
+            {hasProfileBlocker || hasInterestBlocker ? queueBlockerGuidance.title : 'Next actions'}
+          </ThemedText>
           {incompleteSteps.map((item) => (
             <ThemedText key={item.id} style={styles.cardCopy}>
               - {item.label}
             </ThemedText>
           ))}
           <View style={styles.linkGroup}>
-            <Link href="/(private)/(tabs)" style={styles.secondaryButton}>
-              <ThemedText style={styles.secondaryButtonText}>Complete profile</ThemedText>
-            </Link>
+            {hasProfileBlocker ? (
+              <Link href="/(private)/(tabs)" style={styles.secondaryButton}>
+                <ThemedText style={styles.secondaryButtonText}>{queueBlockerGuidance.actionLabel}</ThemedText>
+              </Link>
+            ) : null}
             <Link href="/(private)/(tabs)/setup" style={styles.secondaryButton}>
               <ThemedText style={styles.secondaryButtonText}>Finish interests</ThemedText>
             </Link>
@@ -234,8 +257,13 @@ export default function QueueScreen() {
 
       {matchImprovementHint ? (
         <ThemedView style={styles.card}>
-          <ThemedText type="subtitle">Improve matches</ThemedText>
+          <ThemedText type="subtitle">{matchImprovementTitle ?? 'Improve matches'}</ThemedText>
           <ThemedText style={styles.cardCopy}>{matchImprovementHint}</ThemedText>
+          {matchPreview?.recommended_pool !== 'queue' && !queueEligible ? (
+            <Link href="/(private)/(tabs)" style={styles.secondaryButton}>
+              <ThemedText style={styles.secondaryButtonText}>{queueBlockerGuidance.actionLabel}</ThemedText>
+            </Link>
+          ) : null}
           <View style={styles.linkGroup}>
             <Link href="/(private)/(tabs)/setup" style={styles.secondaryButton}>
               <ThemedText style={styles.secondaryButtonText}>Review interests</ThemedText>

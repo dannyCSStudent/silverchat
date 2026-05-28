@@ -7,6 +7,41 @@ export type MatchSignalSuggestion = {
   missingProfileFields?: string[];
 };
 
+export type MatchGuidanceMode = 'profile' | 'interest' | 'queue' | 'overlap' | 'boost';
+
+export type MatchGuidanceSurface = 'account' | 'queue' | 'setup';
+
+export function getMatchGuidanceCopy(mode: MatchGuidanceMode, surface: MatchGuidanceSurface) {
+  switch (mode) {
+    case 'profile':
+      return {
+        actionLabel: surface === 'setup' ? 'Open profile' : 'Finish onboarding',
+        title: 'Profile blocker',
+      };
+    case 'interest':
+      return {
+        actionLabel: 'Review interests',
+        title: 'Interest boost',
+      };
+    case 'queue':
+      return {
+        actionLabel: 'Refresh signals',
+        title: 'Queue supply',
+      };
+    case 'overlap':
+      return {
+        actionLabel: 'Review interests',
+        title: 'Weak overlap',
+      };
+    case 'boost':
+    default:
+      return {
+        actionLabel: surface === 'account' ? 'Finish onboarding' : 'Update profile',
+        title: 'Match boost',
+      };
+  }
+}
+
 export function getMatchSignalSuggestion(
   availableInterests: Array<{ category?: string; id: string; name: string }>,
   selectedInterestIds: string[],

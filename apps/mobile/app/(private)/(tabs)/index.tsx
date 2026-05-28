@@ -7,7 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
-import { getMatchSignalSuggestion } from '@/lib/match-signals';
+import { getMatchGuidanceCopy, getMatchSignalSuggestion } from '@/lib/match-signals';
 import { pickAvatarAsset, uploadAvatar } from '@/lib/storage';
 
 function formatDateInput(value: string) {
@@ -36,6 +36,10 @@ export default function AccountScreen() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const profileMatchSuggestion = profile ? getMatchSignalSuggestion([], [], profile) : null;
+  const profileGuidance = getMatchGuidanceCopy(
+    profileMatchSuggestion?.kind === 'profile' ? 'profile' : 'boost',
+    'account',
+  );
   const scrollViewRef = useRef<ScrollView | null>(null);
   const displayNameRef = useRef<TextInput | null>(null);
   const dateOfBirthRef = useRef<TextInput | null>(null);
@@ -151,7 +155,7 @@ export default function AccountScreen() {
 
       {profileMatchSuggestion?.kind === 'profile' ? (
         <ThemedView style={[styles.card, styles.attentionCard]}>
-          <ThemedText style={styles.attentionLabel}>Match readiness</ThemedText>
+          <ThemedText style={styles.attentionLabel}>{profileGuidance.title}</ThemedText>
           <ThemedText type="subtitle">Finish profile basics first</ThemedText>
           <ThemedText style={styles.cardCopy}>
             {profileMatchSuggestion.missingProfileFields?.length
@@ -187,7 +191,7 @@ export default function AccountScreen() {
           </View>
           {profileMatchSuggestion.missingFlowSteps?.length ? (
             <Link href="/(private)/(tabs)/setup" style={styles.secondaryButton}>
-              <ThemedText style={styles.secondaryButtonText}>Continue onboarding</ThemedText>
+              <ThemedText style={styles.secondaryButtonText}>{profileGuidance.actionLabel}</ThemedText>
             </Link>
           ) : null}
         </ThemedView>
