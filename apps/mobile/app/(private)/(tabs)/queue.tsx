@@ -12,7 +12,17 @@ import { useAuth } from '@/lib/auth';
 export default function QueueScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const { joinQueue, loading, matchPreview, message, onboardingChecklist, profile, queueEligible, refreshData } = useAuth();
+  const {
+    interests,
+    joinQueue,
+    loading,
+    matchPreview,
+    message,
+    onboardingChecklist,
+    profile,
+    queueEligible,
+    refreshData,
+  } = useAuth();
   const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [matchedProfile, setMatchedProfile] = useState<{
     user_id: string;
@@ -72,6 +82,20 @@ export default function QueueScreen() {
         : matchPreview?.recommended_pool === 'queue'
           ? 'Waiting queue'
           : null;
+  const matchImprovementHint =
+    !queueEligible || !matchPreview
+      ? null
+      : matchPreview.recommended_pool === 'queue'
+        ? 'More active members are needed before the queue can form a better match.'
+        : matchPreview.shared_interests.length === 0
+          ? 'Add more interests to increase overlap in future matches.'
+            : matchPreview.top_shared_category &&
+              matchPreview.top_shared_category_count != null &&
+              matchPreview.top_shared_category_count < 2
+            ? `Add more interests in ${matchPreview.top_shared_category} to strengthen this match signal.`
+            : interests.length < 3
+              ? 'A wider interest set usually improves fallback matches and reduces queue waits.'
+              : null;
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
@@ -179,6 +203,21 @@ export default function QueueScreen() {
               {refreshingPreview ? 'Refreshing...' : 'Refresh signals'}
             </ThemedText>
           </Pressable>
+        </ThemedView>
+      ) : null}
+
+      {matchImprovementHint ? (
+        <ThemedView style={styles.card}>
+          <ThemedText type="subtitle">Improve matches</ThemedText>
+          <ThemedText style={styles.cardCopy}>{matchImprovementHint}</ThemedText>
+          <View style={styles.linkGroup}>
+            <Link href="/(private)/(tabs)/setup" style={styles.secondaryButton}>
+              <ThemedText style={styles.secondaryButtonText}>Review interests</ThemedText>
+            </Link>
+            <Link href="/(private)/(tabs)" style={styles.secondaryButton}>
+              <ThemedText style={styles.secondaryButtonText}>Update profile</ThemedText>
+            </Link>
+          </View>
         </ThemedView>
       ) : null}
 
