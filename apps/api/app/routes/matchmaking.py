@@ -207,6 +207,7 @@ def preview_matchmaking(user=Depends(get_current_user)):
         recommended_pool = "queue"
 
     return MatchPreviewResponse(
+        generated_at=datetime.now(timezone.utc),
         available_candidates=len(ranked_candidates),
         fallback_candidates=len(fallback_candidates),
         preferred_candidates=len(preferred_candidates),

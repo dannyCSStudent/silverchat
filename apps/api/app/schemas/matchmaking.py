@@ -50,6 +50,7 @@ class MatchJoinResponse(BaseModel):
 
 
 class MatchPreviewResponse(BaseModel):
+    generated_at: datetime
     available_candidates: int
     fallback_candidates: int
     preferred_candidates: int

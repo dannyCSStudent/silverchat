@@ -71,6 +71,7 @@ type MatchJoinResponse = {
 };
 
 type MatchPreviewResponse = {
+  generated_at: string;
   available_candidates: number;
   fallback_candidates: number;
   preferred_candidates: number;

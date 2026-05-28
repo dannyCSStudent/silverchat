@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth';
 export default function QueueScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const { joinQueue, loading, matchPreview, message, onboardingChecklist, profile, queueEligible } = useAuth();
+  const { joinQueue, loading, matchPreview, message, onboardingChecklist, profile, queueEligible, refreshData } = useAuth();
   const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [matchedProfile, setMatchedProfile] = useState<{
     user_id: string;
@@ -25,6 +25,7 @@ export default function QueueScreen() {
     reason: string;
     shared_interests: string[];
   } | null>(null);
+  const [refreshingPreview, setRefreshingPreview] = useState(false);
 
   async function handleQueueAttempt() {
     if (!queueEligible) {
@@ -47,6 +48,18 @@ export default function QueueScreen() {
       setMatchedProfile(null);
       setMatchContext(null);
       setLocalMessage(error instanceof Error ? error.message : 'Unable to join matchmaking.');
+    }
+  }
+
+  async function handleRefreshSignals() {
+    setRefreshingPreview(true);
+    try {
+      await refreshData();
+      setLocalMessage('Match signals refreshed.');
+    } catch (error) {
+      setLocalMessage(error instanceof Error ? error.message : 'Unable to refresh match signals.');
+    } finally {
+      setRefreshingPreview(false);
     }
   }
 
@@ -125,6 +138,12 @@ export default function QueueScreen() {
           <ThemedText type="subtitle">Match signals</ThemedText>
           <ThemedText style={styles.cardCopy}>{matchPreview.recommendation}</ThemedText>
           <ThemedText style={styles.cardCopy}>{matchPreview.recommendation_reason}</ThemedText>
+          <ThemedText style={styles.cardCopy}>
+            Updated {new Date(matchPreview.generated_at).toLocaleTimeString([], {
+              hour: 'numeric',
+              minute: '2-digit',
+            })}
+          </ThemedText>
           <View style={styles.signalGrid}>
             <View style={styles.signalChip}>
               <ThemedText style={styles.signalValue}>{matchPreview.available_candidates}</ThemedText>
@@ -145,6 +164,14 @@ export default function QueueScreen() {
             </ThemedText>
           ) : null}
           {matchPoolLabel ? <ThemedText style={styles.cardCopy}>Match pool: {matchPoolLabel}</ThemedText> : null}
+          <Pressable
+            disabled={refreshingPreview}
+            onPress={() => void handleRefreshSignals()}
+            style={[styles.secondaryActionButton, refreshingPreview && styles.secondaryActionButtonMuted]}>
+            <ThemedText style={styles.secondaryActionButtonText}>
+              {refreshingPreview ? 'Refreshing...' : 'Refresh signals'}
+            </ThemedText>
+          </Pressable>
         </ThemedView>
       ) : null}
 
@@ -256,6 +283,16 @@ const styles = StyleSheet.create({
   },
   primaryButtonMuted: { backgroundColor: '#62707F' },
   primaryButtonText: { color: '#FFF8F2', fontWeight: '700' },
+  secondaryActionButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(39,86,107,0.24)',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  secondaryActionButtonMuted: { opacity: 0.6 },
+  secondaryActionButtonText: { color: '#27566B', fontWeight: '700' },
   secondaryButton: {
     borderRadius: 999,
     borderWidth: 1,
