@@ -140,7 +140,9 @@ export default function QueueScreen() {
           <ThemedText style={styles.cardCopy}>{matchPreview.recommendation_reason}</ThemedText>
           {matchPreview.top_shared_category || matchPreview.top_shared_interest ? (
             <ThemedText style={styles.cardCopy}>
-              Strongest overlap: {matchPreview.top_shared_category ?? 'Interest'} · {matchPreview.top_shared_interest ?? 'shared interest'}
+              Strongest overlap: {matchPreview.top_shared_category ?? 'Interest'}
+              {matchPreview.top_shared_category_count ? ` (${matchPreview.top_shared_category_count})` : ''}
+              {matchPreview.top_shared_interest ? ` · ${matchPreview.top_shared_interest}` : ''}
             </ThemedText>
           ) : null}
           <ThemedText style={styles.cardCopy}>

@@ -118,6 +118,11 @@ def _rank_candidates(user_id: str, payload_country_code: str | None):
                 if item.get("category")
             }
         )
+        category_counts = {
+            category: sum(1 for item in shared_interest_records if item.get("category") == category)
+            for category in shared_interest_categories
+        }
+        top_shared_category_count = max(category_counts.values(), default=0)
         country_matched = bool(
             (
                 payload_country_code
@@ -136,7 +141,12 @@ def _rank_candidates(user_id: str, payload_country_code: str | None):
                 "candidate": candidate,
                 "candidate_profile": candidate_profile,
                 "country_matched": country_matched,
-                "score": (1 if country_matched else 0, len(shared_interest_names), -index),
+                "score": (
+                    1 if country_matched else 0,
+                    top_shared_category_count,
+                    len(shared_interest_names),
+                    -index,
+                ),
                 "shared_interest_names": shared_interest_names,
                 "shared_interest_records": shared_interest_records,
                 "shared_interest_categories": shared_interest_categories,
@@ -209,6 +219,7 @@ def preview_matchmaking(user=Depends(get_current_user)):
     fallback_candidates = [candidate for candidate in ranked_candidates if not candidate["country_matched"]]
     shared_interests = []
     top_shared_category = None
+    top_shared_category_count = None
     top_shared_interest = None
     if ranked_candidates:
         shared_interests = ranked_candidates[0]["shared_interest_names"]
@@ -221,7 +232,10 @@ def preview_matchmaking(user=Depends(get_current_user)):
                 )
                 for category in shared_interest_categories
             }
-            top_shared_category = max(category_counts.items(), key=lambda item: item[1])[0]
+            top_shared_category, top_shared_category_count = max(
+                category_counts.items(),
+                key=lambda item: item[1],
+            )
         if shared_interest_records:
             if top_shared_category:
                 top_shared_interest = next(
@@ -257,6 +271,7 @@ def preview_matchmaking(user=Depends(get_current_user)):
         recommendation_reason=recommendation_reason,
         recommended_pool=recommended_pool,
         top_shared_category=top_shared_category,
+        top_shared_category_count=top_shared_category_count,
         top_shared_interest=top_shared_interest,
         shared_interests=shared_interests,
     )

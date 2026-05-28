@@ -79,6 +79,7 @@ type MatchPreviewResponse = {
   recommendation_reason: string;
   recommended_pool: 'preferred' | 'fallback' | 'queue';
   top_shared_category?: string | null;
+  top_shared_category_count?: number | null;
   top_shared_interest?: string | null;
   shared_interests: string[];
 };
