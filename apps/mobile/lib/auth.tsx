@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -213,54 +214,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onboardingChecklist.every((item) => item.complete) &&
     profile?.profile_status === 'active';
 
-  function isQueueEligibleSnapshot(
-    nextProfile: ProfileRecord | null,
-    nextInterests: string[],
-    nextSessionState: SessionState | null,
-  ) {
-    return Boolean(
-      nextSessionState?.onboarding_complete &&
-        nextProfile &&
-        nextProfile.display_name.trim() &&
-        nextProfile.date_of_birth &&
-        nextProfile.country_code?.trim() &&
-        nextProfile.onboarding_completed_at &&
-        nextInterests.length > 0 &&
-        nextProfile.profile_status === 'active',
-    );
-  }
+  const isQueueEligibleSnapshot = useCallback(
+    (
+      nextProfile: ProfileRecord | null,
+      nextInterests: string[],
+      nextSessionState: SessionState | null,
+    ) =>
+      Boolean(
+        nextSessionState?.onboarding_complete &&
+          nextProfile &&
+          nextProfile.display_name.trim() &&
+          nextProfile.date_of_birth &&
+          nextProfile.country_code?.trim() &&
+          nextProfile.onboarding_completed_at &&
+          nextInterests.length > 0 &&
+          nextProfile.profile_status === 'active',
+      ),
+    [],
+  );
 
-  async function loadMatchPreview(
-    nextSession: Session | null,
-    nextProfile: ProfileRecord | null,
-    nextInterests: string[],
-    nextSessionState: SessionState | null,
-  ) {
-    if (!nextSession || !isQueueEligibleSnapshot(nextProfile, nextInterests, nextSessionState)) {
-      setMatchPreview(null);
-      return;
-    }
+  const loadMatchPreview = useCallback(
+    async (
+      nextSession: Session | null,
+      nextProfile: ProfileRecord | null,
+      nextInterests: string[],
+      nextSessionState: SessionState | null,
+    ) => {
+      if (!nextSession || !isQueueEligibleSnapshot(nextProfile, nextInterests, nextSessionState)) {
+        setMatchPreview(null);
+        return;
+      }
 
-    try {
-      const preview = await authorizedRequest<MatchPreviewResponse>(nextSession, '/match/preview');
-      setMatchPreview(preview);
-    } catch {
-      setMatchPreview(null);
-    }
-  }
+      try {
+        const preview = await authorizedRequest<MatchPreviewResponse>(nextSession, '/match/preview');
+        setMatchPreview(preview);
+      } catch {
+        setMatchPreview(null);
+      }
+    },
+    [isQueueEligibleSnapshot],
+  );
 
-  async function refreshData(nextSession = session) {
-    try {
-      const snapshot = await loadAccountSnapshot(nextSession);
-      setAvailableInterests(snapshot.availableInterests);
-      setProfile(snapshot.profile);
-      setSessionState(snapshot.sessionState);
-      setInterests(snapshot.interests);
-      await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to refresh account data.');
-    }
-  }
+  const refreshData = useCallback(
+    async (nextSession = session) => {
+      try {
+        const snapshot = await loadAccountSnapshot(nextSession);
+        setAvailableInterests(snapshot.availableInterests);
+        setProfile(snapshot.profile);
+        setSessionState(snapshot.sessionState);
+        setInterests(snapshot.interests);
+        await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Unable to refresh account data.');
+      }
+    },
+    [loadMatchPreview, session],
+  );
 
   useEffect(() => {
     let active = true;

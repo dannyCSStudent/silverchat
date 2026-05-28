@@ -1,7 +1,8 @@
 import { Link } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -74,6 +75,16 @@ export default function QueueScreen() {
       setRefreshingPreview(false);
     }
   }
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!queueEligible) {
+        return;
+      }
+
+      void refreshData();
+    }, [queueEligible, refreshData]),
+  );
 
   const incompleteSteps = onboardingChecklist.filter((item) => !item.complete);
   const queueBlockerSuggestion = getMatchSignalSuggestion(availableInterests, interests, profile);
