@@ -57,4 +57,6 @@ class MatchPreviewResponse(BaseModel):
     recommendation: str
     recommendation_reason: str
     recommended_pool: MatchPool
+    top_shared_category: str | None = None
+    top_shared_interest: str | None = None
     shared_interests: list[str] = Field(default_factory=list)

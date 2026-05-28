@@ -68,8 +68,13 @@ def _build_match_context(
 def _rank_candidates(user_id: str, payload_country_code: str | None):
     current_profile = profiles.get_by_user_id(user_id)
     blocked_user_ids = blocks.list_related_user_ids(user_id)
-    interest_name_by_id = {
-        interest["id"]: interest["name"] for interest in interests.list_interests() if interest.get("id")
+    interests_by_id = {
+        interest["id"]: {
+            "category": interest.get("category"),
+            "name": interest["name"],
+        }
+        for interest in interests.list_interests()
+        if interest.get("id")
     }
     current_interest_ids = {
         item["interest_id"]
@@ -98,10 +103,21 @@ def _rank_candidates(user_id: str, payload_country_code: str | None):
             for item in interests.list_user_interests(candidate_user_id)
             if item.get("interest_id")
         }
-        shared_interest_names = [
-            interest_name_by_id.get(interest_id, interest_id)
+        shared_interest_records = [
+            {
+                "category": interests_by_id.get(interest_id, {}).get("category"),
+                "name": interests_by_id.get(interest_id, {}).get("name", interest_id),
+            }
             for interest_id in sorted(current_interest_ids.intersection(candidate_interest_ids))
         ]
+        shared_interest_names = [item["name"] for item in shared_interest_records]
+        shared_interest_categories = sorted(
+            {
+                item["category"]
+                for item in shared_interest_records
+                if item.get("category")
+            }
+        )
         country_matched = bool(
             (
                 payload_country_code
@@ -122,6 +138,8 @@ def _rank_candidates(user_id: str, payload_country_code: str | None):
                 "country_matched": country_matched,
                 "score": (1 if country_matched else 0, len(shared_interest_names), -index),
                 "shared_interest_names": shared_interest_names,
+                "shared_interest_records": shared_interest_records,
+                "shared_interest_categories": shared_interest_categories,
             }
         )
 
@@ -190,8 +208,32 @@ def preview_matchmaking(user=Depends(get_current_user)):
     preferred_candidates = [candidate for candidate in ranked_candidates if candidate["country_matched"]]
     fallback_candidates = [candidate for candidate in ranked_candidates if not candidate["country_matched"]]
     shared_interests = []
+    top_shared_category = None
+    top_shared_interest = None
     if ranked_candidates:
         shared_interests = ranked_candidates[0]["shared_interest_names"]
+        shared_interest_records = ranked_candidates[0]["shared_interest_records"]
+        shared_interest_categories = ranked_candidates[0]["shared_interest_categories"]
+        if shared_interest_categories:
+            category_counts = {
+                category: sum(
+                    1 for item in shared_interest_records if item.get("category") == category
+                )
+                for category in shared_interest_categories
+            }
+            top_shared_category = max(category_counts.items(), key=lambda item: item[1])[0]
+        if shared_interest_records:
+            if top_shared_category:
+                top_shared_interest = next(
+                    (
+                        item["name"]
+                        for item in shared_interest_records
+                        if item.get("category") == top_shared_category
+                    ),
+                    shared_interest_records[0]["name"],
+                )
+            else:
+                top_shared_interest = shared_interest_records[0]["name"]
 
     if preferred_candidates:
         recommendation = "We should match you with same-country members first."
@@ -214,5 +256,7 @@ def preview_matchmaking(user=Depends(get_current_user)):
         recommendation=recommendation,
         recommendation_reason=recommendation_reason,
         recommended_pool=recommended_pool,
+        top_shared_category=top_shared_category,
+        top_shared_interest=top_shared_interest,
         shared_interests=shared_interests,
     )

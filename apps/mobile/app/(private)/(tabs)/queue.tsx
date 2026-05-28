@@ -138,6 +138,11 @@ export default function QueueScreen() {
           <ThemedText type="subtitle">Match signals</ThemedText>
           <ThemedText style={styles.cardCopy}>{matchPreview.recommendation}</ThemedText>
           <ThemedText style={styles.cardCopy}>{matchPreview.recommendation_reason}</ThemedText>
+          {matchPreview.top_shared_category || matchPreview.top_shared_interest ? (
+            <ThemedText style={styles.cardCopy}>
+              Strongest overlap: {matchPreview.top_shared_category ?? 'Interest'} · {matchPreview.top_shared_interest ?? 'shared interest'}
+            </ThemedText>
+          ) : null}
           <ThemedText style={styles.cardCopy}>
             Updated {new Date(matchPreview.generated_at).toLocaleTimeString([], {
               hour: 'numeric',
