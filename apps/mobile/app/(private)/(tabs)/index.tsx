@@ -7,7 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
-import { getMatchGuidanceCopy, getMatchSignalSuggestion } from '@/lib/match-signals';
+import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 import { pickAvatarAsset, uploadAvatar } from '@/lib/storage';
 
 function formatDateInput(value: string) {
@@ -36,10 +36,10 @@ export default function AccountScreen() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const profileMatchSuggestion = profile ? getMatchSignalSuggestion([], [], profile) : null;
-  const profileGuidance = getMatchGuidanceCopy(
-    profileMatchSuggestion?.kind === 'profile' ? 'profile' : 'boost',
-    'account',
-  );
+  const profileGuidance = getMatchSignalGuidance({
+    surface: 'account',
+    suggestion: profileMatchSuggestion,
+  });
   const scrollViewRef = useRef<ScrollView | null>(null);
   const displayNameRef = useRef<TextInput | null>(null);
   const dateOfBirthRef = useRef<TextInput | null>(null);
@@ -155,18 +155,11 @@ export default function AccountScreen() {
 
       {profileMatchSuggestion?.kind === 'profile' ? (
         <ThemedView style={[styles.card, styles.attentionCard]}>
-          <ThemedText style={styles.attentionLabel}>{profileGuidance.title}</ThemedText>
+          <ThemedText style={styles.attentionLabel}>{profileGuidance?.title ?? 'Match readiness'}</ThemedText>
           <ThemedText type="subtitle">Finish profile basics first</ThemedText>
           <ThemedText style={styles.cardCopy}>
-            {profileMatchSuggestion.missingProfileFields?.length
-              ? `Still missing: ${profileMatchSuggestion.missingProfileFields.join(', ')}.`
-              : 'Complete the remaining editable profile fields before joining matchmaking.'}
+            {profileGuidance?.hint ?? 'Complete the remaining editable profile fields before joining matchmaking.'}
           </ThemedText>
-          {profileMatchSuggestion.missingFlowSteps?.length ? (
-            <ThemedText style={styles.cardCopy}>
-              Flow step: {profileMatchSuggestion.missingFlowSteps.join(', ')}.
-            </ThemedText>
-          ) : null}
           <View style={styles.missingFieldList}>
             {profileMatchSuggestion.missingProfileFields?.map((field) => {
               const fieldKey =
@@ -191,7 +184,9 @@ export default function AccountScreen() {
           </View>
           {profileMatchSuggestion.missingFlowSteps?.length ? (
             <Link href="/(private)/(tabs)/setup" style={styles.secondaryButton}>
-              <ThemedText style={styles.secondaryButtonText}>{profileGuidance.actionLabel}</ThemedText>
+              <ThemedText style={styles.secondaryButtonText}>
+                {profileGuidance?.actionLabel ?? 'Finish onboarding'}
+              </ThemedText>
             </Link>
           ) : null}
         </ThemedView>

@@ -7,7 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
-import { getMatchGuidanceCopy, getMatchSignalSuggestion } from '@/lib/match-signals';
+import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 
 export default function SetupScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -44,10 +44,10 @@ export default function SetupScreen() {
     () => getMatchSignalSuggestion(availableInterests, selectedInterests, profile),
     [availableInterests, profile, selectedInterests],
   );
-  const matchBoostGuidance = getMatchGuidanceCopy(
-    matchInterestSuggestion?.kind === 'profile' ? 'profile' : 'interest',
-    'setup',
-  );
+  const matchBoostGuidance = getMatchSignalGuidance({
+    surface: 'setup',
+    suggestion: matchInterestSuggestion,
+  });
 
   function toggleInterest(interestId: string) {
     setSelectedInterests((current) =>
@@ -101,26 +101,11 @@ export default function SetupScreen() {
 
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Interest selection</ThemedText>
-        {matchInterestSuggestion ? (
+        {matchInterestSuggestion && matchBoostGuidance ? (
           <View style={styles.suggestionCard}>
             <ThemedText style={styles.suggestionLabel}>{matchBoostGuidance.title}</ThemedText>
             <ThemedText style={styles.suggestionCopy}>
-              {matchInterestSuggestion.kind === 'profile'
-                ? `Still missing: ${
-                    matchInterestSuggestion.missingProfileFields?.join(', ') ??
-                    matchInterestSuggestion.sample ??
-                    'profile basics'
-                  }.`
-                : `${matchInterestSuggestion.count} unselected ${matchInterestSuggestion.category} interest${matchInterestSuggestion.count === 1 ? '' : 's'} remain.`}
-            </ThemedText>
-            <ThemedText style={styles.suggestionCopy}>
-              {matchInterestSuggestion.kind === 'profile'
-                ? `${
-                    matchInterestSuggestion.missingFlowSteps?.length
-                      ? `Flow step: ${matchInterestSuggestion.missingFlowSteps.join(', ')}. `
-                      : ''
-                  }Complete those profile fields first, then return here to tune your interest mix.`
-                : `Add ${matchInterestSuggestion.sample ?? 'one interest'} to strengthen future matches.`}
+              {matchBoostGuidance.hint}
             </ThemedText>
             {matchInterestSuggestion.kind === 'profile' ? (
               <Link href="/(private)/(tabs)" style={styles.suggestionLink}>

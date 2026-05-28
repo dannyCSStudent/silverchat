@@ -19,6 +19,12 @@ export type MatchPreviewLike = {
   top_shared_interest?: string | null;
 };
 
+export type MatchSignalGuidance = {
+  actionLabel: string | null;
+  hint: string | null;
+  title: string;
+};
+
 export function getMatchGuidanceCopy(mode: MatchGuidanceMode, surface: MatchGuidanceSurface) {
   switch (mode) {
     case 'profile':
@@ -124,6 +130,36 @@ export function getMatchPreviewGuidance(input: {
         ? 'A wider interest set usually improves fallback matches and reduces queue waits.'
         : 'Your current signals are in a good place for the queue.',
     title: getMatchGuidanceCopy('boost', 'queue').title,
+  };
+}
+
+export function getMatchSignalGuidance(input: {
+  surface: MatchGuidanceSurface;
+  suggestion: MatchSignalSuggestion | null;
+}): MatchSignalGuidance | null {
+  if (!input.suggestion) {
+    return null;
+  }
+
+  if (input.suggestion.kind === 'profile') {
+    const missingProfileFields = input.suggestion.missingProfileFields?.length
+      ? `Still missing: ${input.suggestion.missingProfileFields.join(', ')}. `
+      : '';
+    const missingFlowSteps = input.suggestion.missingFlowSteps?.length
+      ? `Flow step: ${input.suggestion.missingFlowSteps.join(', ')}. `
+      : '';
+
+    return {
+      actionLabel: getMatchGuidanceCopy('profile', input.surface).actionLabel,
+      hint: `${missingProfileFields}${missingFlowSteps}Complete those profile fields first, then return here to tune your interest mix.`,
+      title: getMatchGuidanceCopy('profile', input.surface).title,
+    };
+  }
+
+  return {
+    actionLabel: getMatchGuidanceCopy('interest', input.surface).actionLabel,
+    hint: `${input.suggestion.count} unselected ${input.suggestion.category} interest${input.suggestion.count === 1 ? '' : 's'} remain. Add ${input.suggestion.sample ?? 'one interest'} to strengthen future matches.`,
+    title: getMatchGuidanceCopy('interest', input.surface).title,
   };
 }
 
