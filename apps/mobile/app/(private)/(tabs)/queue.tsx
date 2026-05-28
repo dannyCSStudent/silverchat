@@ -8,11 +8,13 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
+import { getMatchSignalSuggestion } from '@/lib/match-signals';
 
 export default function QueueScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const {
+    availableInterests,
     interests,
     joinQueue,
     loading,
@@ -23,6 +25,12 @@ export default function QueueScreen() {
     queueEligible,
     refreshData,
   } = useAuth();
+  const profileReady = Boolean(
+    profile?.display_name.trim() &&
+      profile?.date_of_birth &&
+      profile?.country_code?.trim() &&
+      profile?.onboarding_completed_at,
+  );
   const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [matchedProfile, setMatchedProfile] = useState<{
     user_id: string;
@@ -93,9 +101,22 @@ export default function QueueScreen() {
               matchPreview.top_shared_category_count != null &&
               matchPreview.top_shared_category_count < 2
             ? `Add more interests in ${matchPreview.top_shared_category} to strengthen this match signal.`
-            : interests.length < 3
-              ? 'A wider interest set usually improves fallback matches and reduces queue waits.'
-              : null;
+            : (() => {
+                const strongestMissingCategory = getMatchSignalSuggestion(
+                  availableInterests,
+                  interests,
+                  profileReady,
+                );
+
+                if (strongestMissingCategory && interests.length < 3) {
+                  const { category, count } = strongestMissingCategory;
+                  return `You still have ${count} unselected ${category} interest${count === 1 ? '' : 's'} available. Add one to widen future matches.`;
+                }
+
+                return interests.length < 3
+                  ? 'A wider interest set usually improves fallback matches and reduces queue waits.'
+                  : null;
+              })();
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>

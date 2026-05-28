@@ -7,6 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
+import { getMatchSignalSuggestion } from '@/lib/match-signals';
 
 export default function SetupScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -21,6 +22,12 @@ export default function SetupScreen() {
     queueEligible,
     saveInterests,
   } = useAuth();
+  const profileReady = Boolean(
+    profile?.display_name.trim() &&
+      profile?.date_of_birth &&
+      profile?.country_code?.trim() &&
+      profile?.onboarding_completed_at,
+  );
   const [selectedInterests, setSelectedInterests] = useState<string[]>(interests);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -38,6 +45,11 @@ export default function SetupScreen() {
       return groups;
     }, {});
   }, [availableInterests]);
+
+  const matchInterestSuggestion = useMemo(
+    () => getMatchSignalSuggestion(availableInterests, selectedInterests, profileReady),
+    [availableInterests, selectedInterests, profileReady],
+  );
 
   function toggleInterest(interestId: string) {
     setSelectedInterests((current) =>
@@ -91,6 +103,18 @@ export default function SetupScreen() {
 
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Interest selection</ThemedText>
+        {matchInterestSuggestion ? (
+          <View style={styles.suggestionCard}>
+            <ThemedText style={styles.suggestionLabel}>Match boost</ThemedText>
+            <ThemedText style={styles.suggestionCopy}>
+              {matchInterestSuggestion.count} unselected {matchInterestSuggestion.category}{' '}
+              interest{matchInterestSuggestion.count === 1 ? '' : 's'} remain.
+            </ThemedText>
+            <ThemedText style={styles.suggestionCopy}>
+              Add {matchInterestSuggestion.sample ?? 'one interest'} to strengthen future matches.
+            </ThemedText>
+          </View>
+        ) : null}
         {Object.entries(groupedInterests).map(([category, items]) => (
           <View key={category} style={styles.group}>
             <ThemedText style={styles.groupLabel}>{category}</ThemedText>
@@ -149,6 +173,14 @@ const styles = StyleSheet.create({
   card: { borderRadius: 24, padding: 18, gap: 12 },
   cardLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, opacity: 0.62 },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
+  suggestionCard: {
+    borderRadius: 18,
+    padding: 14,
+    gap: 6,
+    backgroundColor: 'rgba(31,122,97,0.08)',
+  },
+  suggestionLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', opacity: 0.68 },
+  suggestionCopy: { fontSize: 14, lineHeight: 20, opacity: 0.84 },
   group: { gap: 10 },
   groupLabel: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', opacity: 0.64 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
