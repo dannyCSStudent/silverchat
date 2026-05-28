@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
-import { getMatchGuidanceCopy, getMatchSignalSuggestion } from '@/lib/match-signals';
+import { getMatchGuidanceCopy, getMatchPreviewGuidance } from '@/lib/match-signals';
 
 export default function QueueScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -82,6 +82,12 @@ export default function QueueScreen() {
     hasProfileBlocker ? 'profile' : hasInterestBlocker ? 'interest' : 'boost',
     'queue',
   );
+  const matchPreviewGuidance = getMatchPreviewGuidance({
+    availableInterests,
+    interests,
+    matchPreview,
+    profile,
+  });
   const matchPoolLabel =
     matchPreview?.recommended_pool === 'preferred'
       ? 'Preferred pool'
@@ -92,55 +98,8 @@ export default function QueueScreen() {
           : null;
   const matchImprovementTitle = !queueEligible
     ? queueBlockerGuidance.title
-    : !matchPreview
-      ? null
-      : matchPreview.recommended_pool === 'queue'
-        ? getMatchGuidanceCopy('queue', 'queue').title
-        : matchPreview.shared_interests.length === 0
-          ? getMatchGuidanceCopy('interest', 'queue').title
-          : matchPreview.top_shared_category &&
-              matchPreview.top_shared_category_count != null &&
-              matchPreview.top_shared_category_count < 2
-            ? getMatchGuidanceCopy('overlap', 'queue').title
-            : getMatchGuidanceCopy('boost', 'queue').title;
-  const matchImprovementHint =
-    !queueEligible || !matchPreview
-      ? null
-      : matchPreview.recommended_pool === 'queue'
-        ? 'More active members are needed before the queue can form a better match.'
-        : matchPreview.shared_interests.length === 0
-          ? 'Add more interests to increase overlap in future matches.'
-            : matchPreview.top_shared_category &&
-              matchPreview.top_shared_category_count != null &&
-              matchPreview.top_shared_category_count < 2
-            ? `Add more interests in ${matchPreview.top_shared_category} to strengthen this match signal.`
-            : (() => {
-                const strongestMissingCategory = getMatchSignalSuggestion(
-                  availableInterests,
-                  interests,
-                  profile,
-                );
-
-                if (strongestMissingCategory && strongestMissingCategory.kind === 'profile') {
-                  const missingProfileFields =
-                    strongestMissingCategory.missingProfileFields?.join(', ') ??
-                    strongestMissingCategory.sample ??
-                    'profile basics';
-                  const missingFlowSteps = strongestMissingCategory.missingFlowSteps?.length
-                    ? ` Flow step: ${strongestMissingCategory.missingFlowSteps.join(', ')}.`
-                    : '';
-                  return `Still missing: ${missingProfileFields}.${missingFlowSteps}`;
-                }
-
-                if (strongestMissingCategory && interests.length < 3) {
-                  const { category, count } = strongestMissingCategory;
-                  return `You still have ${count} unselected ${category} interest${count === 1 ? '' : 's'} available. Add one to widen future matches.`;
-                }
-
-                return interests.length < 3
-                  ? 'A wider interest set usually improves fallback matches and reduces queue waits.'
-                  : null;
-              })();
+    : matchPreviewGuidance?.title ?? null;
+  const matchImprovementHint = !queueEligible ? null : matchPreviewGuidance?.hint ?? null;
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
