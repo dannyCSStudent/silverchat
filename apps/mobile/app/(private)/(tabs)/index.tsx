@@ -1,5 +1,6 @@
 import { Link } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -27,6 +28,7 @@ export default function AccountScreen() {
     signOut,
     user,
     saveProfile,
+    refreshData,
   } = useAuth();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [dateOfBirth, setDateOfBirth] = useState(profile?.date_of_birth ?? '');
@@ -55,6 +57,12 @@ export default function AccountScreen() {
     setBio(profile?.bio ?? '');
     setAvatarUrl(profile?.avatar_url ?? '');
   }, [profile]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshData();
+    }, [refreshData]),
+  );
 
   function focusProfileField(field: 'displayName' | 'dateOfBirth' | 'countryCode' | 'bio') {
     const fieldRefMap = {

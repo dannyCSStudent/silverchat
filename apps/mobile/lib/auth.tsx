@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useMemo,
   useState,
   type ReactNode,
@@ -189,6 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [sessionState, setSessionState] = useState<SessionState | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const lastRefreshAtRef = useRef(0);
   const emailAddress = user?.email ?? sessionState?.user.email ?? null;
   const emailVerified = Boolean(
     sessionState?.user.email_confirmed_at ?? (user as User & { email_confirmed_at?: string } | null)?.email_confirmed_at,
@@ -257,6 +259,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshData = useCallback(
     async (nextSession = session) => {
+      const now = Date.now();
+      if (now - lastRefreshAtRef.current < 2500) {
+        return;
+      }
+
       try {
         const snapshot = await loadAccountSnapshot(nextSession);
         setAvailableInterests(snapshot.availableInterests);
@@ -264,6 +271,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSessionState(snapshot.sessionState);
         setInterests(snapshot.interests);
         await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
+        lastRefreshAtRef.current = Date.now();
       } catch (error) {
         setMessage(error instanceof Error ? error.message : 'Unable to refresh account data.');
       }

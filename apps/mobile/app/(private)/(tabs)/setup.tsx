@@ -1,5 +1,6 @@
 import { Link } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -21,6 +22,7 @@ export default function SetupScreen() {
     profile,
     queueEligible,
     saveInterests,
+    refreshData,
   } = useAuth();
   const [selectedInterests, setSelectedInterests] = useState<string[]>(interests);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -28,6 +30,12 @@ export default function SetupScreen() {
   useEffect(() => {
     setSelectedInterests(interests);
   }, [interests]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshData();
+    }, [refreshData]),
+  );
 
   const groupedInterests = useMemo(() => {
     return availableInterests.reduce<Record<string, typeof availableInterests>>((groups, interest) => {
