@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
-import { getMatchGuidanceCopy, getMatchPreviewGuidance } from '@/lib/match-signals';
+import { getMatchPreviewGuidance, getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 
 export default function QueueScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -76,12 +76,13 @@ export default function QueueScreen() {
   }
 
   const incompleteSteps = onboardingChecklist.filter((item) => !item.complete);
-  const hasProfileBlocker = onboardingChecklist.some((item) => item.id === 'profile' && !item.complete);
-  const hasInterestBlocker = onboardingChecklist.some((item) => item.id === 'interests' && !item.complete);
-  const queueBlockerGuidance = getMatchGuidanceCopy(
-    hasProfileBlocker ? 'profile' : hasInterestBlocker ? 'interest' : 'boost',
-    'queue',
-  );
+  const queueBlockerSuggestion = getMatchSignalSuggestion(availableInterests, interests, profile);
+  const queueBlockerGuidance = getMatchSignalGuidance({
+    surface: 'queue',
+    suggestion: queueBlockerSuggestion,
+  });
+  const queueBlockerTitle = queueBlockerGuidance?.title ?? 'Next actions';
+  const queueBlockerActionLabel = queueBlockerGuidance?.actionLabel ?? null;
   const matchPreviewGuidance = getMatchPreviewGuidance({
     availableInterests,
     interests,
@@ -97,7 +98,7 @@ export default function QueueScreen() {
           ? 'Waiting queue'
           : null;
   const matchImprovementTitle = !queueEligible
-    ? queueBlockerGuidance.title
+    ? queueBlockerTitle
     : matchPreviewGuidance?.title ?? null;
   const matchImprovementHint = !queueEligible ? null : matchPreviewGuidance?.hint ?? null;
 
@@ -137,23 +138,23 @@ export default function QueueScreen() {
 
       {!queueEligible ? (
         <ThemedView style={styles.card}>
-          <ThemedText type="subtitle">
-            {hasProfileBlocker || hasInterestBlocker ? queueBlockerGuidance.title : 'Next actions'}
-          </ThemedText>
+          <ThemedText type="subtitle">{queueBlockerTitle}</ThemedText>
           {incompleteSteps.map((item) => (
             <ThemedText key={item.id} style={styles.cardCopy}>
               - {item.label}
             </ThemedText>
           ))}
           <View style={styles.linkGroup}>
-            {hasProfileBlocker ? (
+            {queueBlockerSuggestion?.kind === 'profile' && queueBlockerActionLabel ? (
               <Link href="/(private)/(tabs)" style={styles.secondaryButton}>
-                <ThemedText style={styles.secondaryButtonText}>{queueBlockerGuidance.actionLabel}</ThemedText>
+                <ThemedText style={styles.secondaryButtonText}>{queueBlockerActionLabel}</ThemedText>
               </Link>
             ) : null}
-            <Link href="/(private)/(tabs)/setup" style={styles.secondaryButton}>
-              <ThemedText style={styles.secondaryButtonText}>Finish interests</ThemedText>
-            </Link>
+            {queueBlockerSuggestion?.kind !== 'profile' && queueBlockerActionLabel ? (
+              <Link href="/(private)/(tabs)/setup" style={styles.secondaryButton}>
+                <ThemedText style={styles.secondaryButtonText}>{queueBlockerActionLabel}</ThemedText>
+              </Link>
+            ) : null}
           </View>
         </ThemedView>
       ) : (
@@ -220,7 +221,9 @@ export default function QueueScreen() {
           <ThemedText style={styles.cardCopy}>{matchImprovementHint}</ThemedText>
           {matchPreview?.recommended_pool !== 'queue' && !queueEligible ? (
             <Link href="/(private)/(tabs)" style={styles.secondaryButton}>
-              <ThemedText style={styles.secondaryButtonText}>{queueBlockerGuidance.actionLabel}</ThemedText>
+              <ThemedText style={styles.secondaryButtonText}>
+                {queueBlockerActionLabel ?? 'Open profile'}
+              </ThemedText>
             </Link>
           ) : null}
           <View style={styles.linkGroup}>
