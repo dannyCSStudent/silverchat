@@ -20,6 +20,11 @@ export default function QueueScreen() {
     avatar_url?: string;
     country_code?: string;
   } | null>(null);
+  const [matchContext, setMatchContext] = useState<{
+    pool: 'preferred' | 'fallback';
+    reason: string;
+    shared_interests: string[];
+  } | null>(null);
 
   async function handleQueueAttempt() {
     if (!queueEligible) {
@@ -32,6 +37,7 @@ export default function QueueScreen() {
     try {
       const response = await joinQueue();
       setMatchedProfile(response.matched_profile ?? null);
+      setMatchContext(response.match_context ?? null);
       setLocalMessage(
         response.status === 'matched'
           ? `Matched with ${response.matched_profile?.display_name ?? 'another member'}.`
@@ -39,6 +45,7 @@ export default function QueueScreen() {
       );
     } catch (error) {
       setMatchedProfile(null);
+      setMatchContext(null);
       setLocalMessage(error instanceof Error ? error.message : 'Unable to join matchmaking.');
     }
   }
@@ -88,7 +95,7 @@ export default function QueueScreen() {
             </ThemedText>
           ))}
           <View style={styles.linkGroup}>
-            <Link href="/(private)/(tabs)/index" style={styles.secondaryButton}>
+            <Link href="/(private)/(tabs)" style={styles.secondaryButton}>
               <ThemedText style={styles.secondaryButtonText}>Complete profile</ThemedText>
             </Link>
             <Link href="/(private)/(tabs)/setup" style={styles.secondaryButton}>
@@ -125,6 +132,20 @@ export default function QueueScreen() {
               </ThemedText>
             </View>
           </View>
+          {matchContext ? (
+            <View style={styles.matchContextCard}>
+              <ThemedText style={styles.cardLabel}>Why this match</ThemedText>
+              <ThemedText style={styles.cardCopy}>{matchContext.reason}</ThemedText>
+              {matchContext.shared_interests.length > 0 ? (
+                <ThemedText style={styles.cardCopy}>
+                  Shared interests: {matchContext.shared_interests.join(', ')}
+                </ThemedText>
+              ) : null}
+              <ThemedText style={styles.cardCopy}>
+                Match pool: {matchContext.pool === 'preferred' ? 'preferred' : 'fallback'}
+              </ThemedText>
+            </View>
+          ) : null}
         </ThemedView>
       ) : null}
 
@@ -161,6 +182,12 @@ const styles = StyleSheet.create({
   checkText: { fontSize: 15, lineHeight: 22 },
   matchCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   matchCopy: { flex: 1, gap: 4 },
+  matchContextCard: {
+    borderRadius: 18,
+    padding: 14,
+    gap: 8,
+    backgroundColor: 'rgba(39,86,107,0.08)',
+  },
   matchName: { fontSize: 18, fontWeight: '700' },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(24,33,43,0.08)' },
   avatarFallback: {

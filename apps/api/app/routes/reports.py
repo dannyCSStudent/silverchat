@@ -1,9 +1,10 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.auth import ensure_admin_role, get_current_user, require_admin
 from app.repositories.admin_users import AdminUserRepository
+from app.repositories.moderation import BlockRepository
 from app.repositories.matchmaking import MatchQueueRepository
 from app.repositories.moderation import ModerationEventRepository
 from app.repositories.profiles import ProfileRepository
@@ -16,6 +17,9 @@ from app.schemas.moderation import (
     ModerationMemberSafetyState,
     ModerationEnforcementReviewSummary,
     ModerationEnforcementSummary,
+    ModerationBlockRecord,
+    ModerationExportSnapshot,
+    ModerationExportRequest,
     ModerationNoteCreate,
     ModerationEventRecord,
     ModerationProfileSummary,
@@ -28,6 +32,7 @@ from app.schemas.moderation import (
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 reports = ReportRepository()
+blocks = BlockRepository()
 profiles = ProfileRepository()
 sessions = MatchQueueRepository()
 events = ModerationEventRepository()
@@ -135,6 +140,32 @@ def _build_moderation_reports(records: list[dict]):
         )
 
     return moderation_reports
+
+
+def _build_moderation_blocks(records: list[dict]):
+    user_ids = {
+        record["blocker_user_id"]
+        for record in records
+        if record.get("blocker_user_id")
+    } | {
+        record["blocked_user_id"]
+        for record in records
+        if record.get("blocked_user_id")
+    }
+    profile_rows = profiles.get_by_user_ids(list(user_ids))
+    profile_map = {
+        row["user_id"]: ModerationProfileSummary.model_validate(row)
+        for row in profile_rows
+    }
+
+    return [
+        ModerationBlockRecord(
+            **record,
+            blocker_profile=profile_map.get(record["blocker_user_id"]),
+            blocked_profile=profile_map.get(record["blocked_user_id"]),
+        )
+        for record in records
+    ]
 
 
 def _get_current_assignee(report: ModerationReportRecord):
@@ -330,6 +361,25 @@ def _derive_member_safety_state(
 @router.get("/", response_model=list[ModerationReportRecord])
 def list_reports(_admin=Depends(require_admin)):
     return _build_moderation_reports(reports.list())
+
+
+@router.post("/export", response_model=ModerationExportSnapshot)
+def export_reports(
+    payload: ModerationExportRequest,
+    _admin=Depends(require_admin),
+):
+    report_records = (
+        reports.list_by_ids(payload.report_ids) if payload.report_ids else reports.list()
+    )
+    block_records = (
+        blocks.list_by_ids(payload.block_ids) if payload.block_ids else blocks.list()
+    )
+
+    return ModerationExportSnapshot(
+        reports=_build_moderation_reports(report_records),
+        blocks=_build_moderation_blocks(block_records),
+        exported_at=datetime.now(timezone.utc),
+    )
 
 
 @router.get("/me", response_model=list[ReportRecord])

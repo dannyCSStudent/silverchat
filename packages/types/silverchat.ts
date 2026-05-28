@@ -152,6 +152,12 @@ export interface ModerationBlock extends Block {
   blocked_profile?: ModerationProfileSummary
 }
 
+export interface ModerationExportSnapshot {
+  reports: ModerationReport[]
+  blocks: ModerationBlock[]
+  exported_at: string
+}
+
 export interface SessionUser {
   id: string
   email?: string

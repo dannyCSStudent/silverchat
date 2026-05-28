@@ -38,6 +38,19 @@ class ReportRepository:
         )
         return result[0] if result else None
 
+    def list_by_ids(self, report_ids: list[str]):
+        if not report_ids:
+            return []
+
+        return (
+            supabase.table(self.table)
+            .select("*")
+            .in_("id", report_ids)
+            .order("created_at", desc=True)
+            .execute()
+            .data
+        )
+
     def update_status(self, report_id: str, status: str):
         result = (
             supabase.table(self.table)
@@ -92,6 +105,19 @@ class BlockRepository:
             supabase.table(self.table)
             .select("*")
             .eq("blocker_user_id", blocker_user_id)
+            .order("created_at", desc=True)
+            .execute()
+            .data
+        )
+
+    def list_by_ids(self, block_ids: list[str]):
+        if not block_ids:
+            return []
+
+        return (
+            supabase.table(self.table)
+            .select("*")
+            .in_("id", block_ids)
             .order("created_at", desc=True)
             .execute()
             .data

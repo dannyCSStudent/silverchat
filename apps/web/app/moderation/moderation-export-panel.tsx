@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ModerationBlock, ModerationReport } from "@repo/types";
+import type { ModerationBlock, ModerationExportSnapshot, ModerationReport } from "@repo/types";
 
 import {
   getHighestAttentionRoute,
@@ -41,6 +41,22 @@ function downloadCsv(filename: string, rows: Array<Array<string | number | null 
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function formatDurationMs(ms: number) {
+  const totalMinutes = Math.max(0, Math.round(ms / (60 * 1000)));
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  return `${minutes}m`;
 }
 
 function buildReportsRows(reports: ModerationReport[]) {
@@ -445,6 +461,118 @@ function buildSummaryPreview(reports: ModerationReport[]) {
   };
 }
 
+function buildSlaPreview(reports: ModerationReport[]) {
+  const resolvedReports = reports.filter((report) =>
+    (report.status ?? "open") === "resolved" || (report.status ?? "open") === "dismissed",
+  );
+  const firstActionDelays = reports
+    .map((report) => {
+      if (!report.created_at) {
+        return null;
+      }
+
+      const createdAt = new Date(report.created_at);
+      if (Number.isNaN(createdAt.getTime())) {
+        return null;
+      }
+
+      const firstAction = [...(report.events ?? [])]
+        .filter((event) => Boolean(event.created_at))
+        .sort((left, right) => {
+          const leftTime = new Date(left.created_at ?? 0).getTime();
+          const rightTime = new Date(right.created_at ?? 0).getTime();
+          return leftTime - rightTime;
+        })[0];
+
+      if (!firstAction?.created_at) {
+        return null;
+      }
+
+      const actionAt = new Date(firstAction.created_at);
+      if (Number.isNaN(actionAt.getTime())) {
+        return null;
+      }
+
+      return actionAt.getTime() - createdAt.getTime();
+    })
+    .filter((value): value is number => value !== null);
+  const resolutionDelays = resolvedReports
+    .map((report) => {
+      if (!report.created_at) {
+        return null;
+      }
+
+      const createdAt = new Date(report.created_at);
+      if (Number.isNaN(createdAt.getTime())) {
+        return null;
+      }
+
+      const resolutionEvent = [...(report.events ?? [])]
+        .filter(
+          (event) =>
+            event.event_type === "report_status_changed" &&
+            (event.payload.to_status === "resolved" ||
+              event.payload.to_status === "dismissed") &&
+            event.created_at,
+        )
+        .sort((left, right) => {
+          const leftTime = new Date(left.created_at ?? 0).getTime();
+          const rightTime = new Date(right.created_at ?? 0).getTime();
+          return leftTime - rightTime;
+        })[0];
+
+      if (!resolutionEvent?.created_at) {
+        return null;
+      }
+
+      const resolvedAt = new Date(resolutionEvent.created_at);
+      if (Number.isNaN(resolvedAt.getTime())) {
+        return null;
+      }
+
+      return resolvedAt.getTime() - createdAt.getTime();
+    })
+    .filter((value): value is number => value !== null);
+
+  const waitingForFirstAction = reports.filter((report) => {
+    const createdAt = report.created_at ? new Date(report.created_at) : null;
+    if (!createdAt || Number.isNaN(createdAt.getTime())) {
+      return false;
+    }
+    return (report.events?.length ?? 0) === 0 && Date.now() - createdAt.getTime() >= 24 * 60 * 60 * 1000;
+  }).length;
+
+  const overdueResolution = reports.filter((report) => {
+    const status = report.status ?? "open";
+    if (status !== "open" && status !== "reviewing") {
+      return false;
+    }
+
+    const createdAt = report.created_at ? new Date(report.created_at) : null;
+    if (!createdAt || Number.isNaN(createdAt.getTime())) {
+      return false;
+    }
+
+    return Date.now() - createdAt.getTime() >= 48 * 60 * 60 * 1000;
+  }).length;
+
+  const averageFirstActionMs =
+    firstActionDelays.length > 0
+      ? firstActionDelays.reduce((total, value) => total + value, 0) / firstActionDelays.length
+      : null;
+  const averageResolutionMs =
+    resolutionDelays.length > 0
+      ? resolutionDelays.reduce((total, value) => total + value, 0) / resolutionDelays.length
+      : null;
+
+  return {
+    averageFirstActionMs,
+    averageResolutionMs,
+    overdueResolution,
+    waitingForFirstAction,
+  };
+}
+
 function fileSafeLabel(value: string) {
   return value
     .trim()
@@ -541,6 +669,30 @@ export function ModerationExportPanel({
       ? blocks.filter((block) => withinRange(block.created_at))
       : blocks;
   const summaryPreview = buildSummaryPreview(scopedReports);
+  const slaPreview = buildSlaPreview(scopedReports);
+
+  async function loadExportSnapshot() {
+    try {
+      const response = await fetch("/api/admin/reports/export", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          block_ids: scopedBlocks.map((block) => block.id),
+          report_ids: scopedReports.map((report) => report.id),
+        }),
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      return (await response.json()) as ModerationExportSnapshot;
+    } catch {
+      return null;
+    }
+  }
 
   return (
     <div className="rounded-3xl border border-(--color-line) bg-(--color-surface-strong) p-5">
@@ -560,7 +712,7 @@ export function ModerationExportPanel({
       <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
         Filter scope: {filterLabel}
       </p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="rounded-2xl border border-(--color-line) bg-(--color-surface) px-4 py-3 text-sm text-slate-700 dark:text-stone-200">
           <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
             Date from
@@ -636,15 +788,53 @@ export function ModerationExportPanel({
           </button>
         ) : null}
       </div>
-      <div className="mt-4 rounded-2xl border border-(--color-line) bg-(--color-surface) p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-          Activity summary
-        </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-5">
-          <div className="rounded-2xl bg-(--color-surface-strong) px-3 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-              Reports
-            </p>
+        <div className="mt-4 rounded-2xl border border-(--color-line) bg-(--color-surface) p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+            Activity summary
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            <div className="rounded-2xl bg-(--color-surface-strong) px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                First action
+              </p>
+              <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-stone-100">
+                {slaPreview.averageFirstActionMs !== null
+                  ? formatDurationMs(slaPreview.averageFirstActionMs)
+                  : "No data"}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-(--color-surface-strong) px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                Resolution
+              </p>
+              <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-stone-100">
+                {slaPreview.averageResolutionMs !== null
+                  ? formatDurationMs(slaPreview.averageResolutionMs)
+                  : "No data"}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-(--color-surface-strong) px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                Waiting
+              </p>
+              <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-stone-100">
+                {slaPreview.waitingForFirstAction}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-(--color-surface-strong) px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                Overdue
+              </p>
+              <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-stone-100">
+                {slaPreview.overdueResolution}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-5">
+            <div className="rounded-2xl bg-(--color-surface-strong) px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                Reports
+              </p>
             <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-stone-100">
               {summaryPreview.overview.reportCount}
             </p>
@@ -1049,13 +1239,17 @@ export function ModerationExportPanel({
       <div className="mt-4 flex flex-wrap gap-3">
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             setPendingExport("reports");
-            downloadCsv(
-              `moderation-reports-${label}-${rangeLabel}-${today}.csv`,
-              buildReportsRows(scopedReports),
-            );
-            setPendingExport(null);
+            try {
+              const snapshot = await loadExportSnapshot();
+              downloadCsv(
+                `moderation-reports-${label}-${rangeLabel}-${today}.csv`,
+                buildReportsRows(snapshot?.reports ?? scopedReports),
+              );
+            } finally {
+              setPendingExport(null);
+            }
           }}
           className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-stone-100 dark:text-slate-950"
           disabled={pendingExport !== null}
@@ -1066,13 +1260,17 @@ export function ModerationExportPanel({
         </button>
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             setPendingExport("blocks");
-            downloadCsv(
-              `moderation-blocks-${label}-${rangeLabel}-${today}.csv`,
-              buildBlocksRows(scopedBlocks),
-            );
-            setPendingExport(null);
+            try {
+              const snapshot = await loadExportSnapshot();
+              downloadCsv(
+                `moderation-blocks-${label}-${rangeLabel}-${today}.csv`,
+                buildBlocksRows(snapshot?.blocks ?? scopedBlocks),
+              );
+            } finally {
+              setPendingExport(null);
+            }
           }}
           className="rounded-full border border-(--color-line) bg-white/70 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-stone-950/30 dark:text-stone-100 dark:hover:bg-stone-950/50"
           disabled={pendingExport !== null}
@@ -1083,13 +1281,17 @@ export function ModerationExportPanel({
         </button>
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             setPendingExport("events");
-            downloadCsv(
-              `moderation-events-${label}-${rangeLabel}-${today}.csv`,
-              buildEventsRows(scopedReports),
-            );
-            setPendingExport(null);
+            try {
+              const snapshot = await loadExportSnapshot();
+              downloadCsv(
+                `moderation-events-${label}-${rangeLabel}-${today}.csv`,
+                buildEventsRows(snapshot?.reports ?? scopedReports),
+              );
+            } finally {
+              setPendingExport(null);
+            }
           }}
           className="rounded-full border border-(--color-line) bg-white/70 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-stone-950/30 dark:text-stone-100 dark:hover:bg-stone-950/50"
           disabled={pendingExport !== null}
@@ -1100,13 +1302,17 @@ export function ModerationExportPanel({
         </button>
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             setPendingExport("summary");
-            downloadCsv(
-              `moderation-summary-${label}-${rangeLabel}-${today}.csv`,
-              buildSummaryRows(scopedReports),
-            );
-            setPendingExport(null);
+            try {
+              const snapshot = await loadExportSnapshot();
+              downloadCsv(
+                `moderation-summary-${label}-${rangeLabel}-${today}.csv`,
+                buildSummaryRows(snapshot?.reports ?? scopedReports),
+              );
+            } finally {
+              setPendingExport(null);
+            }
           }}
           className="rounded-full border border-(--color-line) bg-white/70 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-stone-950/30 dark:text-stone-100 dark:hover:bg-stone-950/50"
           disabled={pendingExport !== null}

@@ -161,3 +161,14 @@ class BlockRecord(BlockCreate):
 class ModerationBlockRecord(BlockRecord):
     blocker_profile: ModerationProfileSummary | None = None
     blocked_profile: ModerationProfileSummary | None = None
+
+
+class ModerationExportSnapshot(BaseModel):
+    reports: list[ModerationReportRecord]
+    blocks: list[ModerationBlockRecord]
+    exported_at: datetime
+
+
+class ModerationExportRequest(BaseModel):
+    report_ids: list[str] = []
+    block_ids: list[str] = []

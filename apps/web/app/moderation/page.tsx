@@ -17,10 +17,12 @@ import { DataSourceBadge } from "./data-source-badge";
 import { FallbackWarningPanel } from "./fallback-warning-panel";
 import { getMemberAttentionSummary } from "./formatters";
 import { ModerationAttentionPanel } from "./moderation-attention-panel";
+import { ModerationAlertPanel } from "./moderation-alert-panel";
 import { ModerationBlockSignals } from "./moderation-block-signals";
 import { ModerationExportPanel } from "./moderation-export-panel";
 import { ModerationRepeatOffenders } from "./moderation-repeat-offenders";
 import { ModerationSavedQueues } from "./moderation-saved-queues";
+import { ModerationSlaPanel } from "./moderation-sla-panel";
 import { ReportFeed } from "./report-feed";
 import { LiveAdminHealthProvider } from "./use-live-admin-health";
 import { WorkloadRebalance } from "./workload-rebalance";
@@ -984,6 +986,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
 
       <AdminHealthStatusStrip />
       <AdminHealthPanel />
+      <ModerationAlertPanel reports={reports} />
 
       <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="rounded-[34px] border border-(--color-line) bg-(--color-surface) p-6 shadow-(--shadow-md)">
@@ -1204,7 +1207,7 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
                 filterLabel={exportFilterLabel}
               />
             </div>
-            {filteredReports.length > 0 ? (
+          {filteredReports.length > 0 ? (
               <ReportFeed
                 adminUsers={adminUsers}
                 currentAdminUserId={adminUser?.id}
@@ -1218,6 +1221,8 @@ export default async function ModerationPage({ searchParams }: ModerationPagePro
               </div>
             )}
           </div>
+
+          <ModerationSlaPanel reports={reports} />
         </div>
 
         <div className="space-y-6">

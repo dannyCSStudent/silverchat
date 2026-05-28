@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 MatchStatus = Literal["queued", "matched"]
@@ -32,8 +32,17 @@ class MatchedProfile(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class MatchContext(BaseModel):
+    reason: str
+    shared_interests: list[str] = Field(default_factory=list)
+    pool: Literal["preferred", "fallback"]
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class MatchJoinResponse(BaseModel):
     status: MatchStatus
     queue_entry: QueueEntryRecord | None = None
     session_id: str | None = None
     matched_profile: MatchedProfile | None = None
+    match_context: MatchContext | None = None

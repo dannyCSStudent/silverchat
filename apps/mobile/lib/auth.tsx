@@ -47,6 +47,11 @@ type UserInterestRecord = {
 };
 
 type MatchJoinResponse = {
+  match_context?: {
+    pool: 'preferred' | 'fallback';
+    reason: string;
+    shared_interests: string[];
+  } | null;
   status: 'queued' | 'matched';
   queue_entry?: {
     user_id: string;
@@ -465,7 +470,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setMessage(
         response.status === 'matched'
-          ? `Match found with ${response.matched_profile?.display_name ?? 'another member'}.`
+          ? [
+              `Match found with ${response.matched_profile?.display_name ?? 'another member'}.`,
+              response.match_context?.reason ?? null,
+            ]
+              .filter(Boolean)
+              .join(' ')
           : 'You are now in the matchmaking queue.',
       );
       return response;
