@@ -38,28 +38,10 @@ def _is_queue_eligible(user_id: str):
 
 
 def _build_match_context(
-    current_user_id: str,
-    candidate_user_id: str,
+    shared_interest_names: list[str],
     preferred_pool: bool,
     country_matched: bool,
 ) -> MatchContext:
-    interest_name_by_id = {
-        interest["id"]: interest["name"] for interest in interests.list_interests() if interest.get("id")
-    }
-    current_interest_ids = {
-        item["interest_id"]
-        for item in interests.list_user_interests(current_user_id)
-        if item.get("interest_id")
-    }
-    candidate_interest_ids = {
-        item["interest_id"]
-        for item in interests.list_user_interests(candidate_user_id)
-        if item.get("interest_id")
-    }
-    shared_interest_names = [
-        interest_name_by_id.get(interest_id, interest_id)
-        for interest_id in sorted(current_interest_ids.intersection(candidate_interest_ids))
-    ]
     reason_parts = []
     if country_matched:
         reason_parts.append("same country")
@@ -87,12 +69,19 @@ def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
 
     blocked_user_ids = blocks.list_related_user_ids(user.id)
     current_profile = profiles.get_by_user_id(user.id)
+    interest_name_by_id = {
+        interest["id"]: interest["name"] for interest in interests.list_interests() if interest.get("id")
+    }
+    current_interest_ids = {
+        item["interest_id"]
+        for item in interests.list_user_interests(user.id)
+        if item.get("interest_id")
+    }
     candidates = queue.list_available_candidates(user.id)
 
-    preferred_candidates = []
-    fallback_candidates = []
+    scored_candidates = []
 
-    for candidate in candidates:
+    for index, candidate in enumerate(candidates):
         candidate_user_id = candidate["user_id"]
         if candidate_user_id in blocked_user_ids:
             continue
@@ -107,26 +96,43 @@ def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
         if not candidate_profile.get("onboarding_completed_at"):
             continue
 
-        if payload.country_code and candidate.get("country_code") == payload.country_code:
-            preferred_candidates.append((candidate, candidate_profile))
-            continue
+        candidate_interest_ids = {
+            item["interest_id"]
+            for item in interests.list_user_interests(candidate_user_id)
+            if item.get("interest_id")
+        }
+        shared_interest_names = [
+            interest_name_by_id.get(interest_id, interest_id)
+            for interest_id in sorted(current_interest_ids.intersection(candidate_interest_ids))
+        ]
+        country_matched = bool(
+            (
+                payload.country_code
+                and candidate.get("country_code") == payload.country_code
+            )
+            or (
+                not payload.country_code
+                and current_profile
+                and current_profile.get("country_code")
+                and candidate.get("country_code") == current_profile.get("country_code")
+            )
+        )
 
-        if (
-            not payload.country_code
-            and current_profile
-            and current_profile.get("country_code")
-            and candidate.get("country_code") == current_profile.get("country_code")
-        ):
-            preferred_candidates.append((candidate, candidate_profile))
-            continue
+        scored_candidates.append(
+            (
+                country_matched,
+                len(shared_interest_names),
+                -index,
+                candidate,
+                candidate_profile,
+                shared_interest_names,
+            )
+        )
 
-        fallback_candidates.append((candidate, candidate_profile))
+    preferred_candidates = [item for item in scored_candidates if item[0]]
+    fallback_candidates = [item for item in scored_candidates if not item[0]]
 
-    selected = (
-        preferred_candidates[0]
-        if preferred_candidates
-        else (fallback_candidates[0] if fallback_candidates else None)
-    )
+    selected = max(preferred_candidates or fallback_candidates, default=None)
 
     if not selected:
         queue_entry = queue.upsert_queue_entry(
@@ -140,24 +146,12 @@ def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
         )
         return MatchJoinResponse(status="queued", queue_entry=queue_entry)
 
-    candidate, candidate_profile = selected
+    _, _, _, candidate, candidate_profile, shared_interest_names = selected
     session = queue.create_session(user.id, candidate["user_id"])
     queue.remove_from_queue(user.id)
     queue.remove_from_queue(candidate["user_id"])
-
-    country_matched = bool(
-        (
-            payload.country_code
-            and candidate.get("country_code") == payload.country_code
-        )
-        or (
-            not payload.country_code
-            and current_profile
-            and current_profile.get("country_code")
-            and candidate.get("country_code") == current_profile.get("country_code")
-        )
-    )
-    preferred_pool = bool(preferred_candidates and candidate["user_id"] == preferred_candidates[0][0]["user_id"])
+    country_matched = bool(selected[0])
+    preferred_pool = country_matched
 
     return MatchJoinResponse(
         status="matched",
@@ -169,8 +163,7 @@ def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
             country_code=candidate_profile.get("country_code"),
         ),
         match_context=_build_match_context(
-            current_user_id=user.id,
-            candidate_user_id=candidate["user_id"],
+            shared_interest_names=shared_interest_names,
             preferred_pool=preferred_pool,
             country_matched=country_matched,
         ),
