@@ -1,35 +1,34 @@
 # Roadmap
 
-## Phase 1 MVP
+## Delivered or in progress
 
-Authentication
-Profile creation
-Age verification
-Interest selection
-Random matchmaking
-WebRTC video chat
-Skip system
-Reports
-Blocks
+- Email/password auth
+- Profile creation
+- Interest selection
+- Queue readiness gates
+- Match preview and match context
+- Random matchmaking
+- Skip and requeue flow
+- Reports and blocks
+- Moderation dashboard
+- Member detail pages
+- SLA tracking
+- Health-aware moderation operations
+- Reporting exports and summaries
 
-## Phase 2
+## Next product work
 
-Friend system
-Text chat
-Language filters
-Country filters
+- Better profile completion guidance
+- More explicit match-quality tuning
+- Session-level chat tools
+- Stronger moderation notifications
+- Alerts for degraded admin or backlog spikes
 
-## Phase 3
+## Later
 
-AI icebreakers
-Conversation summaries
-Toxicity detection
-Scam detection
-Live captions
-
-## Phase 4
-
-Subscriptions
-Premium filters
-Boosting
-Analytics
+- AI icebreakers
+- Conversation summaries
+- Toxicity detection
+- Scam detection
+- Live captions
+- Monetization and premium controls

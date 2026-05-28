@@ -1,29 +1,42 @@
 # User Flows
 
-## Onboarding
+## Public auth
 
 Signup
-Verify account
-Set age
-Add profile photo
-Select interests
+Confirm email
+Sign in
+Reset password
 
-## Random Match
+## Onboarding
 
-Tap Start
+Open profile screen
+Fill display name, date of birth, country, bio, and avatar
+Save profile
+Open interests setup
+Select conversation interests
+Save interests
+Return to the queue gate
+
+## Matchmaking
+
+Open queue screen
+Review readiness checklist
+Review match preview signals
+Refresh signals after profile or interest changes
 Join queue
-Get match
-Connect call
+Receive match context after a successful match
+Skip, end, or report the session as needed
 
-## Skip
+## Safety actions
 
-Tap skip
-Disconnect
-Requeue
+Report a user or session
+Block a user
+Leave evidence and moderation history for review
 
-## Report
+## Moderation
 
-Tap report
-Submit reason
-Save evidence
-Queue moderation
+Open the web moderation dashboard
+Review queue pressure and SLA alerts
+Inspect reports, blocks, and member detail pages
+Assign, note, enforce, or review a report
+Export reports, blocks, events, and summaries

@@ -1,20 +1,25 @@
 # Product Overview
 
-SilverChat is a video social platform for mature adults.
+SilverChat is a random video chat app for adults 40+ focused on meaningful conversations, safety, and trust.
 
 Mission:
-Create meaningful random conversations online.
+Create safe, low-friction conversations between real people who are ready to talk.
 
 Target audience:
 Adults 40+
 
-Problems:
+Core problems:
 - loneliness
-- poor social discovery
-- unsafe existing random chat apps
+- low-quality random chat experiences
+- weak trust and safety controls in existing apps
 
-Solution:
-Safe random video chat with interest-based matching.
+Current product shape:
+- public auth and onboarding
+- profile and interest setup
+- queue preview before matchmaking
+- random video matchmaking
+- skip, report, and block flows
+- moderation dashboard for admins and leads
 
 Core value:
-Human connection.
+Human connection with stronger safety and moderation tooling than generic random chat apps.
