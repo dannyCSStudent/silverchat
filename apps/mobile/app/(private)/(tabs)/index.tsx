@@ -1,5 +1,5 @@
 import { Link } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -36,6 +36,13 @@ export default function AccountScreen() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const profileMatchSuggestion = profile ? getMatchSignalSuggestion([], [], profile) : null;
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const displayNameRef = useRef<TextInput | null>(null);
+  const dateOfBirthRef = useRef<TextInput | null>(null);
+  const countryCodeRef = useRef<TextInput | null>(null);
+  const bioRef = useRef<TextInput | null>(null);
+  const profileCardOffsetRef = useRef(0);
+  const fieldOffsetsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     setDisplayName(profile?.display_name ?? '');
@@ -44,6 +51,20 @@ export default function AccountScreen() {
     setBio(profile?.bio ?? '');
     setAvatarUrl(profile?.avatar_url ?? '');
   }, [profile]);
+
+  function focusProfileField(field: 'displayName' | 'dateOfBirth' | 'countryCode' | 'bio') {
+    const fieldRefMap = {
+      bio: bioRef,
+      countryCode: countryCodeRef,
+      dateOfBirth: dateOfBirthRef,
+      displayName: displayNameRef,
+    } as const;
+    const inputRef = fieldRefMap[field];
+    const scrollOffset = profileCardOffsetRef.current + (fieldOffsetsRef.current[field] ?? 0) - 24;
+
+    scrollViewRef.current?.scrollTo({ animated: true, y: Math.max(0, scrollOffset) });
+    inputRef.current?.focus();
+  }
 
   async function handlePickAvatar() {
     if (!user) {
@@ -100,7 +121,10 @@ export default function AccountScreen() {
   }
 
   return (
-    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
+    <ScrollView
+      ref={scrollViewRef}
+      style={[styles.screen, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}>
       <ThemedView style={styles.hero}>
         <ThemedText style={styles.eyebrow}>Account</ThemedText>
         <ThemedText type="title" style={styles.title}>
@@ -140,40 +164,82 @@ export default function AccountScreen() {
             </ThemedText>
           ) : null}
           <View style={styles.missingFieldList}>
-            {profileMatchSuggestion.missingProfileFields?.map((field) => (
-              <View key={field} style={styles.missingFieldChip}>
-                <ThemedText style={styles.missingFieldText}>{field}</ThemedText>
-              </View>
-            ))}
+            {profileMatchSuggestion.missingProfileFields?.map((field) => {
+              const fieldKey =
+                field === 'display name'
+                  ? 'displayName'
+                  : field === 'date of birth'
+                    ? 'dateOfBirth'
+                    : field === 'country code'
+                      ? 'countryCode'
+                      : null;
+
+              return fieldKey ? (
+                <Pressable key={field} onPress={() => focusProfileField(fieldKey)} style={styles.missingFieldChip}>
+                  <ThemedText style={styles.missingFieldText}>{field}</ThemedText>
+                </Pressable>
+              ) : (
+                <View key={field} style={styles.missingFieldChip}>
+                  <ThemedText style={styles.missingFieldText}>{field}</ThemedText>
+                </View>
+              );
+            })}
           </View>
+          {profileMatchSuggestion.missingFlowSteps?.length ? (
+            <Link href="/(private)/(tabs)/setup" style={styles.secondaryButton}>
+              <ThemedText style={styles.secondaryButtonText}>Continue onboarding</ThemedText>
+            </Link>
+          ) : null}
         </ThemedView>
       ) : null}
 
-      <ThemedView style={styles.card}>
+      <ThemedView
+        onLayout={(event) => {
+          profileCardOffsetRef.current = event.nativeEvent.layout.y;
+        }}
+        style={styles.card}>
         <ThemedText style={styles.cardLabel}>Profile</ThemedText>
-        <TextInput
-          onChangeText={setDisplayName}
-          placeholder="Display name"
-          placeholderTextColor="#94A3B8"
-          style={[styles.input, { color: colors.text }]}
-          value={displayName}
-        />
-        <TextInput
-          onChangeText={setDateOfBirth}
-          placeholder="Date of birth (YYYY-MM-DD)"
-          placeholderTextColor="#94A3B8"
-          style={[styles.input, { color: colors.text }]}
-          value={dateOfBirth}
-        />
-        <TextInput
-          autoCapitalize="characters"
-          maxLength={2}
-          onChangeText={setCountryCode}
-          placeholder="Country code"
-          placeholderTextColor="#94A3B8"
-          style={[styles.input, { color: colors.text }]}
-          value={countryCode}
-        />
+        <View
+          onLayout={(event) => {
+            fieldOffsetsRef.current.displayName = event.nativeEvent.layout.y;
+          }}>
+          <TextInput
+            ref={displayNameRef}
+            onChangeText={setDisplayName}
+            placeholder="Display name"
+            placeholderTextColor="#94A3B8"
+            style={[styles.input, { color: colors.text }]}
+            value={displayName}
+          />
+        </View>
+        <View
+          onLayout={(event) => {
+            fieldOffsetsRef.current.dateOfBirth = event.nativeEvent.layout.y;
+          }}>
+          <TextInput
+            ref={dateOfBirthRef}
+            onChangeText={setDateOfBirth}
+            placeholder="Date of birth (YYYY-MM-DD)"
+            placeholderTextColor="#94A3B8"
+            style={[styles.input, { color: colors.text }]}
+            value={dateOfBirth}
+          />
+        </View>
+        <View
+          onLayout={(event) => {
+            fieldOffsetsRef.current.countryCode = event.nativeEvent.layout.y;
+          }}>
+          <TextInput
+            ref={countryCodeRef}
+            autoCapitalize="characters"
+            maxLength={2}
+            onChangeText={setCountryCode}
+            placeholder="Country code"
+            placeholderTextColor="#94A3B8"
+            style={[styles.input, { color: colors.text }]}
+            value={countryCode}
+          />
+        </View>
         <View style={styles.avatarSection}>
           <ThemedText style={styles.avatarLabel}>Avatar</ThemedText>
           {avatarUrl ? (
@@ -196,14 +262,20 @@ export default function AccountScreen() {
             ) : null}
           </View>
         </View>
-        <TextInput
-          multiline
-          onChangeText={setBio}
-          placeholder="Short bio"
-          placeholderTextColor="#94A3B8"
-          style={[styles.input, styles.textarea, { color: colors.text }]}
-          value={bio}
-        />
+        <View
+          onLayout={(event) => {
+            fieldOffsetsRef.current.bio = event.nativeEvent.layout.y;
+          }}>
+          <TextInput
+            ref={bioRef}
+            multiline
+            onChangeText={setBio}
+            placeholder="Short bio"
+            placeholderTextColor="#94A3B8"
+            style={[styles.input, styles.textarea, { color: colors.text }]}
+            value={bio}
+          />
+        </View>
 
         <Pressable disabled={loading || avatarUploading} onPress={() => void submitProfile()} style={styles.primaryButton}>
           <ThemedText style={styles.primaryButtonText}>
