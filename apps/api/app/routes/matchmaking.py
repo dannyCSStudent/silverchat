@@ -193,25 +193,25 @@ def preview_matchmaking(user=Depends(get_current_user)):
     if ranked_candidates:
         shared_interests = ranked_candidates[0]["shared_interest_names"]
 
-    recommendation = (
-        "We should match you with same-country members first."
-        if preferred_candidates
-        else (
-            "No same-country candidates are available right now, so we will use the best fallback."
-            if fallback_candidates
-            else "You are ready for matchmaking, but nobody is available right now."
-        )
-    )
+    if preferred_candidates:
+        recommendation = "We should match you with same-country members first."
+        recommendation_reason = "Same-country candidates are available, so they stay ahead of fallback matches."
+        recommended_pool = "preferred"
+    elif fallback_candidates:
+        recommendation = "No same-country candidates are available right now, so we will use the best fallback."
+        recommendation_reason = "Fallback candidates still share the strongest available interest signals."
+        recommended_pool = "fallback"
+    else:
+        recommendation = "You are ready for matchmaking, but nobody is available right now."
+        recommendation_reason = "The queue is empty, so you will wait for the next eligible member."
+        recommended_pool = "queue"
 
     return MatchPreviewResponse(
         available_candidates=len(ranked_candidates),
         fallback_candidates=len(fallback_candidates),
         preferred_candidates=len(preferred_candidates),
         recommendation=recommendation,
-        recommended_pool=(
-            "preferred"
-            if preferred_candidates
-            else ("fallback" if fallback_candidates else "queue")
-        ),
+        recommendation_reason=recommendation_reason,
+        recommended_pool=recommended_pool,
         shared_interests=shared_interests,
     )

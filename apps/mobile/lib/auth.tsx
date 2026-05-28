@@ -75,6 +75,7 @@ type MatchPreviewResponse = {
   fallback_candidates: number;
   preferred_candidates: number;
   recommendation: string;
+  recommendation_reason: string;
   recommended_pool: 'preferred' | 'fallback' | 'queue';
   shared_interests: string[];
 };

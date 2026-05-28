@@ -51,6 +51,14 @@ export default function QueueScreen() {
   }
 
   const incompleteSteps = onboardingChecklist.filter((item) => !item.complete);
+  const matchPoolLabel =
+    matchPreview?.recommended_pool === 'preferred'
+      ? 'Preferred pool'
+      : matchPreview?.recommended_pool === 'fallback'
+        ? 'Fallback pool'
+        : matchPreview?.recommended_pool === 'queue'
+          ? 'Waiting queue'
+          : null;
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
@@ -116,6 +124,7 @@ export default function QueueScreen() {
         <ThemedView style={styles.card}>
           <ThemedText type="subtitle">Match signals</ThemedText>
           <ThemedText style={styles.cardCopy}>{matchPreview.recommendation}</ThemedText>
+          <ThemedText style={styles.cardCopy}>{matchPreview.recommendation_reason}</ThemedText>
           <View style={styles.signalGrid}>
             <View style={styles.signalChip}>
               <ThemedText style={styles.signalValue}>{matchPreview.available_candidates}</ThemedText>
@@ -135,6 +144,7 @@ export default function QueueScreen() {
               Shared interests: {matchPreview.shared_interests.join(', ')}
             </ThemedText>
           ) : null}
+          {matchPoolLabel ? <ThemedText style={styles.cardCopy}>Match pool: {matchPoolLabel}</ThemedText> : null}
         </ThemedView>
       ) : null}
 

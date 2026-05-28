@@ -54,5 +54,6 @@ class MatchPreviewResponse(BaseModel):
     fallback_candidates: int
     preferred_candidates: int
     recommendation: str
+    recommendation_reason: str
     recommended_pool: MatchPool
     shared_interests: list[str] = Field(default_factory=list)
