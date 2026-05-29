@@ -11,6 +11,7 @@ import { FreshnessLine } from '@/components/freshness-line';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
 import { OnboardingNextStepCard } from '@/components/onboarding-next-step-card';
 import { SessionMemberCard } from '@/components/session-member-card';
+import { SessionOutcomeCard } from '@/components/session-outcome-card';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -383,15 +384,20 @@ export default function QueueScreen() {
           <ThemedText type="subtitle">Recent matches</ThemedText>
           {recentMatches.slice(0, 3).map((session) => (
             <Link key={session.id} href={`/(private)/sessions/${session.id}`} style={styles.recentMatchLink}>
-              <SessionMemberCard
-                title={session.status ?? 'matched'}
-                member={{
+              <SessionOutcomeCard
+                title="Recent match"
+                sessionId={session.id}
+                status={session.status}
+                currentUserRole={session.current_user_role ?? 'initiator'}
+                createdAt={session.created_at ?? null}
+                endedAt={session.ended_at ?? null}
+                durationLabel={null}
+                otherMember={{
                   user_id: session.other_profile?.user_id ?? session.id,
                   display_name: session.other_profile?.display_name ?? 'Another member',
-                  country_code: session.other_profile?.country_code ?? 'unknown country',
                   avatar_url: session.other_profile?.avatar_url ?? null,
+                  country_code: session.other_profile?.country_code ?? 'unknown country',
                 }}
-                footer={<FreshnessLine prefix="Matched" timestamp={session.created_at ?? null} />}
               />
             </Link>
           ))}
@@ -446,10 +452,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: 'rgba(39,86,107,0.08)',
   },
-  recentMatchLink: {
-    borderRadius: 18,
-    padding: 2,
-  },
+  recentMatchLink: { borderRadius: 18, padding: 2 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(24,33,43,0.08)' },
   avatarFallback: {
     width: 64,

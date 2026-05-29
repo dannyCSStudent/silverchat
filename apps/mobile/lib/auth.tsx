@@ -77,6 +77,7 @@ type MatchJoinResponse = {
 type RecentMatchSession = {
   id: string;
   status?: string | null;
+  current_user_role?: 'initiator' | 'recipient' | null;
   created_at?: string;
   ended_at?: string;
   other_profile?: {

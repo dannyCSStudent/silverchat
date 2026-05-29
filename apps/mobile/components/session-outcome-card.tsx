@@ -3,6 +3,7 @@ import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { SessionMemberCard } from '@/components/session-member-card';
 
 type SessionOutcomeCardProps = {
+  title?: string;
   sessionId: string;
   status?: string | null;
   currentUserRole: 'initiator' | 'recipient';
@@ -18,6 +19,7 @@ type SessionOutcomeCardProps = {
 };
 
 export function SessionOutcomeCard({
+  title = 'Session detail',
   sessionId,
   status,
   currentUserRole,
@@ -28,7 +30,7 @@ export function SessionOutcomeCard({
 }: SessionOutcomeCardProps) {
   return (
     <SessionMemberCard
-      title="Session detail"
+      title={title}
       member={otherMember}
       footer={
         <>

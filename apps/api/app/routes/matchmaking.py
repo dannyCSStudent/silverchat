@@ -248,6 +248,9 @@ def list_match_sessions(user=Depends(get_current_user)):
             MatchSessionSummary(
                 id=row["id"],
                 status=row.get("status"),
+                current_user_role="initiator"
+                if row.get("initiator_user_id") == user.id
+                else "recipient",
                 created_at=row.get("created_at"),
                 ended_at=row.get("ended_at"),
                 other_profile=(
@@ -293,6 +296,9 @@ def get_match_session(session_id: str, user=Depends(get_current_user)):
         session=MatchSessionSummary(
             id=session_row["id"],
             status=session_row.get("status"),
+            current_user_role="initiator"
+            if session_row.get("initiator_user_id") == user.id
+            else "recipient",
             created_at=session_row.get("created_at"),
             ended_at=session_row.get("ended_at"),
             other_profile=(

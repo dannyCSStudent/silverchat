@@ -52,6 +52,7 @@ class MatchJoinResponse(BaseModel):
 class MatchSessionSummary(BaseModel):
     id: str
     status: str | None = None
+    current_user_role: Literal["initiator", "recipient"] | None = None
     created_at: datetime | None = None
     ended_at: datetime | None = None
     other_profile: MatchedProfile | None = None
