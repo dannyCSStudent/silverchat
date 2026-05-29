@@ -29,6 +29,7 @@ export default function QueueScreen() {
     message,
     onboardingChecklist,
     profile,
+    queueEntry,
     queueEligible,
     refreshData,
     lastSyncedAt,
@@ -39,14 +40,6 @@ export default function QueueScreen() {
     display_name: string;
     avatar_url?: string;
     country_code?: string;
-  } | null>(null);
-  const [queueEntry, setQueueEntry] = useState<{
-    user_id: string;
-    queued_at?: string;
-    last_active_at?: string;
-    preferred_language?: string;
-    country_code?: string;
-    is_available: boolean;
   } | null>(null);
   const [matchContext, setMatchContext] = useState<{
     pool: 'preferred' | 'fallback';
@@ -66,7 +59,6 @@ export default function QueueScreen() {
     try {
       const response = await joinQueue();
       setMatchedProfile(response.matched_profile ?? null);
-      setQueueEntry(response.queue_entry ?? null);
       setMatchContext(response.match_context ?? null);
       setLocalMessage(
         response.status === 'matched'
@@ -75,7 +67,6 @@ export default function QueueScreen() {
       );
     } catch (error) {
       setMatchedProfile(null);
-      setQueueEntry(null);
       setMatchContext(null);
       setLocalMessage(error instanceof Error ? error.message : 'Unable to join matchmaking.');
     }

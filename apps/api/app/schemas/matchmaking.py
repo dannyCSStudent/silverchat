@@ -49,6 +49,10 @@ class MatchJoinResponse(BaseModel):
     match_context: MatchContext | None = None
 
 
+class QueueStatusResponse(BaseModel):
+    queue_entry: QueueEntryRecord | None = None
+
+
 class MatchPreviewResponse(BaseModel):
     generated_at: datetime
     available_candidates: int

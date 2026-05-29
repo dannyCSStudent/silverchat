@@ -13,6 +13,7 @@ from app.schemas.matchmaking import (
     MatchJoinResponse,
     MatchPreviewResponse,
     MatchedProfile,
+    QueueStatusResponse,
 )
 
 router = APIRouter(prefix="/match", tags=["Matchmaking"])
@@ -204,6 +205,12 @@ def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
             country_matched=country_matched,
         ),
     )
+
+
+@router.get("/queue", response_model=QueueStatusResponse)
+def get_queue_status(user=Depends(get_current_user)):
+    queue_entry = queue.get_queue_entry(user.id)
+    return QueueStatusResponse(queue_entry=queue_entry)
 
 
 @router.get("/preview", response_model=MatchPreviewResponse)

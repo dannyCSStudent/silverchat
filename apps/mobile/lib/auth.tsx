@@ -48,6 +48,15 @@ type UserInterestRecord = {
   interest_id: string;
 };
 
+type QueueEntryRecord = {
+  user_id: string;
+  queued_at?: string;
+  last_active_at?: string;
+  preferred_language?: string;
+  country_code?: string;
+  is_available: boolean;
+};
+
 type MatchJoinResponse = {
   match_context?: {
     pool: 'preferred' | 'fallback';
@@ -55,14 +64,7 @@ type MatchJoinResponse = {
     shared_interests: string[];
   } | null;
   status: 'queued' | 'matched';
-  queue_entry?: {
-    user_id: string;
-    queued_at?: string;
-    last_active_at?: string;
-    preferred_language?: string;
-    country_code?: string;
-    is_available: boolean;
-  } | null;
+  queue_entry?: QueueEntryRecord | null;
   session_id?: string | null;
   matched_profile?: {
     user_id: string;
@@ -109,6 +111,7 @@ type AuthContextValue = {
   message: string | null;
   matchPreview: MatchPreviewResponse | null;
   lastSyncedAt: string | null;
+  queueEntry: QueueEntryRecord | null;
   onboardingChecklist: Array<{
     complete: boolean;
     id: 'email' | 'profile' | 'interests' | 'onboarding';
@@ -138,6 +141,7 @@ type AccountSnapshot = {
   interests: string[];
   profile: ProfileRecord | null;
   sessionState: SessionState | null;
+  queueEntry: QueueEntryRecord | null;
 };
 
 async function authorizedRequest<T>(session: Session, path: string, options: RequestInit = {}) {
@@ -163,13 +167,15 @@ async function loadAccountSnapshot(nextSession: Session | null): Promise<Account
       interests: [],
       profile: null,
       sessionState: null,
+      queueEntry: null,
     };
   }
 
-  const [sessionState, profile, userInterests] = await Promise.all([
+  const [sessionState, profile, userInterests, queueStatus] = await Promise.all([
     authorizedRequest<SessionState>(nextSession, '/auth/session'),
     authorizedRequest<ProfileRecord | null>(nextSession, '/profiles/me'),
     authorizedRequest<UserInterestRecord[]>(nextSession, '/interests/me'),
+    authorizedRequest<{ queue_entry: QueueEntryRecord | null }>(nextSession, '/match/queue'),
   ]);
 
   return {
@@ -177,6 +183,7 @@ async function loadAccountSnapshot(nextSession: Session | null): Promise<Account
     interests: userInterests.map((item) => item.interest_id),
     profile,
     sessionState,
+    queueEntry: queueStatus.queue_entry,
   };
 }
 
@@ -188,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
   const [matchPreview, setMatchPreview] = useState<MatchPreviewResponse | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [queueEntry, setQueueEntry] = useState<QueueEntryRecord | null>(null);
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [sessionState, setSessionState] = useState<SessionState | null>(null);
@@ -272,6 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(snapshot.profile);
         setSessionState(snapshot.sessionState);
         setInterests(snapshot.interests);
+        setQueueEntry(snapshot.queueEntry);
         await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
         lastRefreshAtRef.current = Date.now();
         setLastSyncedAt(new Date().toISOString());
@@ -292,6 +301,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (active) {
             setAvailableInterests(snapshot.availableInterests);
             setMatchPreview(null);
+            setQueueEntry(snapshot.queueEntry);
             setLastSyncedAt(new Date().toISOString());
           }
         } catch {
@@ -325,6 +335,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(snapshot.profile);
         setSessionState(snapshot.sessionState);
         setInterests(snapshot.interests);
+        setQueueEntry(snapshot.queueEntry);
         await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
         lastRefreshAtRef.current = Date.now();
         setLastSyncedAt(new Date().toISOString());
@@ -546,6 +557,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }),
       });
 
+      setQueueEntry(response.queue_entry ?? null);
+      if (response.status === 'matched') {
+        setMatchPreview(null);
+      }
+
       setMessage(
         response.status === 'matched'
           ? [
@@ -575,6 +591,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       interests,
       matchPreview,
       lastSyncedAt,
+      queueEntry,
       joinQueue,
       loading,
       message,
@@ -603,6 +620,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       interests,
       matchPreview,
       lastSyncedAt,
+      queueEntry,
       joinQueue,
       loading,
       message,
