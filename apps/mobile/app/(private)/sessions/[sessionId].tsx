@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FreshnessLine } from '@/components/freshness-line';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
+import { SessionMemberCard } from '@/components/session-member-card';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
@@ -312,13 +313,7 @@ export default function MatchSessionScreen() {
       ) : null}
 
       {summary?.other_profile ? (
-        <ThemedView style={styles.card}>
-          <ThemedText type="subtitle">Other member</ThemedText>
-          <ThemedText style={styles.cardCopy}>{summary.other_profile.display_name}</ThemedText>
-          <ThemedText style={styles.cardCopy}>
-            {summary.other_profile.country_code ?? 'Country not set'}
-          </ThemedText>
-        </ThemedView>
+        <SessionMemberCard title="Other member" member={summary.other_profile} />
       ) : null}
 
       {summary?.other_profile ? (
