@@ -33,6 +33,9 @@ export default function QueueScreen() {
     queueEligible,
     refreshData,
     lastSyncedAt,
+    queuePosition,
+    queueSize,
+    membersAhead,
   } = useAuth();
   const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [matchedProfile, setMatchedProfile] = useState<{
@@ -250,6 +253,13 @@ export default function QueueScreen() {
               { label: 'Status', value: queueEntry.is_available ? 'Available' : 'Unavailable' },
               { label: 'Country', value: queueEntry.country_code ?? 'Not set' },
               { label: 'Language', value: queueEntry.preferred_language ?? 'Any' },
+              {
+                label: 'Position',
+                value:
+                  queuePosition && queuePosition > 0 ? `#${queuePosition}` : 'Waiting for position',
+              },
+              { label: 'Ahead', value: membersAhead !== null ? String(membersAhead) : '—' },
+              { label: 'Queue size', value: queueSize > 0 ? String(queueSize) : '—' },
             ]}
           />
         </ThemedView>

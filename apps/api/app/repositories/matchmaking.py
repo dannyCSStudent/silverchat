@@ -27,6 +27,16 @@ class MatchQueueRepository:
             .data
         )
 
+    def list_waiting_entries(self):
+        return (
+            supabase.table(self.queue_table)
+            .select("*")
+            .eq("is_available", True)
+            .order("queued_at")
+            .execute()
+            .data
+        )
+
     def upsert_queue_entry(self, payload: dict):
         result = (
             supabase.table(self.queue_table)

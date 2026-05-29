@@ -210,7 +210,18 @@ def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
 @router.get("/queue", response_model=QueueStatusResponse)
 def get_queue_status(user=Depends(get_current_user)):
     queue_entry = queue.get_queue_entry(user.id)
-    return QueueStatusResponse(queue_entry=queue_entry)
+    waiting_entries = queue.list_waiting_entries()
+    current_index = next(
+        (index for index, entry in enumerate(waiting_entries) if entry.get("user_id") == user.id),
+        None,
+    )
+    queue_size = len(waiting_entries)
+    return QueueStatusResponse(
+        queue_entry=queue_entry,
+        queue_position=(current_index + 1) if current_index is not None else None,
+        queue_size=queue_size,
+        members_ahead=current_index,
+    )
 
 
 @router.get("/preview", response_model=MatchPreviewResponse)

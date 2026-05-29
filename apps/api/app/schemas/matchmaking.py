@@ -51,6 +51,9 @@ class MatchJoinResponse(BaseModel):
 
 class QueueStatusResponse(BaseModel):
     queue_entry: QueueEntryRecord | None = None
+    queue_position: int | None = None
+    queue_size: int = 0
+    members_ahead: int | None = None
 
 
 class MatchPreviewResponse(BaseModel):
