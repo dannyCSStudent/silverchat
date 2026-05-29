@@ -27,6 +27,15 @@ type SessionDetailResponse = {
   };
 };
 
+type MyReportRecord = {
+  reported_user_id: string;
+  session_id?: string | null;
+};
+
+type MyBlockRecord = {
+  blocked_user_id: string;
+};
+
 const REPORT_REASONS = [
   { id: 'spam', label: 'Spam' },
   { id: 'harassment', label: 'Harassment' },
@@ -47,6 +56,13 @@ export default function MatchSessionScreen() {
   const [actionNote, setActionNote] = useState('');
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<'report' | 'block' | null>(null);
+  const [relationshipState, setRelationshipState] = useState<{
+    alreadyReported: boolean;
+    alreadyBlocked: boolean;
+  }>({
+    alreadyReported: false,
+    alreadyBlocked: false,
+  });
 
   const resolvedSessionId = useMemo(() => {
     if (!sessionId) {
@@ -98,6 +114,35 @@ export default function MatchSessionScreen() {
 
   const otherUserId = detail?.session.other_profile?.user_id ?? cachedSession?.other_profile?.user_id ?? null;
 
+  const loadRelationshipState = useCallback(async () => {
+    if (!session || !otherUserId) {
+      setRelationshipState({
+        alreadyReported: false,
+        alreadyBlocked: false,
+      });
+      return;
+    }
+
+    try {
+      const [myReports, myBlocks] = await Promise.all([
+        authorizedApiRequest<MyReportRecord[]>(session, '/reports/me'),
+        authorizedApiRequest<MyBlockRecord[]>(session, '/blocks/me'),
+      ]);
+
+      setRelationshipState({
+        alreadyReported: myReports.some(
+          (record) => record.reported_user_id === otherUserId && record.session_id === resolvedSessionId,
+        ),
+        alreadyBlocked: myBlocks.some((record) => record.blocked_user_id === otherUserId),
+      });
+    } catch {
+      setRelationshipState({
+        alreadyReported: false,
+        alreadyBlocked: false,
+      });
+    }
+  }, [otherUserId, resolvedSessionId, session]);
+
   const handleReport = useCallback(async () => {
     if (!session || !resolvedSessionId || !otherUserId) {
       setActionStatus('No member is available to report yet.');
@@ -119,6 +164,7 @@ export default function MatchSessionScreen() {
       });
       setActionStatus('Report submitted.');
       void loadDetail();
+      void loadRelationshipState();
     } catch (requestError) {
       setActionStatus(requestError instanceof Error ? requestError.message : 'Unable to submit report.');
     } finally {
@@ -145,6 +191,7 @@ export default function MatchSessionScreen() {
       });
       setActionStatus('Block saved.');
       void loadDetail();
+      void loadRelationshipState();
     } catch (requestError) {
       setActionStatus(requestError instanceof Error ? requestError.message : 'Unable to block member.');
     } finally {
@@ -155,6 +202,10 @@ export default function MatchSessionScreen() {
   useEffect(() => {
     void loadDetail();
   }, [loadDetail]);
+
+  useEffect(() => {
+    void loadRelationshipState();
+  }, [loadRelationshipState]);
 
   const summary = detail?.session;
   const sessionDurationLabel = useMemo(() => {
@@ -194,6 +245,22 @@ export default function MatchSessionScreen() {
 
     return 'This match had enough time to develop. Use the follow-up actions only if something specific happened.';
   }, [sessionDurationLabel, summary]);
+
+  const actionStateCopy = useMemo(() => {
+    if (relationshipState.alreadyBlocked && relationshipState.alreadyReported) {
+      return 'You already reported and blocked this member from this session.';
+    }
+
+    if (relationshipState.alreadyBlocked) {
+      return 'You already blocked this member.';
+    }
+
+    if (relationshipState.alreadyReported) {
+      return 'You already reported this member from this session.';
+    }
+
+    return null;
+  }, [relationshipState.alreadyBlocked, relationshipState.alreadyReported]);
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
@@ -261,6 +328,7 @@ export default function MatchSessionScreen() {
             Block the member or file a report from this session detail.
           </ThemedText>
           <ThemedText style={styles.cardCopy}>{followUpHint}</ThemedText>
+          {actionStateCopy ? <ThemedText style={styles.cardCopy}>{actionStateCopy}</ThemedText> : null}
 
           <View style={styles.reasonRow}>
             {REPORT_REASONS.map((reason) => (
@@ -307,28 +375,38 @@ export default function MatchSessionScreen() {
           <View style={styles.actionRow}>
             <Pressable
               onPress={() => void handleReport()}
-              disabled={busyAction !== null}
+              disabled={busyAction !== null || relationshipState.alreadyReported}
               style={({ pressed }) => [
                 styles.primaryButton,
                 pressed ? styles.buttonPressed : undefined,
                 busyAction === 'report' ? styles.buttonDisabled : undefined,
+                relationshipState.alreadyReported ? styles.buttonDisabled : undefined,
               ]}
             >
               <ThemedText style={styles.primaryButtonText}>
-                {busyAction === 'report' ? 'Submitting...' : `Report ${reportReason}`}
+                {relationshipState.alreadyReported
+                  ? 'Already reported'
+                  : busyAction === 'report'
+                    ? 'Submitting...'
+                    : `Report ${reportReason}`}
               </ThemedText>
             </Pressable>
             <Pressable
               onPress={() => void handleBlock()}
-              disabled={busyAction !== null}
+              disabled={busyAction !== null || relationshipState.alreadyBlocked}
               style={({ pressed }) => [
                 styles.secondaryButton,
                 pressed ? styles.buttonPressed : undefined,
                 busyAction === 'block' ? styles.buttonDisabled : undefined,
+                relationshipState.alreadyBlocked ? styles.buttonDisabled : undefined,
               ]}
             >
               <ThemedText style={styles.secondaryButtonText}>
-                {busyAction === 'block' ? 'Blocking...' : 'Block member'}
+                {relationshipState.alreadyBlocked
+                  ? 'Already blocked'
+                  : busyAction === 'block'
+                    ? 'Blocking...'
+                    : 'Block member'}
               </ThemedText>
             </Pressable>
           </View>
