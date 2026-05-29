@@ -402,7 +402,6 @@ export default function QueueScreen() {
               currentUserRole={matchedSessionDetail.current_user_role}
               createdAt={matchedSessionDetail.created_at ?? null}
               endedAt={matchedSessionDetail.ended_at ?? null}
-              durationLabel={null}
               otherMember={{
                 user_id: matchedSessionDetail.other_profile?.user_id ?? matchedProfile.user_id,
                 display_name:
@@ -469,7 +468,6 @@ export default function QueueScreen() {
                 currentUserRole={session.current_user_role ?? 'initiator'}
                 createdAt={session.created_at ?? null}
                 endedAt={session.ended_at ?? null}
-                durationLabel={null}
                 otherMember={{
                   user_id: session.other_profile?.user_id ?? session.id,
                   display_name: session.other_profile?.display_name ?? 'Another member',
