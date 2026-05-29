@@ -15,6 +15,7 @@ export default function MatchHistoryScreen() {
   const colors = Colors[colorScheme];
   const { recentMatches } = useAuth();
   const [roleFilter, setRoleFilter] = useState<'all' | 'initiator' | 'recipient'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'matched' | 'ended'>('all');
 
   const orderedMatches = useMemo(
     () =>
@@ -27,12 +28,13 @@ export default function MatchHistoryScreen() {
   );
 
   const filteredMatches = useMemo(() => {
-    if (roleFilter === 'all') {
-      return orderedMatches;
-    }
-
-    return orderedMatches.filter((session) => session.current_user_role === roleFilter);
-  }, [orderedMatches, roleFilter]);
+    return orderedMatches.filter((session) => {
+      const roleMatches = roleFilter === 'all' || session.current_user_role === roleFilter;
+      const sessionStatus = session.ended_at ? 'ended' : 'matched';
+      const statusMatches = statusFilter === 'all' || sessionStatus === statusFilter;
+      return roleMatches && statusMatches;
+    });
+  }, [orderedMatches, roleFilter, statusFilter]);
 
   const initiatedCount = useMemo(
     () => recentMatches.filter((session) => session.current_user_role === 'initiator').length,
@@ -40,6 +42,14 @@ export default function MatchHistoryScreen() {
   );
   const receivedCount = useMemo(
     () => recentMatches.filter((session) => session.current_user_role === 'recipient').length,
+    [recentMatches],
+  );
+  const matchedCount = useMemo(
+    () => recentMatches.filter((session) => !session.ended_at).length,
+    [recentMatches],
+  );
+  const endedCount = useMemo(
+    () => recentMatches.filter((session) => Boolean(session.ended_at)).length,
     [recentMatches],
   );
 
@@ -90,6 +100,41 @@ export default function MatchHistoryScreen() {
                 style={[
                   styles.filterChipCount,
                   roleFilter === filter.id ? styles.filterChipCountActive : undefined,
+                ]}
+              >
+                {filter.count}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={styles.filterRow}>
+          {[
+            { id: 'all' as const, label: 'Any status', count: recentMatches.length },
+            { id: 'matched' as const, label: 'Matched', count: matchedCount },
+            { id: 'ended' as const, label: 'Ended', count: endedCount },
+          ].map((filter) => (
+            <Pressable
+              key={filter.id}
+              onPress={() => setStatusFilter(filter.id)}
+              style={({ pressed }) => [
+                styles.filterChip,
+                statusFilter === filter.id ? styles.filterChipActive : undefined,
+                pressed ? styles.filterChipPressed : undefined,
+              ]}
+            >
+              <ThemedText
+                style={[
+                  styles.filterChipText,
+                  statusFilter === filter.id ? styles.filterChipTextActive : undefined,
+                ]}
+              >
+                {filter.label}
+              </ThemedText>
+              <ThemedText
+                style={[
+                  styles.filterChipCount,
+                  statusFilter === filter.id ? styles.filterChipCountActive : undefined,
                 ]}
               >
                 {filter.count}
