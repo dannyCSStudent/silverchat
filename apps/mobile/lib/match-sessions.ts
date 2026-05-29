@@ -20,3 +20,12 @@ export type MatchSessionDetailResponse = {
 };
 
 export type RecentMatchSession = MatchSessionSummary;
+
+export type UserReportRecord = {
+  reported_user_id: string;
+  session_id?: string | null;
+};
+
+export type UserBlockRecord = {
+  blocked_user_id: string;
+};

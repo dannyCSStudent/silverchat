@@ -11,16 +11,11 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
 import { authorizedApiRequest } from '@/lib/api';
-import type { MatchSessionDetailResponse } from '@/lib/match-sessions';
-
-type MyReportRecord = {
-  reported_user_id: string;
-  session_id?: string | null;
-};
-
-type MyBlockRecord = {
-  blocked_user_id: string;
-};
+import type {
+  MatchSessionDetailResponse,
+  UserBlockRecord,
+  UserReportRecord,
+} from '@/lib/match-sessions';
 
 export default function MatchSessionScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -100,8 +95,8 @@ export default function MatchSessionScreen() {
 
     try {
       const [myReports, myBlocks] = await Promise.all([
-        authorizedApiRequest<MyReportRecord[]>(session, '/reports/me'),
-        authorizedApiRequest<MyBlockRecord[]>(session, '/blocks/me'),
+        authorizedApiRequest<UserReportRecord[]>(session, '/reports/me'),
+        authorizedApiRequest<UserBlockRecord[]>(session, '/blocks/me'),
       ]);
 
       setRelationshipState({
