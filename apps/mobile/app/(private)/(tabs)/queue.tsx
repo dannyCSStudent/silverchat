@@ -13,6 +13,7 @@ import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
+import { getOnboardingNextAction } from '@/lib/onboarding';
 import { getMatchPreviewGuidance, getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 
 export default function QueueScreen() {
@@ -97,6 +98,7 @@ export default function QueueScreen() {
     surface: 'queue',
     suggestion: queueBlockerSuggestion,
   });
+  const nextAction = getOnboardingNextAction(onboardingChecklist);
   const queueBlockerTitle = queueBlockerGuidance?.title ?? 'Next actions';
   const queueBlockerActionLabel = queueBlockerGuidance?.actionLabel ?? null;
   const matchPreviewGuidance = getMatchPreviewGuidance({
@@ -140,6 +142,19 @@ export default function QueueScreen() {
         />
         <FreshnessLine prefix="Last synced" timestamp={lastSyncedAt} />
       </ThemedView>
+
+      {nextAction ? (
+        <ThemedView style={styles.card}>
+          <ThemedText style={styles.cardLabel}>Next step</ThemedText>
+          <ThemedText type="subtitle">{nextAction.title}</ThemedText>
+          <ThemedText style={styles.cardCopy}>
+            Finish the next onboarding step before returning to the queue.
+          </ThemedText>
+          <Link href={nextAction.href} style={styles.secondaryButton}>
+            <ThemedText style={styles.secondaryButtonText}>{nextAction.label}</ThemedText>
+          </Link>
+        </ThemedView>
+      ) : null}
 
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Checklist</ThemedText>

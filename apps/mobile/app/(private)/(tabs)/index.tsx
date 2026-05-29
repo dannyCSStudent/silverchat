@@ -12,6 +12,7 @@ import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { useAuth } from '@/lib/auth';
+import { getOnboardingNextAction } from '@/lib/onboarding';
 import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 import { pickAvatarAsset, uploadAvatar } from '@/lib/storage';
 
@@ -54,6 +55,7 @@ export default function AccountScreen() {
   const bioRef = useRef<TextInput | null>(null);
   const profileCardOffsetRef = useRef(0);
   const fieldOffsetsRef = useRef<Record<string, number>>({});
+  const nextAction = getOnboardingNextAction(onboardingChecklist);
 
   useEffect(() => {
     setDisplayName(profile?.display_name ?? '');
@@ -166,6 +168,19 @@ export default function AccountScreen() {
           </Pressable>
         </View>
       </ThemedView>
+
+      {nextAction ? (
+        <ThemedView style={styles.card}>
+          <ThemedText style={styles.cardLabel}>Next step</ThemedText>
+          <ThemedText type="subtitle">{nextAction.title}</ThemedText>
+          <ThemedText style={styles.cardCopy}>
+            Continue onboarding from the next unfinished step instead of hunting for the right screen.
+          </ThemedText>
+          <Link href={nextAction.href} style={styles.secondaryButton}>
+            <ThemedText style={styles.secondaryButtonText}>{nextAction.label}</ThemedText>
+          </Link>
+        </ThemedView>
+      ) : null}
 
       {profileMatchSuggestion?.kind === 'profile' ? (
         <ThemedView style={[styles.card, styles.attentionCard]}>
@@ -300,9 +315,6 @@ export default function AccountScreen() {
           </ThemedText>
         </Pressable>
 
-        <Link href="/(private)/(tabs)/setup" style={styles.secondaryButton}>
-          <ThemedText style={styles.secondaryButtonText}>Continue to interests</ThemedText>
-        </Link>
         <Link href="/(private)/preferences" style={styles.secondaryLink}>
           <ThemedText style={styles.linkText}>Open preferences</ThemedText>
         </Link>

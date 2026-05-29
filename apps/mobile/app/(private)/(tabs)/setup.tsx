@@ -12,6 +12,7 @@ import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
+import { getOnboardingNextAction } from '@/lib/onboarding';
 import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 
 export default function SetupScreen() {
@@ -61,6 +62,7 @@ export default function SetupScreen() {
     surface: 'setup',
     suggestion: matchInterestSuggestion,
   });
+  const nextAction = getOnboardingNextAction(onboardingChecklist);
 
   function toggleInterest(interestId: string) {
     setSelectedInterests((current) =>
@@ -112,6 +114,19 @@ export default function SetupScreen() {
         />
         <FreshnessLine prefix="Last synced" timestamp={lastSyncedAt} />
       </ThemedView>
+
+      {nextAction ? (
+        <ThemedView style={styles.card}>
+          <ThemedText style={styles.cardLabel}>Next step</ThemedText>
+          <ThemedText type="subtitle">{nextAction.title}</ThemedText>
+          <ThemedText style={styles.cardCopy}>
+            Continue from the first unfinished onboarding step before choosing interests.
+          </ThemedText>
+          <Link href={nextAction.href} style={styles.secondaryButton}>
+            <ThemedText style={styles.secondaryButtonText}>{nextAction.label}</ThemedText>
+          </Link>
+        </ThemedView>
+      ) : null}
 
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Interest selection</ThemedText>
