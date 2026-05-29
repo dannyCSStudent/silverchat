@@ -121,7 +121,14 @@ export default function MatchHistoryScreen() {
         {sessionIdHint ? <ThemedText style={styles.hint}>{sessionIdHint}</ThemedText> : null}
 
         <View style={styles.lookupCard}>
-          <ThemedText style={styles.cardLabel}>Jump to a session</ThemedText>
+          <View style={styles.lookupHeader}>
+            <ThemedText style={styles.cardLabel}>Jump to a session</ThemedText>
+            {sessionLookup.trim() ? (
+              <Pressable onPress={() => setSessionLookup('')} style={({ pressed }) => [styles.clearButton, pressed ? styles.filterChipPressed : undefined]}>
+                <ThemedText style={styles.clearButtonText}>Clear</ThemedText>
+              </Pressable>
+            ) : null}
+          </View>
           <TextInput
             placeholder="Paste a session id or member name"
             placeholderTextColor="rgba(39,86,107,0.52)"
@@ -137,12 +144,13 @@ export default function MatchHistoryScreen() {
               backgroundColor: colors.background,
             },
           ]}
-          />
+            />
           <ThemedText style={styles.lookupHint}>{lookupHint}</ThemedText>
           {lookupMatches.length > 0 ? (
             <View style={styles.lookupResult}>
               <ThemedText style={styles.cardCopy}>
-                Found {lookupMatches.length} matching session{lookupMatches.length === 1 ? '' : 's'}.
+                Found {lookupMatches.length} matching session{lookupMatches.length === 1 ? '' : 's'}
+                {sessionLookup.trim() ? ` for "${sessionLookup.trim()}"` : ''}.
               </ThemedText>
               {lookupMatches.slice(0, 3).map(({ session, matchReasons }) => (
                 <Link key={session.id} href={`/(private)/sessions/${session.id}`} style={styles.secondaryButton}>
@@ -314,6 +322,7 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: 'rgba(39,86,107,0.06)',
   },
+  lookupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   lookupInput: {
     borderWidth: 1,
     borderRadius: 18,
@@ -347,6 +356,14 @@ const styles = StyleSheet.create({
   filterChipCount: { color: '#27566B', opacity: 0.72, fontWeight: '700' },
   filterChipCountActive: { opacity: 1 },
   linkCard: { borderRadius: 24 },
+  clearButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(39,86,107,0.24)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  clearButtonText: { color: '#27566B', fontSize: 12, fontWeight: '700' },
   secondaryButton: {
     alignSelf: 'flex-start',
     borderRadius: 999,
