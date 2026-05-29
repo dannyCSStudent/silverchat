@@ -11,6 +11,8 @@ from app.schemas.matchmaking import (
     MatchContext,
     MatchJoinRequest,
     MatchJoinResponse,
+    MatchSessionSummary,
+    MatchSessionsResponse,
     MatchPreviewResponse,
     MatchedProfile,
     QueueStatusResponse,
@@ -222,6 +224,47 @@ def get_queue_status(user=Depends(get_current_user)):
         queue_size=queue_size,
         members_ahead=current_index,
         recommended_pool="queue",
+    )
+
+
+@router.get("/sessions", response_model=MatchSessionsResponse)
+def list_match_sessions(user=Depends(get_current_user)):
+    session_rows = queue.list_user_sessions(user.id)
+    other_user_ids = [
+        row["recipient_user_id"] if row.get("initiator_user_id") == user.id else row["initiator_user_id"]
+        for row in session_rows
+        if row.get("initiator_user_id") and row.get("recipient_user_id")
+    ]
+    profile_rows = profiles.get_by_user_ids(other_user_ids)
+    profile_map = {
+        row["user_id"]: row
+        for row in profile_rows
+        if row.get("user_id")
+    }
+
+    return MatchSessionsResponse(
+        sessions=[
+            MatchSessionSummary(
+                id=row["id"],
+                status=row.get("status"),
+                created_at=row.get("created_at"),
+                ended_at=row.get("ended_at"),
+                other_profile=(
+                    MatchedProfile.model_validate(profile_map.get(
+                        row["recipient_user_id"]
+                        if row.get("initiator_user_id") == user.id
+                        else row["initiator_user_id"]
+                    ))
+                    if profile_map.get(
+                        row["recipient_user_id"]
+                        if row.get("initiator_user_id") == user.id
+                        else row["initiator_user_id"]
+                    )
+                    else None
+                ),
+            )
+            for row in session_rows
+        ],
     )
 
 

@@ -81,3 +81,30 @@ class MatchQueueRepository:
             .execute()
             .data
         )
+
+    def list_user_sessions(self, user_id: str, limit: int = 5):
+        initiated = (
+            supabase.table(self.sessions_table)
+            .select("*")
+            .eq("initiator_user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+            .data
+        )
+        received = (
+            supabase.table(self.sessions_table)
+            .select("*")
+            .eq("recipient_user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+            .data
+        )
+
+        merged = {row["id"]: row for row in (initiated or []) + (received or []) if row.get("id")}
+        return sorted(
+            merged.values(),
+            key=lambda row: row.get("created_at") or "",
+            reverse=True,
+        )[:limit]

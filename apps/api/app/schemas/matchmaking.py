@@ -49,6 +49,16 @@ class MatchJoinResponse(BaseModel):
     match_context: MatchContext | None = None
 
 
+class MatchSessionSummary(BaseModel):
+    id: str
+    status: str | None = None
+    created_at: datetime | None = None
+    ended_at: datetime | None = None
+    other_profile: MatchedProfile | None = None
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class QueueStatusResponse(BaseModel):
     queue_entry: QueueEntryRecord | None = None
     queue_position: int | None = None
@@ -68,3 +78,7 @@ class MatchPreviewResponse(BaseModel):
     top_shared_category_count: int | None = None
     top_shared_interest: str | None = None
     shared_interests: list[str] = Field(default_factory=list)
+
+
+class MatchSessionsResponse(BaseModel):
+    sessions: list[MatchSessionSummary] = Field(default_factory=list)

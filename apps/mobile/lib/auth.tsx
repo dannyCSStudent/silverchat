@@ -74,12 +74,29 @@ type MatchJoinResponse = {
   } | null;
 };
 
+type RecentMatchSession = {
+  id: string;
+  status?: string | null;
+  created_at?: string;
+  ended_at?: string;
+  other_profile?: {
+    user_id: string;
+    display_name: string;
+    avatar_url?: string;
+    country_code?: string;
+  } | null;
+};
+
 type QueueStatusResponse = {
   queue_entry?: QueueEntryRecord | null;
   queue_position?: number | null;
   queue_size?: number;
   members_ahead?: number | null;
   recommended_pool?: 'preferred' | 'fallback' | 'queue' | null;
+};
+
+type MatchSessionsResponse = {
+  sessions: RecentMatchSession[];
 };
 
 type MatchPreviewResponse = {
@@ -124,6 +141,7 @@ type AuthContextValue = {
   queueSize: number;
   membersAhead: number | null;
   queuePool: 'preferred' | 'fallback' | 'queue' | null;
+  recentMatches: RecentMatchSession[];
   onboardingChecklist: Array<{
     complete: boolean;
     id: 'email' | 'profile' | 'interests' | 'onboarding';
@@ -158,6 +176,7 @@ type AccountSnapshot = {
   queueSize: number;
   membersAhead: number | null;
   queuePool: 'preferred' | 'fallback' | 'queue' | null;
+  recentMatches: RecentMatchSession[];
 };
 
 async function authorizedRequest<T>(session: Session, path: string, options: RequestInit = {}) {
@@ -188,14 +207,16 @@ async function loadAccountSnapshot(nextSession: Session | null): Promise<Account
       queueSize: 0,
       membersAhead: null,
       queuePool: null,
+      recentMatches: [],
     };
   }
 
-  const [sessionState, profile, userInterests, queueStatus] = await Promise.all([
+  const [sessionState, profile, userInterests, queueStatus, matchSessions] = await Promise.all([
     authorizedRequest<SessionState>(nextSession, '/auth/session'),
     authorizedRequest<ProfileRecord | null>(nextSession, '/profiles/me'),
     authorizedRequest<UserInterestRecord[]>(nextSession, '/interests/me'),
     authorizedRequest<QueueStatusResponse>(nextSession, '/match/queue'),
+    authorizedRequest<MatchSessionsResponse>(nextSession, '/match/sessions'),
   ]);
 
   return {
@@ -208,6 +229,7 @@ async function loadAccountSnapshot(nextSession: Session | null): Promise<Account
     queueSize: queueStatus.queue_size ?? 0,
     membersAhead: queueStatus.members_ahead ?? null,
     queuePool: queueStatus.recommended_pool ?? null,
+    recentMatches: matchSessions.sessions,
   };
 }
 
@@ -224,6 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [queueSize, setQueueSize] = useState(0);
   const [membersAhead, setMembersAhead] = useState<number | null>(null);
   const [queuePool, setQueuePool] = useState<'preferred' | 'fallback' | 'queue' | null>(null);
+  const [recentMatches, setRecentMatches] = useState<RecentMatchSession[]>([]);
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [sessionState, setSessionState] = useState<SessionState | null>(null);
@@ -334,6 +357,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setQueueSize(snapshot.queueSize);
             setMembersAhead(snapshot.membersAhead);
             setQueuePool(snapshot.queuePool);
+            setRecentMatches(snapshot.recentMatches);
             setLastSyncedAt(new Date().toISOString());
           }
         } catch {
@@ -372,6 +396,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setQueueSize(snapshot.queueSize);
         setMembersAhead(snapshot.membersAhead);
         setQueuePool(snapshot.queuePool);
+        setRecentMatches(snapshot.recentMatches);
         await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
         lastRefreshAtRef.current = Date.now();
         setLastSyncedAt(new Date().toISOString());
@@ -593,6 +618,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }),
       });
 
+      const matchSessions = await authorizedRequest<MatchSessionsResponse>(session, '/match/sessions');
+
       setQueueEntry(response.queue_entry ?? null);
       if (response.status === 'matched') {
         setMatchPreview(null);
@@ -600,6 +627,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setQueueSize(0);
         setMembersAhead(null);
         setQueuePool(null);
+        setRecentMatches([]);
       } else {
         const queueStatus = await authorizedRequest<QueueStatusResponse>(session, '/match/queue');
         setQueueEntry(queueStatus.queue_entry ?? response.queue_entry ?? null);
@@ -608,6 +636,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMembersAhead(queueStatus.members_ahead ?? null);
         setQueuePool(queueStatus.recommended_pool ?? null);
       }
+      setRecentMatches(matchSessions.sessions);
 
       setMessage(
         response.status === 'matched'
@@ -643,6 +672,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queueSize,
       membersAhead,
       queuePool,
+      recentMatches,
       joinQueue,
       loading,
       message,
@@ -676,6 +706,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queueSize,
       membersAhead,
       queuePool,
+      recentMatches,
       joinQueue,
       loading,
       message,

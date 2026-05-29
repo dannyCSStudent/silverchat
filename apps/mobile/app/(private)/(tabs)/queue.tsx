@@ -42,6 +42,7 @@ export default function QueueScreen() {
     queuePosition,
     queueSize,
     membersAhead,
+    recentMatches,
   } = useAuth();
   const [localMessage, setLocalMessage] = useState<string | null>(null);
   const [matchedProfile, setMatchedProfile] = useState<{
@@ -378,6 +379,25 @@ export default function QueueScreen() {
         </ThemedView>
       ) : null}
 
+      {recentMatches.length > 0 ? (
+        <ThemedView style={styles.card}>
+          <ThemedText type="subtitle">Recent matches</ThemedText>
+          {recentMatches.slice(0, 3).map((session) => (
+            <View key={session.id} style={styles.recentMatchRow}>
+              <View style={styles.recentMatchCopy}>
+                <ThemedText style={styles.matchName}>
+                  {session.other_profile?.display_name ?? 'Another member'}
+                </ThemedText>
+                <ThemedText style={styles.cardCopy}>
+                  {session.status ?? 'matched'} with {session.other_profile?.country_code ?? 'unknown country'}
+                </ThemedText>
+              </View>
+              <FreshnessLine prefix="Matched" timestamp={session.created_at ?? null} />
+            </View>
+          ))}
+        </ThemedView>
+      ) : null}
+
       <Pressable
         disabled={loading}
         onPress={() => void handleQueueAttempt()}
@@ -427,6 +447,16 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 8,
     backgroundColor: 'rgba(39,86,107,0.08)',
+  },
+  recentMatchRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  recentMatchCopy: {
+    flex: 1,
+    gap: 2,
   },
   matchName: { fontSize: 18, fontWeight: '700' },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(24,33,43,0.08)' },
