@@ -292,6 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (active) {
             setAvailableInterests(snapshot.availableInterests);
             setMatchPreview(null);
+            setLastSyncedAt(new Date().toISOString());
           }
         } catch {
           // Ignore API bootstrap failures when auth env is not configured.
@@ -325,6 +326,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSessionState(snapshot.sessionState);
         setInterests(snapshot.interests);
         await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
+        lastRefreshAtRef.current = Date.now();
+        setLastSyncedAt(new Date().toISOString());
       } catch (snapshotError) {
         setMessage(
           snapshotError instanceof Error
