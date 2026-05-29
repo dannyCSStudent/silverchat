@@ -10,6 +10,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
+import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { useAuth } from '@/lib/auth';
 import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 import { pickAvatarAsset, uploadAvatar } from '@/lib/storage';
@@ -310,14 +311,14 @@ export default function AccountScreen() {
       {profile ? (
         <ThemedView style={styles.card}>
           <ThemedText style={styles.cardLabel}>Current status</ThemedText>
-          <ThemedText style={styles.cardCopy}>Profile status: {profile.profile_status}</ThemedText>
-          <ThemedText style={styles.cardCopy}>Age verification: {profile.age_verified_status}</ThemedText>
-          <ThemedText style={styles.cardCopy}>
-            Onboarding: {sessionState?.onboarding_complete ? 'Complete' : 'In progress'}
-          </ThemedText>
-          <ThemedText style={styles.cardCopy}>
-            Queue eligible: {queueEligible ? 'Yes' : 'No'}
-          </ThemedText>
+          <ReadinessMetricList
+            metrics={[
+              { label: 'Profile status', value: profile.profile_status },
+              { label: 'Age verification', value: profile.age_verified_status },
+              { label: 'Onboarding', value: sessionState?.onboarding_complete ? 'Complete' : 'In progress' },
+              { label: 'Queue eligible', value: queueEligible ? 'Yes' : 'No' },
+            ]}
+          />
           <OnboardingChecklistSummary items={onboardingChecklist} />
         </ThemedView>
       ) : null}

@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { FreshnessLine } from '@/components/freshness-line';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
+import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
@@ -134,9 +135,9 @@ export default function QueueScreen() {
         <ThemedText style={styles.statusText}>
           {queueEligible ? 'Ready for matchmaking' : 'Not ready yet'}
         </ThemedText>
-        <ThemedText style={styles.cardCopy}>
-          Profile status: {profile?.profile_status ?? 'pending'}
-        </ThemedText>
+        <ReadinessMetricList
+          metrics={[{ label: 'Profile status', value: profile?.profile_status ?? 'pending' }]}
+        />
         <FreshnessLine prefix="Last synced" timestamp={lastSyncedAt} />
       </ThemedView>
 

@@ -8,6 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { FreshnessLine } from '@/components/freshness-line';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
+import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
@@ -101,14 +102,14 @@ export default function SetupScreen() {
 
       <ThemedView style={styles.card}>
         <ThemedText style={styles.cardLabel}>Readiness</ThemedText>
-        <ThemedText style={styles.cardCopy}>Profile saved: {profile ? 'Yes' : 'No'}</ThemedText>
-        <ThemedText style={styles.cardCopy}>Selected interests: {selectedInterests.length}</ThemedText>
-        <ThemedText style={styles.cardCopy}>
-          Onboarding complete: {profile?.onboarding_completed_at ? 'Yes' : 'No'}
-        </ThemedText>
-        <ThemedText style={styles.cardCopy}>
-          Queue eligible: {queueEligible ? 'Yes' : 'No'}
-        </ThemedText>
+        <ReadinessMetricList
+          metrics={[
+            { label: 'Profile saved', value: profile ? 'Yes' : 'No' },
+            { label: 'Selected interests', value: `${selectedInterests.length}` },
+            { label: 'Onboarding complete', value: profile?.onboarding_completed_at ? 'Yes' : 'No' },
+            { label: 'Queue eligible', value: queueEligible ? 'Yes' : 'No' },
+          ]}
+        />
         <FreshnessLine prefix="Last synced" timestamp={lastSyncedAt} />
       </ThemedView>
 
