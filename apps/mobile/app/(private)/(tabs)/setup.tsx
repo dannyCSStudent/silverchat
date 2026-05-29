@@ -120,6 +120,18 @@ export default function SetupScreen() {
             <ThemedText style={styles.suggestionCopy}>
               {matchBoostGuidance.hint}
             </ThemedText>
+            {matchInterestSuggestion.kind === 'profile' && matchInterestSuggestion.missingFlowSteps?.length ? (
+              <>
+                <ThemedText style={styles.flowStepLabel}>Flow step</ThemedText>
+                <View style={styles.flowStepList}>
+                  {matchInterestSuggestion.missingFlowSteps.map((step) => (
+                    <View key={step} style={styles.flowStepChip}>
+                      <ThemedText style={styles.flowStepText}>{step}</ThemedText>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : null}
             {matchInterestSuggestion.kind === 'profile' ? (
               <Link href="/(private)/(tabs)" style={styles.suggestionLink}>
                 <ThemedText style={styles.secondaryButtonText}>
@@ -195,6 +207,15 @@ const styles = StyleSheet.create({
   },
   suggestionLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', opacity: 0.68 },
   suggestionCopy: { fontSize: 14, lineHeight: 20, opacity: 0.84 },
+  flowStepLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, opacity: 0.68, textTransform: 'uppercase' },
+  flowStepList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 2 },
+  flowStepChip: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  flowStepText: { fontSize: 13, fontWeight: '700', color: '#1F7A61' },
   suggestionLink: { paddingTop: 6, alignSelf: 'flex-start' },
   group: { gap: 10 },
   groupLabel: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', opacity: 0.64 },
