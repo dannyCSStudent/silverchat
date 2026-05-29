@@ -368,6 +368,11 @@ export default function QueueScreen() {
               <ThemedText style={styles.cardCopy}>
                 Match pool: {matchContext.pool === 'preferred' ? 'preferred' : 'fallback'}
               </ThemedText>
+              <ThemedText style={styles.cardCopy}>
+                {matchContext.pool === 'preferred'
+                  ? 'Preferred pool means same-country members were available.'
+                  : 'Fallback pool means the app used the best available overlap.'}
+              </ThemedText>
             </View>
           ) : null}
         </ThemedView>
