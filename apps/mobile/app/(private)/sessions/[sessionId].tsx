@@ -1,12 +1,14 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import type { Session } from '@supabase/supabase-js';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FreshnessLine } from '@/components/freshness-line';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { SessionMemberCard } from '@/components/session-member-card';
+import { SessionFollowUpCard } from '@/components/session-follow-up-card';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
@@ -37,15 +39,7 @@ type MyBlockRecord = {
   blocked_user_id: string;
 };
 
-const REPORT_REASONS = [
-  { id: 'spam', label: 'Spam' },
-  { id: 'harassment', label: 'Harassment' },
-  { id: 'scam', label: 'Scam' },
-  { id: 'other', label: 'Other' },
-] as const;
-
 export default function MatchSessionScreen() {
-  const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { session, recentMatches } = useAuth();
@@ -53,10 +47,6 @@ export default function MatchSessionScreen() {
   const [detail, setDetail] = useState<SessionDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [reportReason, setReportReason] = useState<(typeof REPORT_REASONS)[number]['id']>('spam');
-  const [actionNote, setActionNote] = useState('');
-  const [actionStatus, setActionStatus] = useState<string | null>(null);
-  const [busyAction, setBusyAction] = useState<'report' | 'block' | null>(null);
   const [relationshipState, setRelationshipState] = useState<{
     alreadyReported: boolean;
     alreadyBlocked: boolean;
@@ -144,62 +134,6 @@ export default function MatchSessionScreen() {
     }
   }, [otherUserId, resolvedSessionId, session]);
 
-  const handleReport = useCallback(async () => {
-    if (!session || !resolvedSessionId || !otherUserId) {
-      setActionStatus('No member is available to report yet.');
-      return;
-    }
-
-    setBusyAction('report');
-    setActionStatus(null);
-
-    try {
-      await authorizedApiRequest(session, '/reports', {
-        method: 'POST',
-        body: JSON.stringify({
-          reported_user_id: otherUserId,
-          reason: reportReason,
-          details: actionNote.trim() || undefined,
-          session_id: resolvedSessionId,
-        }),
-      });
-      setActionStatus('Report submitted.');
-      void loadDetail();
-      void loadRelationshipState();
-    } catch (requestError) {
-      setActionStatus(requestError instanceof Error ? requestError.message : 'Unable to submit report.');
-    } finally {
-      setBusyAction(null);
-    }
-  }, [actionNote, otherUserId, reportReason, resolvedSessionId, session]);
-
-  const handleBlock = useCallback(async () => {
-    if (!session || !otherUserId) {
-      setActionStatus('No member is available to block yet.');
-      return;
-    }
-
-    setBusyAction('block');
-    setActionStatus(null);
-
-    try {
-      await authorizedApiRequest(session, '/blocks', {
-        method: 'POST',
-        body: JSON.stringify({
-          blocked_user_id: otherUserId,
-          reason: actionNote.trim() || undefined,
-        }),
-      });
-      setActionStatus('Block saved.');
-      void loadDetail();
-      void loadRelationshipState();
-    } catch (requestError) {
-      setActionStatus(requestError instanceof Error ? requestError.message : 'Unable to block member.');
-    } finally {
-      setBusyAction(null);
-    }
-  }, [actionNote, otherUserId, session]);
-
   useEffect(() => {
     void loadDetail();
   }, [loadDetail]);
@@ -246,22 +180,6 @@ export default function MatchSessionScreen() {
 
     return 'This match had enough time to develop. Use the follow-up actions only if something specific happened.';
   }, [sessionDurationLabel, summary]);
-
-  const actionStateCopy = useMemo(() => {
-    if (relationshipState.alreadyBlocked && relationshipState.alreadyReported) {
-      return 'You already reported and blocked this member from this session.';
-    }
-
-    if (relationshipState.alreadyBlocked) {
-      return 'You already blocked this member.';
-    }
-
-    if (relationshipState.alreadyReported) {
-      return 'You already reported this member from this session.';
-    }
-
-    return null;
-  }, [relationshipState.alreadyBlocked, relationshipState.alreadyReported]);
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
@@ -316,106 +234,20 @@ export default function MatchSessionScreen() {
         <SessionMemberCard title="Other member" member={summary.other_profile} />
       ) : null}
 
-      {summary?.other_profile ? (
-        <ThemedView style={styles.card}>
-          <ThemedText type="subtitle">Follow up</ThemedText>
-          <ThemedText style={styles.cardCopy}>
-            Block the member or file a report from this session detail.
-          </ThemedText>
-          <ThemedText style={styles.cardCopy}>{followUpHint}</ThemedText>
-          {actionStateCopy ? <ThemedText style={styles.cardCopy}>{actionStateCopy}</ThemedText> : null}
-
-          <View style={styles.reasonRow}>
-            {REPORT_REASONS.map((reason) => (
-              <Pressable
-                key={reason.id}
-                onPress={() => setReportReason(reason.id)}
-                style={[
-                  styles.reasonChip,
-                  reportReason === reason.id ? styles.reasonChipActive : undefined,
-                ]}
-              >
-                <ThemedText
-                  style={[
-                    styles.reasonChipText,
-                    reportReason === reason.id ? styles.reasonChipTextActive : undefined,
-                  ]}
-                >
-                  {reason.label}
-                </ThemedText>
-              </Pressable>
-            ))}
-          </View>
-
-          <TextInput
-            placeholder="Optional note for the report or block"
-            placeholderTextColor="rgba(39,86,107,0.52)"
-            value={actionNote}
-            onChangeText={setActionNote}
-            style={[
-              styles.input,
-              {
-                borderColor: colors.tint,
-                color: colors.text,
-                backgroundColor: colors.background,
-              },
-            ]}
-            multiline
-          />
-
-          {actionStatus ? (
-            <ThemedText style={styles.cardCopy}>{actionStatus}</ThemedText>
-          ) : null}
-
-          <View style={styles.actionRow}>
-            <Pressable
-              onPress={() => void handleReport()}
-              disabled={busyAction !== null || relationshipState.alreadyReported}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed ? styles.buttonPressed : undefined,
-                busyAction === 'report' ? styles.buttonDisabled : undefined,
-                relationshipState.alreadyReported ? styles.buttonDisabled : undefined,
-              ]}
-            >
-              <ThemedText style={styles.primaryButtonText}>
-                {relationshipState.alreadyReported
-                  ? 'Already reported'
-                  : busyAction === 'report'
-                    ? 'Submitting...'
-                    : `Report ${reportReason}`}
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={() => void handleBlock()}
-              disabled={busyAction !== null || relationshipState.alreadyBlocked}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed ? styles.buttonPressed : undefined,
-                busyAction === 'block' ? styles.buttonDisabled : undefined,
-                relationshipState.alreadyBlocked ? styles.buttonDisabled : undefined,
-              ]}
-            >
-              <ThemedText style={styles.secondaryButtonText}>
-                {relationshipState.alreadyBlocked
-                  ? 'Already blocked'
-                  : busyAction === 'block'
-                    ? 'Blocking...'
-                    : 'Block member'}
-              </ThemedText>
-            </Pressable>
-          </View>
-
-          <Pressable
-            onPress={() => router.replace('/(private)/(tabs)/queue')}
-            style={({ pressed }) => [
-              styles.inlineLink,
-              pressed ? styles.inlineLinkPressed : undefined,
-            ]}
-          >
-            <ThemedText style={styles.inlineLinkText}>Back to queue</ThemedText>
-          </Pressable>
-        </ThemedView>
+      {session && summary?.other_profile ? (
+        <SessionFollowUpCard
+          session={session}
+          sessionId={summary.id}
+          otherUserId={summary.other_profile.user_id}
+          alreadyReported={relationshipState.alreadyReported}
+          alreadyBlocked={relationshipState.alreadyBlocked}
+          contextHint={followUpHint}
+          footerHint="Back to queue if you want to look for the next conversation."
+          onSubmitted={() => {
+            void loadDetail();
+            void loadRelationshipState();
+          }}
+        />
       ) : null}
 
       {!loading && !summary && !error ? (
@@ -436,37 +268,6 @@ const styles = StyleSheet.create({
   copy: { fontSize: 16, lineHeight: 24, opacity: 0.8 },
   card: { borderRadius: 24, padding: 18, gap: 12 },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
-  reasonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  reasonChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(39,86,107,0.16)',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  reasonChipActive: {
-    backgroundColor: 'rgba(39,86,107,0.12)',
-    borderColor: 'rgba(39,86,107,0.4)',
-  },
-  reasonChipText: { color: '#27566B', fontWeight: '600' },
-  reasonChipTextActive: { fontWeight: '700' },
-  input: {
-    borderWidth: 1,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    minHeight: 88,
-    textAlignVertical: 'top',
-  },
-  actionRow: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
-  primaryButton: {
-    borderRadius: 999,
-    backgroundColor: '#27566B',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  primaryButtonText: { color: '#fff', fontWeight: '700' },
   secondaryButton: {
     borderRadius: 999,
     borderWidth: 1,
@@ -476,12 +277,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryButtonText: { color: '#27566B', fontWeight: '700' },
-  inlineLink: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-  },
-  inlineLinkPressed: { opacity: 0.7 },
-  inlineLinkText: { color: '#27566B', fontWeight: '700' },
-  buttonPressed: { opacity: 0.85 },
-  buttonDisabled: { opacity: 0.6 },
 });

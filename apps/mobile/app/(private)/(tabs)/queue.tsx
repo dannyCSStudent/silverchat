@@ -10,6 +10,7 @@ import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { FreshnessLine } from '@/components/freshness-line';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
 import { OnboardingNextStepCard } from '@/components/onboarding-next-step-card';
+import { SessionMemberCard } from '@/components/session-member-card';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -339,24 +340,22 @@ export default function QueueScreen() {
 
       {matchedProfile ? (
         <ThemedView style={styles.card}>
-          <ThemedText type="subtitle">Latest match</ThemedText>
-          <View style={styles.matchCard}>
-            {matchedProfile.avatar_url ? (
-              <Image source={{ uri: matchedProfile.avatar_url }} style={styles.avatar} contentFit="cover" />
-            ) : (
-              <View style={styles.avatarFallback}>
-                <ThemedText style={styles.avatarFallbackText}>
-                  {matchedProfile.display_name.slice(0, 1).toUpperCase()}
-                </ThemedText>
-              </View>
-            )}
-            <View style={styles.matchCopy}>
-              <ThemedText style={styles.matchName}>{matchedProfile.display_name}</ThemedText>
-              <ThemedText style={styles.cardCopy}>
-                {matchedProfile.country_code ?? 'Country not set'}
-              </ThemedText>
-            </View>
-          </View>
+          <SessionMemberCard
+            title="Latest match"
+            member={matchedProfile}
+            leading={
+              matchedProfile.avatar_url ? (
+                <Image source={{ uri: matchedProfile.avatar_url }} style={styles.avatar} contentFit="cover" />
+              ) : (
+                <View style={styles.avatarFallback}>
+                  <ThemedText style={styles.avatarFallbackText}>
+                    {matchedProfile.display_name.slice(0, 1).toUpperCase()}
+                  </ThemedText>
+                </View>
+              )
+            }
+            footer={<ThemedText style={styles.cardCopy}>Matched just now in the active queue.</ThemedText>}
+          />
           {matchContext ? (
             <View style={styles.matchContextCard}>
               <ThemedText style={styles.cardLabel}>Why this match</ThemedText>
@@ -384,17 +383,16 @@ export default function QueueScreen() {
           <ThemedText type="subtitle">Recent matches</ThemedText>
           {recentMatches.slice(0, 3).map((session) => (
             <Link key={session.id} href={`/(private)/sessions/${session.id}`} style={styles.recentMatchLink}>
-              <View style={styles.recentMatchRow}>
-                <View style={styles.recentMatchCopy}>
-                  <ThemedText style={styles.matchName}>
-                    {session.other_profile?.display_name ?? 'Another member'}
-                  </ThemedText>
-                  <ThemedText style={styles.cardCopy}>
-                    {session.status ?? 'matched'} with {session.other_profile?.country_code ?? 'unknown country'}
-                  </ThemedText>
-                </View>
-                <FreshnessLine prefix="Matched" timestamp={session.created_at ?? null} />
-              </View>
+              <SessionMemberCard
+                title={session.status ?? 'matched'}
+                member={{
+                  user_id: session.other_profile?.user_id ?? session.id,
+                  display_name: session.other_profile?.display_name ?? 'Another member',
+                  country_code: session.other_profile?.country_code ?? 'unknown country',
+                  avatar_url: session.other_profile?.avatar_url ?? null,
+                }}
+                footer={<FreshnessLine prefix="Matched" timestamp={session.created_at ?? null} />}
+              />
             </Link>
           ))}
         </ThemedView>
@@ -442,29 +440,16 @@ const styles = StyleSheet.create({
   },
   signalLabel: { fontSize: 12, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 0.7 },
   signalValue: { fontSize: 20, fontWeight: '700' },
-  matchCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  matchCopy: { flex: 1, gap: 4 },
   matchContextCard: {
     borderRadius: 18,
     padding: 14,
     gap: 8,
     backgroundColor: 'rgba(39,86,107,0.08)',
   },
-  recentMatchRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
   recentMatchLink: {
     borderRadius: 18,
     padding: 2,
   },
-  recentMatchCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  matchName: { fontSize: 18, fontWeight: '700' },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(24,33,43,0.08)' },
   avatarFallback: {
     width: 64,
