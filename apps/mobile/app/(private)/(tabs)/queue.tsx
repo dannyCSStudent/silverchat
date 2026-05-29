@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { FreshnessLine } from '@/components/freshness-line';
+import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
@@ -142,12 +143,7 @@ export default function QueueScreen() {
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Checklist</ThemedText>
         <View style={styles.checklist}>
-          {onboardingChecklist.map((item) => (
-            <View key={item.id} style={styles.checklistRow}>
-              <View style={[styles.checkIndicator, item.complete && styles.checkIndicatorComplete]} />
-              <ThemedText style={styles.checkText}>{item.label}</ThemedText>
-            </View>
-          ))}
+          <OnboardingChecklistSummary items={onboardingChecklist} />
         </View>
       </ThemedView>
 

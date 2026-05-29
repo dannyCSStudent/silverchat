@@ -9,6 +9,7 @@ import { FreshnessLine } from '@/components/freshness-line';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
+import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
 import { useAuth } from '@/lib/auth';
 import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 import { pickAvatarAsset, uploadAvatar } from '@/lib/storage';
@@ -317,11 +318,7 @@ export default function AccountScreen() {
           <ThemedText style={styles.cardCopy}>
             Queue eligible: {queueEligible ? 'Yes' : 'No'}
           </ThemedText>
-          {onboardingChecklist.map((item) => (
-            <ThemedText key={item.id} style={styles.cardCopy}>
-              {item.complete ? 'Complete' : 'Pending'}: {item.label}
-            </ThemedText>
-          ))}
+          <OnboardingChecklistSummary items={onboardingChecklist} />
         </ThemedView>
       ) : null}
 

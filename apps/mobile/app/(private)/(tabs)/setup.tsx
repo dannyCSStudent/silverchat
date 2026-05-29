@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { FreshnessLine } from '@/components/freshness-line';
+import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
@@ -167,11 +168,7 @@ export default function SetupScreen() {
 
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Full onboarding checklist</ThemedText>
-        {onboardingChecklist.map((item) => (
-          <ThemedText key={item.id} style={styles.cardCopy}>
-            {item.complete ? 'Complete' : 'Pending'}: {item.label}
-          </ThemedText>
-        ))}
+        <OnboardingChecklistSummary items={onboardingChecklist} />
       </ThemedView>
 
       {localError ? <ThemedText style={styles.errorText}>{localError}</ThemedText> : null}
