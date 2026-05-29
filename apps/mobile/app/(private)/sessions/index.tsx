@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useMemo, useState } from 'react';
 
@@ -11,6 +11,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
 
 export default function MatchHistoryScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { recentMatches } = useAuth();
@@ -107,6 +108,11 @@ export default function MatchHistoryScreen() {
         return rightTime - leftTime;
       });
   }, [orderedMatches, sessionLookup]);
+  const handleLookupSubmit = () => {
+    if (lookupMatches.length === 1) {
+      router.push(`/(private)/sessions/${lookupMatches[0].session.id}`);
+    }
+  };
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
@@ -136,6 +142,8 @@ export default function MatchHistoryScreen() {
             onChangeText={setSessionLookup}
             autoCapitalize="none"
             autoCorrect={false}
+            returnKeyType="search"
+            onSubmitEditing={handleLookupSubmit}
             style={[
               styles.lookupInput,
               {
@@ -164,7 +172,7 @@ export default function MatchHistoryScreen() {
               ))}
               {lookupMatches.length > 3 ? (
                 <ThemedText style={styles.cardCopy}>
-                  Showing the first 3 matches. Narrow the name or id to find a specific session.
+                  Showing the first 3 matches. Narrow the name, id, or code to find a specific session.
                 </ThemedText>
               ) : null}
             </View>
