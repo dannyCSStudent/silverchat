@@ -157,6 +157,43 @@ export default function MatchSessionScreen() {
   }, [loadDetail]);
 
   const summary = detail?.session;
+  const sessionDurationLabel = useMemo(() => {
+    if (!summary?.created_at || !summary?.ended_at) {
+      return null;
+    }
+
+    const startedAt = new Date(summary.created_at).getTime();
+    const endedAt = new Date(summary.ended_at).getTime();
+    if (Number.isNaN(startedAt) || Number.isNaN(endedAt) || endedAt <= startedAt) {
+      return null;
+    }
+
+    const durationMinutes = Math.max(1, Math.round((endedAt - startedAt) / 60000));
+    return durationMinutes === 1
+      ? 'About 1 minute'
+      : `${durationMinutes} minutes`;
+  }, [summary?.created_at, summary?.ended_at]);
+
+  const followUpHint = useMemo(() => {
+    if (!summary) {
+      return null;
+    }
+
+    if (!summary.ended_at) {
+      return 'This match is still open or has not fully closed yet. Wait for it to finish before filing a follow-up unless safety is urgent.';
+    }
+
+    if (!sessionDurationLabel) {
+      return 'Use the report or block actions if you need to follow up on this session.';
+    }
+
+    const shortMatch = sessionDurationLabel === 'About 1 minute';
+    if (shortMatch) {
+      return 'This was a very short match. If it ended abruptly or felt suspicious, report or block now while the details are fresh.';
+    }
+
+    return 'This match had enough time to develop. Use the follow-up actions only if something specific happened.';
+  }, [sessionDurationLabel, summary]);
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
@@ -201,6 +238,7 @@ export default function MatchSessionScreen() {
               { label: 'Session id', value: summary.id },
               { label: 'Status', value: summary.status ?? 'matched' },
               { label: 'Role', value: detail?.current_user_role ?? 'initiator' },
+              { label: 'Length', value: sessionDurationLabel ?? '—' },
             ]}
           />
         </ThemedView>
@@ -222,6 +260,7 @@ export default function MatchSessionScreen() {
           <ThemedText style={styles.cardCopy}>
             Block the member or file a report from this session detail.
           </ThemedText>
+          <ThemedText style={styles.cardCopy}>{followUpHint}</ThemedText>
 
           <View style={styles.reasonRow}>
             {REPORT_REASONS.map((reason) => (
