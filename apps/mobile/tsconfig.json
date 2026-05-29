@@ -3,6 +3,9 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
+      "@repo/types": [
+        "../../packages/types/index.ts"
+      ],
       "@/*": [
         "./*"
       ]

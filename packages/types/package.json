@@ -7,6 +7,7 @@
   },
   "exports": {
     ".": "./index.ts",
+    "./relative-time": "./relative-time.ts",
     "./silverchat": "./silverchat.ts"
   },
   "devDependencies": {

@@ -13,37 +13,6 @@ import type { Session, User } from '@supabase/supabase-js';
 import { apiRequest } from '@/lib/api';
 import { supabase, supabaseEnvError } from '@/lib/supabase';
 
-export function formatRelativeTimestamp(value: string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const timestamp = new Date(value);
-
-  if (Number.isNaN(timestamp.getTime())) {
-    return null;
-  }
-
-  const diffMinutes = Math.round((Date.now() - timestamp.getTime()) / 60000);
-
-  if (diffMinutes <= 0) {
-    return 'Updated just now';
-  }
-
-  if (diffMinutes < 60) {
-    return `Updated ${diffMinutes}m ago`;
-  }
-
-  const diffHours = Math.round(diffMinutes / 60);
-
-  if (diffHours < 24) {
-    return `Updated ${diffHours}h ago`;
-  }
-
-  const diffDays = Math.round(diffHours / 24);
-  return `Updated ${diffDays}d ago`;
-}
-
 type SessionState = {
   user: {
     id: string;

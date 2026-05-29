@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { formatRelativeAge } from "@repo/types";
 import type { ModerationAdminHealth } from "./data";
 import {
   getHealthSummary,
@@ -152,34 +153,6 @@ function getImplicatedRoutePath(
 
     return (right.durationMs ?? -1) - (left.durationMs ?? -1);
   })[0]?.path ?? null;
-}
-
-function formatRelativeAgeFromTimestamp(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const timestamp = new Date(value);
-  if (Number.isNaN(timestamp.getTime())) {
-    return null;
-  }
-
-  const secondsAgo = Math.max(0, Math.floor((Date.now() - timestamp.getTime()) / 1000));
-  if (secondsAgo < 5) {
-    return "just now";
-  }
-
-  if (secondsAgo < 60) {
-    return `${secondsAgo}s ago`;
-  }
-
-  const minutesAgo = Math.floor(secondsAgo / 60);
-  if (minutesAgo < 60) {
-    return `${minutesAgo}m ago`;
-  }
-
-  const hoursAgo = Math.floor(minutesAgo / 60);
-  return `${hoursAgo}h ago`;
 }
 
 function buildHealthHistoryEntry(health: ModerationAdminHealth): HealthHistoryEntry {
@@ -358,8 +331,8 @@ export function AdminHealthPanel() {
     isAutoRefreshEnabled,
     sampledAt: currentHealth.sampledAt,
   });
-  const lastSuccessAge = formatRelativeAgeFromTimestamp(lastSuccessfulRefreshAt);
-  const lastFailureAge = formatRelativeAgeFromTimestamp(lastFailedRefreshAt);
+  const lastSuccessAge = formatRelativeAge(lastSuccessfulRefreshAt);
+  const lastFailureAge = formatRelativeAge(lastFailedRefreshAt);
   const sortedStatuses = [...currentHealth.statuses].sort((left, right) => {
     const severityDelta = getRouteSeverity(right) - getRouteSeverity(left);
     if (severityDelta !== 0) {
@@ -402,10 +375,7 @@ export function AdminHealthPanel() {
             </p>
           ) : null}
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-            Sampled{" "}
-            {formatRelativeAgeFromTimestamp(currentHealth.sampledAt)
-              ? `Sampled ${formatRelativeAgeFromTimestamp(currentHealth.sampledAt)}`
-              : "unknown time"}
+            Sampled {formatRelativeAge(currentHealth.sampledAt) ?? "unknown time"}
           </p>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
             Freshness: {relativeSampleAge}
@@ -530,7 +500,7 @@ export function AdminHealthPanel() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold">{entry.summary}</span>
                   <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {formatRelativeAgeFromTimestamp(entry.sampledAt) ?? "unknown time"}
+                    {formatRelativeAge(entry.sampledAt) ?? "unknown time"}
                   </span>
                   <span
                     className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${transitionTone.classes}`}

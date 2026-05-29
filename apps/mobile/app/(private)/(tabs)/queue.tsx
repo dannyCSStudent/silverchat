@@ -8,8 +8,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { formatRelativeTimestamp, useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
 import { getMatchPreviewGuidance, getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
+import { formatRelativeTimestamp } from '@repo/types';
 
 export default function QueueScreen() {
   const colorScheme = useColorScheme() ?? 'light';
