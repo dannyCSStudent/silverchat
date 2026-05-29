@@ -54,13 +54,31 @@ export default function MatchHistoryScreen() {
     [recentMatches],
   );
   const sessionIdHint = orderedMatches[0]?.id ? `Most recent session id: ${orderedMatches[0].id}` : null;
-  const lookupMatch = useMemo(() => {
+  const lookupHint = 'Try a session id, member name, initiator, recipient, matched, or ended.';
+  const lookupMatches = useMemo(() => {
     const value = sessionLookup.trim().toLowerCase();
     if (!value) {
-      return null;
+      return [];
     }
 
-    return orderedMatches.find((session) => session.id.toLowerCase().includes(value)) ?? null;
+    return orderedMatches.filter((session) => {
+      const sessionId = session.id.toLowerCase();
+      const memberName = session.other_profile?.display_name?.toLowerCase() ?? '';
+      const roleKeywords =
+        session.current_user_role === 'initiator'
+          ? ['initiator', 'initiated', 'start']
+          : session.current_user_role === 'recipient'
+            ? ['recipient', 'received', 'receive']
+            : [];
+      const statusKeywords = session.ended_at ? ['ended', 'closed'] : ['matched', 'active', 'open'];
+
+      return (
+        sessionId.includes(value) ||
+        memberName.includes(value) ||
+        roleKeywords.some((keyword) => keyword.includes(value) || value.includes(keyword)) ||
+        statusKeywords.some((keyword) => keyword.includes(value) || value.includes(keyword))
+      );
+    });
   }, [orderedMatches, sessionLookup]);
 
   return (
@@ -78,7 +96,7 @@ export default function MatchHistoryScreen() {
         <View style={styles.lookupCard}>
           <ThemedText style={styles.cardLabel}>Jump to a session</ThemedText>
           <TextInput
-            placeholder="Paste a session id or prefix"
+            placeholder="Paste a session id or member name"
             placeholderTextColor="rgba(39,86,107,0.52)"
             value={sessionLookup}
             onChangeText={setSessionLookup}
@@ -89,21 +107,31 @@ export default function MatchHistoryScreen() {
               {
                 borderColor: colors.tint,
                 color: colors.text,
-                backgroundColor: colors.background,
-              },
-            ]}
+              backgroundColor: colors.background,
+            },
+          ]}
           />
-          {lookupMatch ? (
+          <ThemedText style={styles.lookupHint}>{lookupHint}</ThemedText>
+          {lookupMatches.length > 0 ? (
             <View style={styles.lookupResult}>
               <ThemedText style={styles.cardCopy}>
-                Found {lookupMatch.other_profile?.display_name ?? 'another member'} in this history.
+                Found {lookupMatches.length} matching session{lookupMatches.length === 1 ? '' : 's'}.
               </ThemedText>
-              <Link href={`/(private)/sessions/${lookupMatch.id}`} style={styles.secondaryButton}>
-                <ThemedText style={styles.secondaryButtonText}>Open session detail</ThemedText>
-              </Link>
+              {lookupMatches.slice(0, 3).map((session) => (
+                <Link key={session.id} href={`/(private)/sessions/${session.id}`} style={styles.secondaryButton}>
+                  <ThemedText style={styles.secondaryButtonText}>
+                    Open {session.other_profile?.display_name ?? 'session'} detail
+                  </ThemedText>
+                </Link>
+              ))}
+              {lookupMatches.length > 3 ? (
+                <ThemedText style={styles.cardCopy}>
+                  Showing the first 3 matches. Narrow the name or id to find a specific session.
+                </ThemedText>
+              ) : null}
             </View>
           ) : sessionLookup.trim() ? (
-            <ThemedText style={styles.cardCopy}>No recent session matches that id.</ThemedText>
+            <ThemedText style={styles.cardCopy}>No recent session matches that name or id.</ThemedText>
           ) : null}
         </View>
       </ThemedView>
@@ -263,6 +291,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     minHeight: 48,
   },
+  lookupHint: { fontSize: 12, lineHeight: 16, opacity: 0.72 },
   lookupResult: { gap: 10 },
   card: { borderRadius: 24, padding: 18, gap: 14 },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
