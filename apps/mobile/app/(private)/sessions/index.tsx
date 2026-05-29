@@ -52,6 +52,7 @@ export default function MatchHistoryScreen() {
     () => recentMatches.filter((session) => Boolean(session.ended_at)).length,
     [recentMatches],
   );
+  const sessionIdHint = orderedMatches[0]?.id ? `Most recent session id: ${orderedMatches[0].id}` : null;
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
@@ -63,6 +64,7 @@ export default function MatchHistoryScreen() {
         <ThemedText style={styles.copy}>
           Review past matches, reopen a session, or follow up with report and block actions when needed.
         </ThemedText>
+        {sessionIdHint ? <ThemedText style={styles.hint}>{sessionIdHint}</ThemedText> : null}
       </ThemedView>
 
       <ThemedView style={styles.card}>
@@ -205,6 +207,7 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.3, opacity: 0.62 },
   title: { fontSize: 30, lineHeight: 34 },
   copy: { fontSize: 16, lineHeight: 24, opacity: 0.8 },
+  hint: { fontSize: 13, lineHeight: 18, opacity: 0.62 },
   card: { borderRadius: 24, padding: 18, gap: 14 },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
