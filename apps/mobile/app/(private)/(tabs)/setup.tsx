@@ -7,7 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useAuth } from '@/lib/auth';
+import { formatRelativeTimestamp, useAuth } from '@/lib/auth';
 import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 
 export default function SetupScreen() {
@@ -107,9 +107,7 @@ export default function SetupScreen() {
           Queue eligible: {queueEligible ? 'Yes' : 'No'}
         </ThemedText>
         {lastSyncedAt ? (
-          <ThemedText style={styles.cardCopy}>
-            Last synced: {new Date(lastSyncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-          </ThemedText>
+          <ThemedText style={styles.cardCopy}>{formatRelativeTimestamp(lastSyncedAt)}</ThemedText>
         ) : null}
       </ThemedView>
 

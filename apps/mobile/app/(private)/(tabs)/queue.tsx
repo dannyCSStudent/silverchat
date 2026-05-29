@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useAuth } from '@/lib/auth';
+import { formatRelativeTimestamp, useAuth } from '@/lib/auth';
 import { getMatchPreviewGuidance, getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 
 export default function QueueScreen() {
@@ -135,9 +135,7 @@ export default function QueueScreen() {
           Profile status: {profile?.profile_status ?? 'pending'}
         </ThemedText>
         {lastSyncedAt ? (
-          <ThemedText style={styles.cardCopy}>
-            Last synced: {new Date(lastSyncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-          </ThemedText>
+          <ThemedText style={styles.cardCopy}>{formatRelativeTimestamp(lastSyncedAt)}</ThemedText>
         ) : null}
       </ThemedView>
 
@@ -195,12 +193,7 @@ export default function QueueScreen() {
               {matchPreview.top_shared_interest ? ` · ${matchPreview.top_shared_interest}` : ''}
             </ThemedText>
           ) : null}
-          <ThemedText style={styles.cardCopy}>
-            Updated {new Date(matchPreview.generated_at).toLocaleTimeString([], {
-              hour: 'numeric',
-              minute: '2-digit',
-            })}
-          </ThemedText>
+          <ThemedText style={styles.cardCopy}>{formatRelativeTimestamp(matchPreview.generated_at)}</ThemedText>
           <View style={styles.signalGrid}>
             <View style={styles.signalChip}>
               <ThemedText style={styles.signalValue}>{matchPreview.available_candidates}</ThemedText>

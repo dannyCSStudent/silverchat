@@ -7,7 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useAuth } from '@/lib/auth';
+import { formatRelativeTimestamp, useAuth } from '@/lib/auth';
 import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 import { pickAvatarAsset, uploadAvatar } from '@/lib/storage';
 
@@ -156,9 +156,7 @@ export default function AccountScreen() {
               {sessionState?.user.email_confirmed_at ? 'Email confirmed' : 'Email confirmation pending'}
             </ThemedText>
             {lastSyncedAt ? (
-              <ThemedText style={styles.cardCopy}>
-                Last synced: {new Date(lastSyncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-              </ThemedText>
+              <ThemedText style={styles.cardCopy}>{formatRelativeTimestamp(lastSyncedAt)}</ThemedText>
             ) : null}
           </View>
           <Pressable disabled={loading} onPress={() => void signOut()}>
