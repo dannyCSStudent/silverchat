@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FreshnessLine } from '@/components/freshness-line';
+import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { SessionOutcomeCard } from '@/components/session-outcome-card';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -54,8 +55,36 @@ export default function MatchHistoryScreen() {
     () => recentMatches.filter((session) => Boolean(session.ended_at)).length,
     [recentMatches],
   );
+  const historyMetrics = [
+    { label: 'Total sessions', value: String(recentMatches.length) },
+    { label: 'Initiated', value: String(initiatedCount) },
+    { label: 'Received', value: String(receivedCount) },
+    { label: 'Matched', value: String(matchedCount) },
+    { label: 'Ended', value: String(endedCount) },
+  ];
   const sessionIdHint = orderedMatches[0]?.id ? `Most recent session id: ${orderedMatches[0].id}` : null;
   const lookupHint = 'Try a session id, member name, country code, initiator, recipient, matched, or ended.';
+  const lookupShortcuts = useMemo(
+    () => {
+      const shortcuts = [
+        { label: 'Initiated', value: 'initiator' },
+        { label: 'Received', value: 'recipient' },
+        { label: 'Matched', value: 'matched' },
+        { label: 'Ended', value: 'ended' },
+      ];
+
+      const recentCountryCode = orderedMatches[0]?.other_profile?.country_code?.trim().toLowerCase();
+      if (recentCountryCode) {
+        shortcuts.unshift({
+          label: recentCountryCode.toUpperCase(),
+          value: recentCountryCode,
+        });
+      }
+
+      return shortcuts;
+    },
+    [orderedMatches],
+  );
   const lookupMatches = useMemo(() => {
     const value = sessionLookup.trim().toLowerCase();
     if (!value) {
@@ -154,6 +183,28 @@ export default function MatchHistoryScreen() {
           ]}
             />
           <ThemedText style={styles.lookupHint}>{lookupHint}</ThemedText>
+          <View style={styles.shortcutRow}>
+            {lookupShortcuts.map((shortcut) => (
+              <Pressable
+                key={shortcut.value}
+                onPress={() => setSessionLookup(shortcut.value)}
+                style={({ pressed }) => [
+                  styles.shortcutChip,
+                  sessionLookup.trim().toLowerCase() === shortcut.value ? styles.shortcutChipActive : undefined,
+                  pressed ? styles.filterChipPressed : undefined,
+                ]}
+              >
+                <ThemedText
+                  style={[
+                    styles.shortcutChipText,
+                    sessionLookup.trim().toLowerCase() === shortcut.value ? styles.shortcutChipTextActive : undefined,
+                  ]}
+                >
+                  {shortcut.label}
+                </ThemedText>
+              </Pressable>
+            ))}
+          </View>
           {lookupMatches.length > 0 ? (
             <View style={styles.lookupResult}>
               <ThemedText style={styles.cardCopy}>
@@ -189,6 +240,7 @@ export default function MatchHistoryScreen() {
             {recentMatches.length} session{recentMatches.length === 1 ? '' : 's'}
           </ThemedText>
         </View>
+        <ReadinessMetricList metrics={historyMetrics} />
 
         <View style={styles.filterRow}>
           {[
@@ -339,6 +391,20 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   lookupHint: { fontSize: 12, lineHeight: 16, opacity: 0.72 },
+  shortcutRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  shortcutChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(39,86,107,0.16)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  shortcutChipActive: {
+    backgroundColor: 'rgba(39,86,107,0.12)',
+    borderColor: 'rgba(39,86,107,0.34)',
+  },
+  shortcutChipText: { color: '#27566B', fontSize: 12, fontWeight: '700' },
+  shortcutChipTextActive: { fontWeight: '800' },
   lookupResult: { gap: 10 },
   card: { borderRadius: 24, padding: 18, gap: 14 },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
