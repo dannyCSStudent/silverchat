@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { OnboardingPathPreview } from '@/components/onboarding-path-preview';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
@@ -42,6 +43,12 @@ export default function LoginScreen() {
           Safe random video chat for adults 40+, built around onboarding and trust signals first.
         </ThemedText>
       </ThemedView>
+
+      <OnboardingPathPreview
+        body="Sign in, verify email if needed, then continue through profile setup, interests, and queue access."
+        steps={['Verify email', 'Complete profile basics', 'Choose interests', 'Join the queue']}
+        title="Your onboarding path"
+      />
 
       <ThemedView style={styles.card}>
         <ThemedText style={styles.cardLabel}>Connection</ThemedText>

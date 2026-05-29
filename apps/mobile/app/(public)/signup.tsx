@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { OnboardingPathPreview } from '@/components/onboarding-path-preview';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
@@ -55,6 +56,13 @@ export default function SignUpScreen() {
           The app currently uses email/password auth through Supabase. Profile setup starts after sign-in.
         </ThemedText>
       </ThemedView>
+
+      <OnboardingPathPreview
+        activeIndex={0}
+        body="Create the account, verify the email address, then continue through profile, interests, and queue access."
+        steps={['Verify email', 'Complete profile basics', 'Choose interests', 'Join the queue']}
+        title="What happens next"
+      />
 
       <ThemedView style={styles.card}>
         <TextInput
