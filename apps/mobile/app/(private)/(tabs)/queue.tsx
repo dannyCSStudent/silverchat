@@ -1,5 +1,5 @@
 import { Link } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
@@ -96,6 +96,18 @@ export default function QueueScreen() {
       void refreshData();
     }, [queueEligible, refreshData]),
   );
+
+  useEffect(() => {
+    if (!queueEligible) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      void refreshData();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [queueEligible, refreshData]);
 
   const incompleteSteps = onboardingChecklist.filter((item) => !item.complete);
   const queueBlockerSuggestion = getMatchSignalSuggestion(availableInterests, interests, profile);
