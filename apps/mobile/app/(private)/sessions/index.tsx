@@ -1,5 +1,5 @@
 import { Link } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useMemo, useState } from 'react';
 
 import { ThemedText } from '@/components/themed-text';
@@ -16,6 +16,7 @@ export default function MatchHistoryScreen() {
   const { recentMatches } = useAuth();
   const [roleFilter, setRoleFilter] = useState<'all' | 'initiator' | 'recipient'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'matched' | 'ended'>('all');
+  const [sessionLookup, setSessionLookup] = useState('');
 
   const orderedMatches = useMemo(
     () =>
@@ -53,6 +54,14 @@ export default function MatchHistoryScreen() {
     [recentMatches],
   );
   const sessionIdHint = orderedMatches[0]?.id ? `Most recent session id: ${orderedMatches[0].id}` : null;
+  const lookupMatch = useMemo(() => {
+    const value = sessionLookup.trim().toLowerCase();
+    if (!value) {
+      return null;
+    }
+
+    return orderedMatches.find((session) => session.id.toLowerCase().includes(value)) ?? null;
+  }, [orderedMatches, sessionLookup]);
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
@@ -65,6 +74,38 @@ export default function MatchHistoryScreen() {
           Review past matches, reopen a session, or follow up with report and block actions when needed.
         </ThemedText>
         {sessionIdHint ? <ThemedText style={styles.hint}>{sessionIdHint}</ThemedText> : null}
+
+        <View style={styles.lookupCard}>
+          <ThemedText style={styles.cardLabel}>Jump to a session</ThemedText>
+          <TextInput
+            placeholder="Paste a session id or prefix"
+            placeholderTextColor="rgba(39,86,107,0.52)"
+            value={sessionLookup}
+            onChangeText={setSessionLookup}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={[
+              styles.lookupInput,
+              {
+                borderColor: colors.tint,
+                color: colors.text,
+                backgroundColor: colors.background,
+              },
+            ]}
+          />
+          {lookupMatch ? (
+            <View style={styles.lookupResult}>
+              <ThemedText style={styles.cardCopy}>
+                Found {lookupMatch.other_profile?.display_name ?? 'another member'} in this history.
+              </ThemedText>
+              <Link href={`/(private)/sessions/${lookupMatch.id}`} style={styles.secondaryButton}>
+                <ThemedText style={styles.secondaryButtonText}>Open session detail</ThemedText>
+              </Link>
+            </View>
+          ) : sessionLookup.trim() ? (
+            <ThemedText style={styles.cardCopy}>No recent session matches that id.</ThemedText>
+          ) : null}
+        </View>
       </ThemedView>
 
       <ThemedView style={styles.card}>
@@ -208,6 +249,21 @@ const styles = StyleSheet.create({
   title: { fontSize: 30, lineHeight: 34 },
   copy: { fontSize: 16, lineHeight: 24, opacity: 0.8 },
   hint: { fontSize: 13, lineHeight: 18, opacity: 0.62 },
+  cardLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, opacity: 0.62 },
+  lookupCard: {
+    borderRadius: 18,
+    padding: 14,
+    gap: 12,
+    backgroundColor: 'rgba(39,86,107,0.06)',
+  },
+  lookupInput: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 48,
+  },
+  lookupResult: { gap: 10 },
   card: { borderRadius: 24, padding: 18, gap: 14 },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
