@@ -6,11 +6,11 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
+import { FreshnessLine } from '@/components/freshness-line';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
 import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
-import { formatRelativeTimestamp } from '@repo/types';
 
 export default function SetupScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -108,9 +108,7 @@ export default function SetupScreen() {
         <ThemedText style={styles.cardCopy}>
           Queue eligible: {queueEligible ? 'Yes' : 'No'}
         </ThemedText>
-        {lastSyncedAt ? (
-          <ThemedText style={styles.cardCopy}>{formatRelativeTimestamp(lastSyncedAt)}</ThemedText>
-        ) : null}
+        <FreshnessLine prefix="Last synced" timestamp={lastSyncedAt} />
       </ThemedView>
 
       <ThemedView style={styles.card}>

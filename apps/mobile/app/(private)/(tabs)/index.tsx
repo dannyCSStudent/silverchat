@@ -5,13 +5,13 @@ import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { FreshnessLine } from '@/components/freshness-line';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { useAuth } from '@/lib/auth';
 import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 import { pickAvatarAsset, uploadAvatar } from '@/lib/storage';
-import { formatRelativeTimestamp } from '@repo/types';
 
 function formatDateInput(value: string) {
   return value.trim();
@@ -157,9 +157,7 @@ export default function AccountScreen() {
             <ThemedText style={styles.cardCopy}>
               {sessionState?.user.email_confirmed_at ? 'Email confirmed' : 'Email confirmation pending'}
             </ThemedText>
-            {lastSyncedAt ? (
-              <ThemedText style={styles.cardCopy}>{formatRelativeTimestamp(lastSyncedAt)}</ThemedText>
-            ) : null}
+            <FreshnessLine prefix="Last synced" timestamp={lastSyncedAt} />
           </View>
           <Pressable disabled={loading} onPress={() => void signOut()}>
             <ThemedText style={styles.linkText}>Sign out</ThemedText>

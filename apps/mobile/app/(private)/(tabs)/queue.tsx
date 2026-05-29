@@ -7,11 +7,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
+import { FreshnessLine } from '@/components/freshness-line';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
 import { getMatchPreviewGuidance, getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
-import { formatRelativeTimestamp } from '@repo/types';
 
 export default function QueueScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -136,9 +136,7 @@ export default function QueueScreen() {
         <ThemedText style={styles.cardCopy}>
           Profile status: {profile?.profile_status ?? 'pending'}
         </ThemedText>
-        {lastSyncedAt ? (
-          <ThemedText style={styles.cardCopy}>{formatRelativeTimestamp(lastSyncedAt)}</ThemedText>
-        ) : null}
+        <FreshnessLine prefix="Last synced" timestamp={lastSyncedAt} />
       </ThemedView>
 
       <ThemedView style={styles.card}>
@@ -199,7 +197,7 @@ export default function QueueScreen() {
               {matchPreview.top_shared_interest ? ` · ${matchPreview.top_shared_interest}` : ''}
             </ThemedText>
           ) : null}
-          <ThemedText style={styles.cardCopy}>{formatRelativeTimestamp(matchPreview.generated_at)}</ThemedText>
+          <FreshnessLine timestamp={matchPreview.generated_at} />
           <View style={styles.signalGrid}>
             <View style={styles.signalChip}>
               <ThemedText style={styles.signalValue}>{matchPreview.available_candidates}</ThemedText>
