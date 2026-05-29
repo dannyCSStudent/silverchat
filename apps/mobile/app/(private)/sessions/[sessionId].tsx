@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
@@ -142,6 +142,13 @@ export default function MatchSessionScreen() {
     void loadRelationshipState();
   }, [loadRelationshipState]);
 
+  useFocusEffect(
+    useCallback(() => {
+      void loadDetail();
+      void loadRelationshipState();
+    }, [loadDetail, loadRelationshipState]),
+  );
+
   const summary = detail?.session;
   const sessionDurationLabel = useMemo(() => {
     if (!summary?.created_at || !summary?.ended_at) {
@@ -191,6 +198,9 @@ export default function MatchSessionScreen() {
         <ThemedText style={styles.copy}>
           Review the outcome of a past match and open the member again if you need to follow up.
         </ThemedText>
+        <Link href="/(private)/(tabs)/queue" style={styles.inlineLink}>
+          <ThemedText style={styles.inlineLinkText}>Back to queue</ThemedText>
+        </Link>
       </ThemedView>
 
       {loading ? (
@@ -268,6 +278,8 @@ const styles = StyleSheet.create({
   copy: { fontSize: 16, lineHeight: 24, opacity: 0.8 },
   card: { borderRadius: 24, padding: 18, gap: 12 },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
+  inlineLink: { alignSelf: 'flex-start' },
+  inlineLinkText: { color: '#27566B', fontWeight: '700' },
   secondaryButton: {
     borderRadius: 999,
     borderWidth: 1,
