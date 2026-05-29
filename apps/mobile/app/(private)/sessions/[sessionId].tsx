@@ -46,6 +46,7 @@ export default function MatchSessionScreen() {
   const [detail, setDetail] = useState<SessionDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshingSession, setRefreshingSession] = useState(false);
   const [relationshipState, setRelationshipState] = useState<{
     alreadyReported: boolean;
     alreadyBlocked: boolean;
@@ -148,6 +149,16 @@ export default function MatchSessionScreen() {
     }, [loadDetail, loadRelationshipState]),
   );
 
+  const handleRefreshSession = useCallback(async () => {
+    setRefreshingSession(true);
+    try {
+      await loadDetail();
+      await loadRelationshipState();
+    } finally {
+      setRefreshingSession(false);
+    }
+  }, [loadDetail, loadRelationshipState]);
+
   const summary = detail?.session;
   const sessionDurationLabel = useMemo(() => {
     if (!summary?.created_at || !summary?.ended_at) {
@@ -200,6 +211,14 @@ export default function MatchSessionScreen() {
         <Link href="/(private)/(tabs)/queue" style={styles.inlineLink}>
           <ThemedText style={styles.inlineLinkText}>Back to queue</ThemedText>
         </Link>
+        <Pressable
+          onPress={() => void handleRefreshSession()}
+          style={({ pressed }) => [styles.refreshButton, pressed ? styles.buttonPressed : undefined]}
+        >
+          <ThemedText style={styles.refreshButtonText}>
+            {refreshingSession ? 'Refreshing...' : 'Refresh session'}
+          </ThemedText>
+        </Pressable>
       </ThemedView>
 
       {loading ? (
@@ -275,6 +294,16 @@ const styles = StyleSheet.create({
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
   inlineLink: { alignSelf: 'flex-start' },
   inlineLinkText: { color: '#27566B', fontWeight: '700' },
+  refreshButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(39,86,107,0.24)',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+  refreshButtonText: { color: '#27566B', fontWeight: '700' },
+  buttonPressed: { opacity: 0.85 },
   secondaryButton: {
     borderRadius: 999,
     borderWidth: 1,
