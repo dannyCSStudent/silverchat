@@ -48,3 +48,9 @@ export function getOnboardingNextAction(
       return null;
   }
 }
+
+export function getOnboardingNextActionAfterEmail(
+  checklist: OnboardingChecklistItem[],
+): OnboardingNextAction | null {
+  return getOnboardingNextAction(checklist.filter((item) => item.id !== 'email'));
+}

@@ -4,9 +4,12 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
+import { OnboardingNextStepCard } from '@/components/onboarding-next-step-card';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
+import { getOnboardingNextActionAfterEmail } from '@/lib/onboarding';
 
 export default function VerifyEmailScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -17,12 +20,14 @@ export default function VerifyEmailScreen() {
     initialized,
     loading,
     message,
+    onboardingChecklist,
     refreshData,
     resendVerificationEmail,
     session,
     signOut,
   } = useAuth();
   const [localError, setLocalError] = useState<string | null>(null);
+  const nextAction = emailVerified ? getOnboardingNextActionAfterEmail(onboardingChecklist) : null;
 
   async function resend() {
     setLocalError(null);
@@ -64,6 +69,7 @@ export default function VerifyEmailScreen() {
         <ThemedText style={styles.cardCopy}>
           {initialized && emailVerified ? 'Email verified.' : 'Email verification pending.'}
         </ThemedText>
+        <OnboardingChecklistSummary items={onboardingChecklist} />
       </ThemedView>
 
       <ThemedView style={styles.card}>
@@ -91,6 +97,13 @@ export default function VerifyEmailScreen() {
           </Pressable>
         </View>
       </ThemedView>
+
+      {nextAction ? (
+        <OnboardingNextStepCard
+          action={nextAction}
+          body="Email is confirmed, so continue onboarding from the next unfinished step."
+        />
+      ) : null}
 
       {localError ? <ThemedText style={styles.errorText}>{localError}</ThemedText> : null}
       {message ? <ThemedText style={styles.successText}>{message}</ThemedText> : null}
