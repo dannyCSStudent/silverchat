@@ -10,6 +10,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
+import { OnboardingNextStepCard } from '@/components/onboarding-next-step-card';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { useAuth } from '@/lib/auth';
 import { getOnboardingNextAction } from '@/lib/onboarding';
@@ -170,16 +171,10 @@ export default function AccountScreen() {
       </ThemedView>
 
       {nextAction ? (
-        <ThemedView style={styles.card}>
-          <ThemedText style={styles.cardLabel}>Next step</ThemedText>
-          <ThemedText type="subtitle">{nextAction.title}</ThemedText>
-          <ThemedText style={styles.cardCopy}>
-            Continue onboarding from the next unfinished step instead of hunting for the right screen.
-          </ThemedText>
-          <Link href={nextAction.href} style={styles.secondaryButton}>
-            <ThemedText style={styles.secondaryButtonText}>{nextAction.label}</ThemedText>
-          </Link>
-        </ThemedView>
+        <OnboardingNextStepCard
+          action={nextAction}
+          body="Continue onboarding from the next unfinished step instead of hunting for the right screen."
+        />
       ) : null}
 
       {profileMatchSuggestion?.kind === 'profile' ? (

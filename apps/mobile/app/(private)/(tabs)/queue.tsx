@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { FreshnessLine } from '@/components/freshness-line';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
+import { OnboardingNextStepCard } from '@/components/onboarding-next-step-card';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -144,16 +145,10 @@ export default function QueueScreen() {
       </ThemedView>
 
       {nextAction ? (
-        <ThemedView style={styles.card}>
-          <ThemedText style={styles.cardLabel}>Next step</ThemedText>
-          <ThemedText type="subtitle">{nextAction.title}</ThemedText>
-          <ThemedText style={styles.cardCopy}>
-            Finish the next onboarding step before returning to the queue.
-          </ThemedText>
-          <Link href={nextAction.href} style={styles.secondaryButton}>
-            <ThemedText style={styles.secondaryButtonText}>{nextAction.label}</ThemedText>
-          </Link>
-        </ThemedView>
+        <OnboardingNextStepCard
+          action={nextAction}
+          body="Finish the next onboarding step before returning to the queue."
+        />
       ) : null}
 
       <ThemedView style={styles.card}>
