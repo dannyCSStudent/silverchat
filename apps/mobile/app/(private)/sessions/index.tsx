@@ -61,7 +61,8 @@ export default function MatchHistoryScreen() {
       return [];
     }
 
-    return orderedMatches.filter((session) => {
+    return orderedMatches
+      .map((session) => {
       const sessionId = session.id.toLowerCase();
       const memberName = session.other_profile?.display_name?.toLowerCase() ?? '';
       const countryCode = session.other_profile?.country_code?.toLowerCase() ?? '';
@@ -70,17 +71,41 @@ export default function MatchHistoryScreen() {
           ? ['initiator', 'initiated', 'start']
           : session.current_user_role === 'recipient'
             ? ['recipient', 'received', 'receive']
-            : [];
+          : [];
       const statusKeywords = session.ended_at ? ['ended', 'closed'] : ['matched', 'active', 'open'];
 
-      return (
-        sessionId.includes(value) ||
-        memberName.includes(value) ||
-        countryCode.includes(value) ||
-        roleKeywords.some((keyword) => keyword.includes(value) || value.includes(keyword)) ||
-        statusKeywords.some((keyword) => keyword.includes(value) || value.includes(keyword))
-      );
-    });
+      const matchReasons = [
+        sessionId.includes(value) ? 'session id' : null,
+        memberName.includes(value) ? 'member name' : null,
+        countryCode.includes(value) ? 'country code' : null,
+        roleKeywords.some((keyword) => keyword.includes(value) || value.includes(keyword)) ? 'role' : null,
+        statusKeywords.some((keyword) => keyword.includes(value) || value.includes(keyword)) ? 'status' : null,
+      ].filter(Boolean) as string[];
+
+      const score = [
+        sessionId === value ? 10 : sessionId.includes(value) ? 8 : 0,
+        memberName === value ? 7 : memberName.includes(value) ? 5 : 0,
+        countryCode === value ? 4 : countryCode.includes(value) ? 3 : 0,
+        roleKeywords.some((keyword) => keyword === value) ? 2 : roleKeywords.some((keyword) => keyword.includes(value) || value.includes(keyword)) ? 1 : 0,
+        statusKeywords.some((keyword) => keyword === value) ? 2 : statusKeywords.some((keyword) => keyword.includes(value) || value.includes(keyword)) ? 1 : 0,
+      ].reduce((total, part) => total + part, 0);
+
+      return {
+        session,
+        matchReasons,
+        score,
+      };
+    })
+      .filter(({ matchReasons }) => matchReasons.length > 0)
+      .sort((left, right) => {
+        if (right.score !== left.score) {
+          return right.score - left.score;
+        }
+
+        const leftTime = left.session.created_at ? new Date(left.session.created_at).getTime() : 0;
+        const rightTime = right.session.created_at ? new Date(right.session.created_at).getTime() : 0;
+        return rightTime - leftTime;
+      });
   }, [orderedMatches, sessionLookup]);
 
   return (
@@ -119,10 +144,13 @@ export default function MatchHistoryScreen() {
               <ThemedText style={styles.cardCopy}>
                 Found {lookupMatches.length} matching session{lookupMatches.length === 1 ? '' : 's'}.
               </ThemedText>
-              {lookupMatches.slice(0, 3).map((session) => (
+              {lookupMatches.slice(0, 3).map(({ session, matchReasons }) => (
                 <Link key={session.id} href={`/(private)/sessions/${session.id}`} style={styles.secondaryButton}>
                   <ThemedText style={styles.secondaryButtonText}>
                     Open {session.other_profile?.display_name ?? 'session'} detail
+                  </ThemedText>
+                  <ThemedText style={styles.lookupMatchReason}>
+                    Matched by {matchReasons.join(', ')}
                   </ThemedText>
                 </Link>
               ))}
@@ -326,6 +354,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(39,86,107,0.24)',
     paddingHorizontal: 18,
     paddingVertical: 14,
+    gap: 4,
   },
   secondaryButtonText: { color: '#27566B', fontWeight: '700' },
+  lookupMatchReason: { color: '#27566B', opacity: 0.72, fontSize: 12, lineHeight: 16 },
 });
