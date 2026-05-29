@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { OnboardingPathPreview } from '@/components/onboarding-path-preview';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
@@ -39,6 +40,13 @@ export default function ForgotPasswordScreen() {
           Supabase will send the recovery email. The app does not yet have a full in-app password reset completion flow.
         </ThemedText>
       </ThemedView>
+
+      <OnboardingPathPreview
+        activeIndex={0}
+        body="Password recovery is a short detour: send the reset email, sign back in, then continue the same onboarding path."
+        steps={['Send reset email', 'Sign in again', 'Verify email if needed', 'Continue onboarding']}
+        title="Where reset fits"
+      />
 
       <ThemedView style={styles.card}>
         <TextInput
