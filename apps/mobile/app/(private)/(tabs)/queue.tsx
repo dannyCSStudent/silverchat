@@ -15,7 +15,13 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
 import { getOnboardingNextAction } from '@/lib/onboarding';
-import { getMatchPreviewGuidance, getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
+import {
+  getMatchPoolExplanation,
+  getMatchPoolMessage,
+  getMatchPreviewGuidance,
+  getMatchSignalGuidance,
+  getMatchSignalSuggestion,
+} from '@/lib/match-signals';
 
 export default function QueueScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -132,6 +138,8 @@ export default function QueueScreen() {
         : matchPreview?.recommended_pool === 'queue'
           ? 'Waiting queue'
           : null;
+  const matchPoolMessage = getMatchPoolMessage(matchPreview?.recommended_pool ?? null);
+  const matchPoolExplanation = getMatchPoolExplanation(matchPreview?.recommended_pool ?? null);
   const matchImprovementTitle = !queueEligible
     ? queueBlockerTitle
     : matchPreviewGuidance?.title ?? null;
@@ -264,6 +272,8 @@ export default function QueueScreen() {
             </ThemedText>
           ) : null}
           {matchPoolLabel ? <ThemedText style={styles.cardCopy}>Match pool: {matchPoolLabel}</ThemedText> : null}
+          {matchPoolMessage ? <ThemedText style={styles.cardCopy}>{matchPoolMessage}</ThemedText> : null}
+          {matchPoolExplanation ? <ThemedText style={styles.cardCopy}>{matchPoolExplanation}</ThemedText> : null}
           {queueWaitSummary ? <ThemedText style={styles.cardCopy}>{queueWaitSummary}</ThemedText> : null}
           <Pressable
             disabled={refreshingPreview}
@@ -285,6 +295,7 @@ export default function QueueScreen() {
           <FreshnessLine prefix="Queue updated" timestamp={lastSyncedAt} />
           <FreshnessLine prefix="Queued" timestamp={queueEntry.queued_at ?? null} />
           <FreshnessLine prefix="Last active" timestamp={queueEntry.last_active_at ?? null} />
+          {matchPoolExplanation ? <ThemedText style={styles.cardCopy}>{matchPoolExplanation}</ThemedText> : null}
           {queueWaitSummary ? <ThemedText style={styles.cardCopy}>{queueWaitSummary}</ThemedText> : null}
           <ReadinessMetricList
             metrics={[

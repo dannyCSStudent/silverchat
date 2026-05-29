@@ -25,6 +25,32 @@ export type MatchSignalGuidance = {
   title: string;
 };
 
+export function getMatchPoolMessage(pool: MatchPreviewLike['recommended_pool'] | null | undefined) {
+  switch (pool) {
+    case 'preferred':
+      return 'Preferred pool: same-country members are available.';
+    case 'fallback':
+      return 'Fallback pool: no same-country members are available right now.';
+    case 'queue':
+      return 'Queue pool: waiting for the next available member.';
+    default:
+      return null;
+  }
+}
+
+export function getMatchPoolExplanation(pool: MatchPreviewLike['recommended_pool'] | null | undefined) {
+  switch (pool) {
+    case 'preferred':
+      return 'This usually means a faster match with a stronger local signal.';
+    case 'fallback':
+      return 'This usually means a broader match search with the best available overlap.';
+    case 'queue':
+      return 'This means the app is waiting for another eligible member to appear.';
+    default:
+      return null;
+  }
+}
+
 export function getMatchGuidanceCopy(mode: MatchGuidanceMode, surface: MatchGuidanceSurface) {
   switch (mode) {
     case 'profile':
