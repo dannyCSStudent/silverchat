@@ -54,7 +54,7 @@ export default function MatchHistoryScreen() {
     [recentMatches],
   );
   const sessionIdHint = orderedMatches[0]?.id ? `Most recent session id: ${orderedMatches[0].id}` : null;
-  const lookupHint = 'Try a session id, member name, initiator, recipient, matched, or ended.';
+  const lookupHint = 'Try a session id, member name, country code, initiator, recipient, matched, or ended.';
   const lookupMatches = useMemo(() => {
     const value = sessionLookup.trim().toLowerCase();
     if (!value) {
@@ -64,6 +64,7 @@ export default function MatchHistoryScreen() {
     return orderedMatches.filter((session) => {
       const sessionId = session.id.toLowerCase();
       const memberName = session.other_profile?.display_name?.toLowerCase() ?? '';
+      const countryCode = session.other_profile?.country_code?.toLowerCase() ?? '';
       const roleKeywords =
         session.current_user_role === 'initiator'
           ? ['initiator', 'initiated', 'start']
@@ -75,6 +76,7 @@ export default function MatchHistoryScreen() {
       return (
         sessionId.includes(value) ||
         memberName.includes(value) ||
+        countryCode.includes(value) ||
         roleKeywords.some((keyword) => keyword.includes(value) || value.includes(keyword)) ||
         statusKeywords.some((keyword) => keyword.includes(value) || value.includes(keyword))
       );
@@ -131,7 +133,7 @@ export default function MatchHistoryScreen() {
               ) : null}
             </View>
           ) : sessionLookup.trim() ? (
-            <ThemedText style={styles.cardCopy}>No recent session matches that name or id.</ThemedText>
+            <ThemedText style={styles.cardCopy}>No recent session matches that id, name, or country code.</ThemedText>
           ) : null}
         </View>
       </ThemedView>
