@@ -264,6 +264,7 @@ export default function QueueScreen() {
             </ThemedText>
           ) : null}
           {matchPoolLabel ? <ThemedText style={styles.cardCopy}>Match pool: {matchPoolLabel}</ThemedText> : null}
+          {queueWaitSummary ? <ThemedText style={styles.cardCopy}>{queueWaitSummary}</ThemedText> : null}
           <Pressable
             disabled={refreshingPreview}
             onPress={() => void handleRefreshSignals()}
