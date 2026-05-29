@@ -5,9 +5,8 @@ import type { Session } from '@supabase/supabase-js';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FreshnessLine } from '@/components/freshness-line';
-import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { SessionMemberCard } from '@/components/session-member-card';
+import { SessionOutcomeCard } from '@/components/session-outcome-card';
 import { SessionFollowUpCard } from '@/components/session-follow-up-card';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -220,24 +219,20 @@ export default function MatchSessionScreen() {
       ) : null}
 
       {summary ? (
-        <ThemedView style={styles.card}>
-          <ThemedText type="subtitle">
-            {summary.other_profile?.display_name ?? 'Another member'}
-          </ThemedText>
-          <ThemedText style={styles.cardCopy}>
-            {summary.other_profile?.country_code ?? 'Country not set'}
-          </ThemedText>
-          <FreshnessLine prefix="Started" timestamp={summary.created_at ?? null} />
-          <FreshnessLine prefix="Ended" timestamp={summary.ended_at ?? null} />
-          <ReadinessMetricList
-            metrics={[
-              { label: 'Session id', value: summary.id },
-              { label: 'Status', value: summary.status ?? 'matched' },
-              { label: 'Role', value: detail?.current_user_role ?? 'initiator' },
-              { label: 'Length', value: sessionDurationLabel ?? '—' },
-            ]}
-          />
-        </ThemedView>
+        <SessionOutcomeCard
+          sessionId={summary.id}
+          status={summary.status}
+          currentUserRole={detail?.current_user_role ?? 'initiator'}
+          createdAt={summary.created_at ?? null}
+          endedAt={summary.ended_at ?? null}
+          durationLabel={sessionDurationLabel}
+          otherMember={{
+            user_id: summary.other_profile?.user_id ?? 'unknown',
+            display_name: summary.other_profile?.display_name ?? 'Another member',
+            avatar_url: summary.other_profile?.avatar_url ?? null,
+            country_code: summary.other_profile?.country_code ?? null,
+          }}
+        />
       ) : null}
 
       {summary?.other_profile ? (
