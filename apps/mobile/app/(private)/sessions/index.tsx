@@ -62,6 +62,45 @@ export default function MatchHistoryScreen() {
     { label: 'Matched', value: String(matchedCount) },
     { label: 'Ended', value: String(endedCount) },
   ];
+  const recentActivity = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+    const buckets = new Map<string, number>();
+    const today = new Date();
+
+    for (let offset = 6; offset >= 0; offset -= 1) {
+      const date = new Date(today);
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - offset);
+      buckets.set(date.toDateString(), 0);
+    }
+
+    orderedMatches.forEach((session) => {
+      if (!session.created_at) {
+        return;
+      }
+
+      const createdAt = new Date(session.created_at);
+      if (Number.isNaN(createdAt.getTime())) {
+        return;
+      }
+
+      createdAt.setHours(0, 0, 0, 0);
+      const key = createdAt.toDateString();
+      if (!buckets.has(key)) {
+        return;
+      }
+
+      buckets.set(key, (buckets.get(key) ?? 0) + 1);
+    });
+
+    return Array.from(buckets.entries()).map(([key, count]) => ({
+      label: formatter.format(new Date(key)),
+      count,
+    }));
+  }, [orderedMatches]);
   const sessionIdHint = orderedMatches[0]?.id ? `Most recent session id: ${orderedMatches[0].id}` : null;
   const lookupHint = 'Try a session id, member name, country code, initiator, recipient, matched, or ended.';
   const lookupShortcuts = useMemo(
@@ -241,6 +280,19 @@ export default function MatchHistoryScreen() {
           </ThemedText>
         </View>
         <ReadinessMetricList metrics={historyMetrics} />
+        <View style={styles.activityBlock}>
+          <ThemedText style={styles.cardLabel}>Recent activity</ThemedText>
+          <View style={styles.activityList}>
+            {recentActivity.map((day) => (
+              <View key={day.label} style={styles.activityRow}>
+                <ThemedText style={styles.activityLabel}>{day.label}</ThemedText>
+                <ThemedText style={styles.activityValue}>
+                  {day.count} session{day.count === 1 ? '' : 's'}
+                </ThemedText>
+              </View>
+            ))}
+          </View>
+        </View>
 
         <View style={styles.filterRow}>
           {[
@@ -410,6 +462,30 @@ const styles = StyleSheet.create({
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  activityBlock: {
+    gap: 10,
+    paddingTop: 4,
+  },
+  activityList: {
+    gap: 8,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  activityLabel: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.72,
+  },
+  activityValue: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    opacity: 0.86,
+  },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
