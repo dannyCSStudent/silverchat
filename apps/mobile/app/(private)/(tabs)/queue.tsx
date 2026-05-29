@@ -40,6 +40,14 @@ export default function QueueScreen() {
     avatar_url?: string;
     country_code?: string;
   } | null>(null);
+  const [queueEntry, setQueueEntry] = useState<{
+    user_id: string;
+    queued_at?: string;
+    last_active_at?: string;
+    preferred_language?: string;
+    country_code?: string;
+    is_available: boolean;
+  } | null>(null);
   const [matchContext, setMatchContext] = useState<{
     pool: 'preferred' | 'fallback';
     reason: string;
@@ -58,6 +66,7 @@ export default function QueueScreen() {
     try {
       const response = await joinQueue();
       setMatchedProfile(response.matched_profile ?? null);
+      setQueueEntry(response.queue_entry ?? null);
       setMatchContext(response.match_context ?? null);
       setLocalMessage(
         response.status === 'matched'
@@ -66,6 +75,7 @@ export default function QueueScreen() {
       );
     } catch (error) {
       setMatchedProfile(null);
+      setQueueEntry(null);
       setMatchContext(null);
       setLocalMessage(error instanceof Error ? error.message : 'Unable to join matchmaking.');
     }
@@ -233,6 +243,24 @@ export default function QueueScreen() {
               {refreshingPreview ? 'Refreshing...' : 'Refresh signals'}
             </ThemedText>
           </Pressable>
+        </ThemedView>
+      ) : null}
+
+      {queueEntry && !matchedProfile ? (
+        <ThemedView style={styles.card}>
+          <ThemedText type="subtitle">Waiting in queue</ThemedText>
+          <ThemedText style={styles.cardCopy}>
+            You are currently waiting for the best available match. Keep the app open and stay available.
+          </ThemedText>
+          <FreshnessLine prefix="Queued" timestamp={queueEntry.queued_at ?? null} />
+          <FreshnessLine prefix="Last active" timestamp={queueEntry.last_active_at ?? null} />
+          <ReadinessMetricList
+            metrics={[
+              { label: 'Status', value: queueEntry.is_available ? 'Available' : 'Unavailable' },
+              { label: 'Country', value: queueEntry.country_code ?? 'Not set' },
+              { label: 'Language', value: queueEntry.preferred_language ?? 'Any' },
+            ]}
+          />
         </ThemedView>
       ) : null}
 
