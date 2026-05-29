@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
+import { OnboardingPathPreview } from '@/components/onboarding-path-preview';
 import { OnboardingNextStepCard } from '@/components/onboarding-next-step-card';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -62,6 +63,13 @@ export default function VerifyEmailScreen() {
           SilverChat requires a confirmed email before profile setup and queue access continue.
         </ThemedText>
       </ThemedView>
+
+      <OnboardingPathPreview
+        activeIndex={emailVerified ? 1 : 0}
+        body="Verification is the first gate. After that, profile setup, interests, and queue access open in sequence."
+        steps={['Verify email', 'Complete profile basics', 'Choose interests', 'Join the queue']}
+        title="Your onboarding path"
+      />
 
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Current status</ThemedText>
