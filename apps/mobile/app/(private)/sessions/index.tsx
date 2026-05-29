@@ -1,5 +1,6 @@
 import { Link } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -13,6 +14,34 @@ export default function MatchHistoryScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { recentMatches } = useAuth();
+  const [roleFilter, setRoleFilter] = useState<'all' | 'initiator' | 'recipient'>('all');
+
+  const orderedMatches = useMemo(
+    () =>
+      [...recentMatches].sort((left, right) => {
+        const leftTime = left.created_at ? new Date(left.created_at).getTime() : 0;
+        const rightTime = right.created_at ? new Date(right.created_at).getTime() : 0;
+        return rightTime - leftTime;
+      }),
+    [recentMatches],
+  );
+
+  const filteredMatches = useMemo(() => {
+    if (roleFilter === 'all') {
+      return orderedMatches;
+    }
+
+    return orderedMatches.filter((session) => session.current_user_role === roleFilter);
+  }, [orderedMatches, roleFilter]);
+
+  const initiatedCount = useMemo(
+    () => recentMatches.filter((session) => session.current_user_role === 'initiator').length,
+    [recentMatches],
+  );
+  const receivedCount = useMemo(
+    () => recentMatches.filter((session) => session.current_user_role === 'recipient').length,
+    [recentMatches],
+  );
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
@@ -29,11 +58,48 @@ export default function MatchHistoryScreen() {
       <ThemedView style={styles.card}>
         <View style={styles.headerRow}>
           <ThemedText type="subtitle">History</ThemedText>
-          <ThemedText style={styles.cardCopy}>{recentMatches.length} session{recentMatches.length === 1 ? '' : 's'}</ThemedText>
+          <ThemedText style={styles.cardCopy}>
+            {recentMatches.length} session{recentMatches.length === 1 ? '' : 's'}
+          </ThemedText>
         </View>
 
-        {recentMatches.length > 0 ? (
-          recentMatches.map((session) => (
+        <View style={styles.filterRow}>
+          {[
+            { id: 'all' as const, label: 'All', count: recentMatches.length },
+            { id: 'initiator' as const, label: 'Initiated', count: initiatedCount },
+            { id: 'recipient' as const, label: 'Received', count: receivedCount },
+          ].map((filter) => (
+            <Pressable
+              key={filter.id}
+              onPress={() => setRoleFilter(filter.id)}
+              style={({ pressed }) => [
+                styles.filterChip,
+                roleFilter === filter.id ? styles.filterChipActive : undefined,
+                pressed ? styles.filterChipPressed : undefined,
+              ]}
+            >
+              <ThemedText
+                style={[
+                  styles.filterChipText,
+                  roleFilter === filter.id ? styles.filterChipTextActive : undefined,
+                ]}
+              >
+                {filter.label}
+              </ThemedText>
+              <ThemedText
+                style={[
+                  styles.filterChipCount,
+                  roleFilter === filter.id ? styles.filterChipCountActive : undefined,
+                ]}
+              >
+                {filter.count}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </View>
+
+        {filteredMatches.length > 0 ? (
+          filteredMatches.map((session) => (
             <Link key={session.id} href={`/(private)/sessions/${session.id}`} style={styles.linkCard}>
               <SessionOutcomeCard
                 title="Recent match"
@@ -52,31 +118,35 @@ export default function MatchHistoryScreen() {
             </Link>
           ))
         ) : (
-          <ThemedText style={styles.cardCopy}>No recent sessions yet. Your future matches will appear here.</ThemedText>
+          <ThemedText style={styles.cardCopy}>
+            {recentMatches.length > 0
+              ? 'No sessions match this filter yet.'
+              : 'No recent sessions yet. Your future matches will appear here.'}
+          </ThemedText>
         )}
       </ThemedView>
 
-      {recentMatches[0] ? (
+      {orderedMatches[0] ? (
         <ThemedView style={styles.card}>
           <ThemedText type="subtitle">Most recent</ThemedText>
           <SessionOutcomeCard
             title="Latest session"
-            sessionId={recentMatches[0].id}
-            status={recentMatches[0].status}
-            currentUserRole={recentMatches[0].current_user_role ?? 'initiator'}
-            createdAt={recentMatches[0].created_at ?? null}
-            endedAt={recentMatches[0].ended_at ?? null}
+            sessionId={orderedMatches[0].id}
+            status={orderedMatches[0].status}
+            currentUserRole={orderedMatches[0].current_user_role ?? 'initiator'}
+            createdAt={orderedMatches[0].created_at ?? null}
+            endedAt={orderedMatches[0].ended_at ?? null}
             otherMember={{
-              user_id: recentMatches[0].other_profile?.user_id ?? recentMatches[0].id,
-              display_name: recentMatches[0].other_profile?.display_name ?? 'Another member',
-              avatar_url: recentMatches[0].other_profile?.avatar_url ?? null,
-              country_code: recentMatches[0].other_profile?.country_code ?? 'unknown country',
+              user_id: orderedMatches[0].other_profile?.user_id ?? orderedMatches[0].id,
+              display_name: orderedMatches[0].other_profile?.display_name ?? 'Another member',
+              avatar_url: orderedMatches[0].other_profile?.avatar_url ?? null,
+              country_code: orderedMatches[0].other_profile?.country_code ?? 'unknown country',
             }}
           />
-          <Link href={`/(private)/sessions/${recentMatches[0].id}`} style={styles.secondaryButton}>
+          <Link href={`/(private)/sessions/${orderedMatches[0].id}`} style={styles.secondaryButton}>
             <ThemedText style={styles.secondaryButtonText}>Open session detail</ThemedText>
           </Link>
-          <FreshnessLine prefix="Updated" timestamp={recentMatches[0].created_at ?? null} />
+          <FreshnessLine prefix="Updated" timestamp={orderedMatches[0].created_at ?? null} />
         </ThemedView>
       ) : null}
     </ScrollView>
@@ -93,6 +163,26 @@ const styles = StyleSheet.create({
   card: { borderRadius: 24, padding: 18, gap: 14 },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(39,86,107,0.16)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  filterChipActive: {
+    backgroundColor: 'rgba(39,86,107,0.12)',
+    borderColor: 'rgba(39,86,107,0.4)',
+  },
+  filterChipPressed: { opacity: 0.85 },
+  filterChipText: { color: '#27566B', fontWeight: '700' },
+  filterChipTextActive: { fontWeight: '800' },
+  filterChipCount: { color: '#27566B', opacity: 0.72, fontWeight: '700' },
+  filterChipCountActive: { opacity: 1 },
   linkCard: { borderRadius: 24 },
   secondaryButton: {
     alignSelf: 'flex-start',
