@@ -79,6 +79,7 @@ type QueueStatusResponse = {
   queue_position?: number | null;
   queue_size?: number;
   members_ahead?: number | null;
+  recommended_pool?: 'preferred' | 'fallback' | 'queue' | null;
 };
 
 type MatchPreviewResponse = {
@@ -122,6 +123,7 @@ type AuthContextValue = {
   queuePosition: number | null;
   queueSize: number;
   membersAhead: number | null;
+  queuePool: 'preferred' | 'fallback' | 'queue' | null;
   onboardingChecklist: Array<{
     complete: boolean;
     id: 'email' | 'profile' | 'interests' | 'onboarding';
@@ -155,6 +157,7 @@ type AccountSnapshot = {
   queuePosition: number | null;
   queueSize: number;
   membersAhead: number | null;
+  queuePool: 'preferred' | 'fallback' | 'queue' | null;
 };
 
 async function authorizedRequest<T>(session: Session, path: string, options: RequestInit = {}) {
@@ -184,6 +187,7 @@ async function loadAccountSnapshot(nextSession: Session | null): Promise<Account
       queuePosition: null,
       queueSize: 0,
       membersAhead: null,
+      queuePool: null,
     };
   }
 
@@ -203,6 +207,7 @@ async function loadAccountSnapshot(nextSession: Session | null): Promise<Account
     queuePosition: queueStatus.queue_position ?? null,
     queueSize: queueStatus.queue_size ?? 0,
     membersAhead: queueStatus.members_ahead ?? null,
+    queuePool: queueStatus.recommended_pool ?? null,
   };
 }
 
@@ -218,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [queueSize, setQueueSize] = useState(0);
   const [membersAhead, setMembersAhead] = useState<number | null>(null);
+  const [queuePool, setQueuePool] = useState<'preferred' | 'fallback' | 'queue' | null>(null);
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [sessionState, setSessionState] = useState<SessionState | null>(null);
@@ -327,6 +333,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setQueuePosition(snapshot.queuePosition);
             setQueueSize(snapshot.queueSize);
             setMembersAhead(snapshot.membersAhead);
+            setQueuePool(snapshot.queuePool);
             setLastSyncedAt(new Date().toISOString());
           }
         } catch {
@@ -364,6 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setQueuePosition(snapshot.queuePosition);
         setQueueSize(snapshot.queueSize);
         setMembersAhead(snapshot.membersAhead);
+        setQueuePool(snapshot.queuePool);
         await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
         lastRefreshAtRef.current = Date.now();
         setLastSyncedAt(new Date().toISOString());
@@ -591,12 +599,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setQueuePosition(null);
         setQueueSize(0);
         setMembersAhead(null);
+        setQueuePool(null);
       } else {
         const queueStatus = await authorizedRequest<QueueStatusResponse>(session, '/match/queue');
         setQueueEntry(queueStatus.queue_entry ?? response.queue_entry ?? null);
         setQueuePosition(queueStatus.queue_position ?? null);
         setQueueSize(queueStatus.queue_size ?? 0);
         setMembersAhead(queueStatus.members_ahead ?? null);
+        setQueuePool(queueStatus.recommended_pool ?? null);
       }
 
       setMessage(
@@ -632,6 +642,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queuePosition,
       queueSize,
       membersAhead,
+      queuePool,
       joinQueue,
       loading,
       message,
@@ -664,6 +675,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queuePosition,
       queueSize,
       membersAhead,
+      queuePool,
       joinQueue,
       loading,
       message,

@@ -136,6 +136,29 @@ export default function QueueScreen() {
     ? queueBlockerTitle
     : matchPreviewGuidance?.title ?? null;
   const matchImprovementHint = !queueEligible ? null : matchPreviewGuidance?.hint ?? null;
+  const queueWaitSummary = (() => {
+    if (!queueEntry) {
+      return null;
+    }
+
+    if (queuePosition === null) {
+      return 'Your place in line will update as the queue refreshes.';
+    }
+
+    if (queuePosition <= 1) {
+      return 'You are first in line. Stay available for an immediate match.';
+    }
+
+    if (membersAhead !== null) {
+      if (membersAhead <= 2) {
+        return `${membersAhead} member${membersAhead === 1 ? '' : 's'} ahead of you.`;
+      }
+
+      return `${membersAhead} members ahead of you, so the wait may be longer.`;
+    }
+
+    return `You are number ${queuePosition} in line.`;
+  })();
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
@@ -258,8 +281,10 @@ export default function QueueScreen() {
           <ThemedText style={styles.cardCopy}>
             You are currently waiting for the best available match. Keep the app open and stay available.
           </ThemedText>
+          <FreshnessLine prefix="Queue updated" timestamp={lastSyncedAt} />
           <FreshnessLine prefix="Queued" timestamp={queueEntry.queued_at ?? null} />
           <FreshnessLine prefix="Last active" timestamp={queueEntry.last_active_at ?? null} />
+          {queueWaitSummary ? <ThemedText style={styles.cardCopy}>{queueWaitSummary}</ThemedText> : null}
           <ReadinessMetricList
             metrics={[
               { label: 'Status', value: queueEntry.is_available ? 'Available' : 'Unavailable' },

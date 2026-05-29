@@ -221,6 +221,7 @@ def get_queue_status(user=Depends(get_current_user)):
         queue_position=(current_index + 1) if current_index is not None else None,
         queue_size=queue_size,
         members_ahead=current_index,
+        recommended_pool="queue",
     )
 
 
