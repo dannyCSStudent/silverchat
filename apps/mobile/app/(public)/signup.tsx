@@ -33,8 +33,12 @@ export default function SignUpScreen() {
         throw new Error('Use at least 8 characters for the password.');
       }
 
-      await signUp(email.trim(), password);
-      router.replace('/(public)/verify-email');
+      const normalizedEmail = email.trim();
+      await signUp(normalizedEmail, password);
+      router.replace({
+        pathname: '/(public)/verify-email',
+        params: { email: normalizedEmail },
+      });
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : 'Unable to create account.');
     }

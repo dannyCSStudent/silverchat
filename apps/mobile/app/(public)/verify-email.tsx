@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -14,6 +14,7 @@ import { getOnboardingNextActionAfterEmail } from '@/lib/onboarding';
 export default function VerifyEmailScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const { email: routeEmail } = useLocalSearchParams<{ email?: string | string[] }>();
   const {
     emailAddress,
     emailVerified,
@@ -28,6 +29,7 @@ export default function VerifyEmailScreen() {
   } = useAuth();
   const [localError, setLocalError] = useState<string | null>(null);
   const nextAction = emailVerified ? getOnboardingNextActionAfterEmail(onboardingChecklist) : null;
+  const expectedEmail = Array.isArray(routeEmail) ? routeEmail[0] : routeEmail;
 
   async function resend() {
     setLocalError(null);
@@ -64,7 +66,11 @@ export default function VerifyEmailScreen() {
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Current status</ThemedText>
         <ThemedText style={styles.cardCopy}>
-          {session ? `Signed in as ${emailAddress ?? 'unknown email'}` : 'Not signed in'}
+          {session
+            ? `Signed in as ${emailAddress ?? expectedEmail ?? 'unknown email'}`
+            : expectedEmail
+              ? `Waiting for ${expectedEmail}`
+              : 'Not signed in'}
         </ThemedText>
         <ThemedText style={styles.cardCopy}>
           {initialized && emailVerified ? 'Email verified.' : 'Email verification pending.'}
