@@ -21,6 +21,7 @@ export default function PrivateLayout() {
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="preferences" options={{ title: 'Preferences' }} />
+      <Stack.Screen name="sessions/[sessionId]" options={{ title: 'Match session' }} />
     </Stack>
   );
 }

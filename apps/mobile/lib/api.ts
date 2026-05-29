@@ -1,4 +1,5 @@
 import { mobileEnv } from '@/lib/env';
+import type { Session } from '@supabase/supabase-js';
 
 export type ApiErrorPayload = {
   detail?: string;
@@ -25,4 +26,22 @@ export async function apiRequest<T>(
   }
 
   return (await response.json()) as T;
+}
+
+export async function authorizedApiRequest<T>(
+  session: Session,
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(options.headers);
+  headers.set('Authorization', `Bearer ${session.access_token}`);
+
+  if (options.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  return apiRequest<T>(path, {
+    ...options,
+    headers,
+  });
 }

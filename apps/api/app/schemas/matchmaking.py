@@ -59,6 +59,11 @@ class MatchSessionSummary(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class MatchSessionDetailResponse(BaseModel):
+    session: MatchSessionSummary
+    current_user_role: Literal["initiator", "recipient"]
+
+
 class QueueStatusResponse(BaseModel):
     queue_entry: QueueEntryRecord | None = None
     queue_position: int | None = None

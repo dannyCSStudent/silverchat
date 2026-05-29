@@ -383,17 +383,19 @@ export default function QueueScreen() {
         <ThemedView style={styles.card}>
           <ThemedText type="subtitle">Recent matches</ThemedText>
           {recentMatches.slice(0, 3).map((session) => (
-            <View key={session.id} style={styles.recentMatchRow}>
-              <View style={styles.recentMatchCopy}>
-                <ThemedText style={styles.matchName}>
-                  {session.other_profile?.display_name ?? 'Another member'}
-                </ThemedText>
-                <ThemedText style={styles.cardCopy}>
-                  {session.status ?? 'matched'} with {session.other_profile?.country_code ?? 'unknown country'}
-                </ThemedText>
+            <Link key={session.id} href={`/(private)/sessions/${session.id}`} style={styles.recentMatchLink}>
+              <View style={styles.recentMatchRow}>
+                <View style={styles.recentMatchCopy}>
+                  <ThemedText style={styles.matchName}>
+                    {session.other_profile?.display_name ?? 'Another member'}
+                  </ThemedText>
+                  <ThemedText style={styles.cardCopy}>
+                    {session.status ?? 'matched'} with {session.other_profile?.country_code ?? 'unknown country'}
+                  </ThemedText>
+                </View>
+                <FreshnessLine prefix="Matched" timestamp={session.created_at ?? null} />
               </View>
-              <FreshnessLine prefix="Matched" timestamp={session.created_at ?? null} />
-            </View>
+            </Link>
           ))}
         </ThemedView>
       ) : null}
@@ -453,6 +455,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  recentMatchLink: {
+    borderRadius: 18,
+    padding: 2,
   },
   recentMatchCopy: {
     flex: 1,

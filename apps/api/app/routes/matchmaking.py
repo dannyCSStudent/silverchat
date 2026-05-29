@@ -11,6 +11,7 @@ from app.schemas.matchmaking import (
     MatchContext,
     MatchJoinRequest,
     MatchJoinResponse,
+    MatchSessionDetailResponse,
     MatchSessionSummary,
     MatchSessionsResponse,
     MatchPreviewResponse,
@@ -265,6 +266,42 @@ def list_match_sessions(user=Depends(get_current_user)):
             )
             for row in session_rows
         ],
+    )
+
+
+@router.get("/sessions/{session_id}", response_model=MatchSessionDetailResponse)
+def get_match_session(session_id: str, user=Depends(get_current_user)):
+    session_rows = queue.get_sessions([session_id])
+    if not session_rows:
+      raise HTTPException(status_code=404, detail="Match session not found.")
+
+    session_row = session_rows[0]
+    if user.id not in {
+        session_row.get("initiator_user_id"),
+        session_row.get("recipient_user_id"),
+    }:
+        raise HTTPException(status_code=404, detail="Match session not found.")
+
+    other_user_id = (
+        session_row.get("recipient_user_id")
+        if session_row.get("initiator_user_id") == user.id
+        else session_row.get("initiator_user_id")
+    )
+    other_profile = profiles.get_by_user_id(other_user_id) if other_user_id else None
+
+    return MatchSessionDetailResponse(
+        session=MatchSessionSummary(
+            id=session_row["id"],
+            status=session_row.get("status"),
+            created_at=session_row.get("created_at"),
+            ended_at=session_row.get("ended_at"),
+            other_profile=(
+                MatchedProfile.model_validate(other_profile) if other_profile else None
+            ),
+        ),
+        current_user_role="initiator"
+        if session_row.get("initiator_user_id") == user.id
+        else "recipient",
     )
 
 
