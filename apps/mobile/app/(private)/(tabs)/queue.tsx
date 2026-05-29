@@ -432,7 +432,12 @@ export default function QueueScreen() {
 
       {recentMatches.length > 0 ? (
         <ThemedView style={styles.card}>
-          <ThemedText type="subtitle">Recent matches</ThemedText>
+          <View style={styles.sectionHeader}>
+            <ThemedText type="subtitle">Recent matches</ThemedText>
+            <Link href="/(private)/sessions" style={styles.headerLink}>
+              <ThemedText style={styles.headerLinkText}>View all</ThemedText>
+            </Link>
+          </View>
           {recentMatches.slice(0, 3).map((session) => (
             <Link key={session.id} href={`/(private)/sessions/${session.id}`} style={styles.recentMatchLink}>
               <SessionOutcomeCard
@@ -502,6 +507,9 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: 'rgba(39,86,107,0.08)',
   },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  headerLink: { paddingVertical: 2 },
+  headerLinkText: { color: '#27566B', fontWeight: '700' },
   sessionLink: {
     alignSelf: 'flex-start',
     paddingTop: 4,
