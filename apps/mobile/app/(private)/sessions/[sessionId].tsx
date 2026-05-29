@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
@@ -35,6 +35,7 @@ const REPORT_REASONS = [
 ] as const;
 
 export default function MatchSessionScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { session, recentMatches } = useAuth();
@@ -117,6 +118,7 @@ export default function MatchSessionScreen() {
         }),
       });
       setActionStatus('Report submitted.');
+      void loadDetail();
     } catch (requestError) {
       setActionStatus(requestError instanceof Error ? requestError.message : 'Unable to submit report.');
     } finally {
@@ -142,6 +144,7 @@ export default function MatchSessionScreen() {
         }),
       });
       setActionStatus('Block saved.');
+      void loadDetail();
     } catch (requestError) {
       setActionStatus(requestError instanceof Error ? requestError.message : 'Unable to block member.');
     } finally {
@@ -290,6 +293,16 @@ export default function MatchSessionScreen() {
               </ThemedText>
             </Pressable>
           </View>
+
+          <Pressable
+            onPress={() => router.replace('/(private)/(tabs)/queue')}
+            style={({ pressed }) => [
+              styles.inlineLink,
+              pressed ? styles.inlineLinkPressed : undefined,
+            ]}
+          >
+            <ThemedText style={styles.inlineLinkText}>Back to queue</ThemedText>
+          </Pressable>
         </ThemedView>
       ) : null}
 
@@ -351,6 +364,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryButtonText: { color: '#27566B', fontWeight: '700' },
+  inlineLink: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+  },
+  inlineLinkPressed: { opacity: 0.7 },
+  inlineLinkText: { color: '#27566B', fontWeight: '700' },
   buttonPressed: { opacity: 0.85 },
   buttonDisabled: { opacity: 0.6 },
 });
