@@ -8,6 +8,7 @@ import { OnboardingPathPreview } from '@/components/onboarding-path-preview';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
+import { ONBOARDING_PATH_STEPS } from '@/lib/onboarding';
 
 export default function SignUpScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -60,7 +61,7 @@ export default function SignUpScreen() {
       <OnboardingPathPreview
         activeIndex={0}
         body="Create the account, verify the email address, then continue through profile, interests, and queue access."
-        steps={['Verify email', 'Complete profile basics', 'Choose interests', 'Join the queue']}
+        steps={ONBOARDING_PATH_STEPS}
         title="What happens next"
       />
 

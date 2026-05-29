@@ -9,6 +9,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
 import { mobileEnv } from '@/lib/env';
+import { ONBOARDING_PATH_STEPS } from '@/lib/onboarding';
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -46,7 +47,7 @@ export default function LoginScreen() {
 
       <OnboardingPathPreview
         body="Sign in, verify email if needed, then continue through profile setup, interests, and queue access."
-        steps={['Verify email', 'Complete profile basics', 'Choose interests', 'Join the queue']}
+        steps={ONBOARDING_PATH_STEPS}
         title="Your onboarding path"
       />
 

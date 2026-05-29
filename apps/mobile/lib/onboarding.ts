@@ -10,6 +10,13 @@ export type OnboardingChecklistItem = {
   label: string;
 };
 
+export const ONBOARDING_PATH_STEPS = [
+  'Verify email',
+  'Complete profile basics',
+  'Choose interests',
+  'Join the queue',
+] as const;
+
 export function getOnboardingNextAction(
   checklist: OnboardingChecklistItem[],
 ): OnboardingNextAction | null {

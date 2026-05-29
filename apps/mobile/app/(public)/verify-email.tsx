@@ -10,7 +10,7 @@ import { OnboardingNextStepCard } from '@/components/onboarding-next-step-card';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
-import { getOnboardingNextActionAfterEmail } from '@/lib/onboarding';
+import { ONBOARDING_PATH_STEPS, getOnboardingNextActionAfterEmail } from '@/lib/onboarding';
 
 export default function VerifyEmailScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -67,7 +67,7 @@ export default function VerifyEmailScreen() {
       <OnboardingPathPreview
         activeIndex={emailVerified ? 1 : 0}
         body="Verification is the first gate. After that, profile setup, interests, and queue access open in sequence."
-        steps={['Verify email', 'Complete profile basics', 'Choose interests', 'Join the queue']}
+        steps={ONBOARDING_PATH_STEPS}
         title="Your onboarding path"
       />
 

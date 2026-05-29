@@ -7,6 +7,7 @@ import { OnboardingPathPreview } from '@/components/onboarding-path-preview';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
+import { ONBOARDING_PATH_STEPS } from '@/lib/onboarding';
 
 export default function ForgotPasswordScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -44,7 +45,7 @@ export default function ForgotPasswordScreen() {
       <OnboardingPathPreview
         activeIndex={0}
         body="Password recovery is a short detour: send the reset email, sign back in, then continue the same onboarding path."
-        steps={['Send reset email', 'Sign in again', 'Verify email if needed', 'Continue onboarding']}
+        steps={['Send reset email', 'Sign in again', ...ONBOARDING_PATH_STEPS.slice(1)]}
         title="Where reset fits"
       />
 

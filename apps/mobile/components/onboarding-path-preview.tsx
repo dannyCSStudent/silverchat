@@ -5,7 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 type OnboardingPathPreviewProps = {
   activeIndex?: number;
   body: string;
-  steps: string[];
+  steps: readonly string[];
   title: string;
 };
 
