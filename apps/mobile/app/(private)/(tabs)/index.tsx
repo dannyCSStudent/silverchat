@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { useAuth } from '@/lib/auth';
 import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 import { pickAvatarAsset, uploadAvatar } from '@/lib/storage';
@@ -195,18 +196,10 @@ export default function AccountScreen() {
               );
             })}
           </View>
-          {profileMatchSuggestion.missingFlowSteps?.length ? (
-            <>
-              <ThemedText style={styles.flowStepLabel}>Flow step</ThemedText>
-              <View style={styles.missingFieldList}>
-                {profileMatchSuggestion.missingFlowSteps.map((step) => (
-                  <View key={step} style={styles.missingFieldChip}>
-                    <ThemedText style={styles.missingFieldText}>{step}</ThemedText>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : null}
+          <FlowStepChipList
+            accentColor="#B74444"
+            steps={profileMatchSuggestion.missingFlowSteps ?? []}
+          />
           {profileMatchSuggestion.missingFlowSteps?.length ? (
             <Link href="/(private)/(tabs)/setup" style={styles.secondaryButton}>
               <ThemedText style={styles.secondaryButtonText}>
@@ -366,7 +359,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.72)',
   },
   missingFieldText: { fontSize: 13, fontWeight: '700', color: '#B74444' },
-  flowStepLabel: { fontSize: 12, fontWeight: '700', letterSpacing: 0.8, opacity: 0.68, textTransform: 'uppercase' },
   avatarSection: { gap: 10 },
   avatarLabel: { fontSize: 13, fontWeight: '700', opacity: 0.7, textTransform: 'uppercase' },
   avatarPreview: { width: 112, height: 112, borderRadius: 56, backgroundColor: 'rgba(24,33,43,0.08)' },

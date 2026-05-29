@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
@@ -160,18 +161,10 @@ export default function QueueScreen() {
               - {item.label}
             </ThemedText>
           ))}
-          {queueBlockerSuggestion?.missingFlowSteps?.length ? (
-            <>
-              <ThemedText style={styles.flowStepLabel}>Flow step</ThemedText>
-              <View style={styles.flowStepList}>
-                {queueBlockerSuggestion.missingFlowSteps.map((step) => (
-                  <View key={step} style={styles.flowStepChip}>
-                    <ThemedText style={styles.flowStepText}>{step}</ThemedText>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : null}
+          <FlowStepChipList
+            accentColor="#27566B"
+            steps={queueBlockerSuggestion?.missingFlowSteps ?? []}
+          />
           <View style={styles.linkGroup}>
             {queueBlockerSuggestion?.kind === 'profile' && queueBlockerActionLabel ? (
               <Link href="/(private)/(tabs)" style={styles.secondaryButton}>
@@ -322,15 +315,6 @@ const styles = StyleSheet.create({
   card: { borderRadius: 24, padding: 18, gap: 12 },
   cardLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, opacity: 0.62 },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
-  flowStepLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, opacity: 0.68, textTransform: 'uppercase' },
-  flowStepList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  flowStepChip: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.72)',
-  },
-  flowStepText: { fontSize: 13, fontWeight: '700', color: '#27566B' },
   statusText: { fontSize: 22, fontWeight: '700' },
   checklist: { gap: 12 },
   checklistRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
