@@ -55,12 +55,47 @@ export default function MatchHistoryScreen() {
     () => recentMatches.filter((session) => Boolean(session.ended_at)).length,
     [recentMatches],
   );
+  const durationSummary = useMemo(() => {
+    const lengthsInMinutes = orderedMatches
+      .map((session) => {
+        if (!session.created_at || !session.ended_at) {
+          return null;
+        }
+
+        const startedAt = new Date(session.created_at).getTime();
+        const endedAt = new Date(session.ended_at).getTime();
+        if (Number.isNaN(startedAt) || Number.isNaN(endedAt) || endedAt <= startedAt) {
+          return null;
+        }
+
+        return Math.round((endedAt - startedAt) / 60000);
+      })
+      .filter((length): length is number => length !== null);
+
+    if (lengthsInMinutes.length === 0) {
+      return {
+        average: '—',
+        longest: '—',
+      };
+    }
+
+    const totalMinutes = lengthsInMinutes.reduce((sum, length) => sum + length, 0);
+    const averageMinutes = Math.max(1, Math.round(totalMinutes / lengthsInMinutes.length));
+    const longestMinutes = Math.max(...lengthsInMinutes);
+
+    return {
+      average: averageMinutes === 1 ? 'About 1 minute' : `${averageMinutes} minutes`,
+      longest: longestMinutes === 1 ? 'About 1 minute' : `${longestMinutes} minutes`,
+    };
+  }, [orderedMatches]);
   const historyMetrics = [
     { label: 'Total sessions', value: String(recentMatches.length) },
     { label: 'Initiated', value: String(initiatedCount) },
     { label: 'Received', value: String(receivedCount) },
     { label: 'Matched', value: String(matchedCount) },
     { label: 'Ended', value: String(endedCount) },
+    { label: 'Avg length', value: durationSummary.average },
+    { label: 'Longest', value: durationSummary.longest },
   ];
   const recentActivity = useMemo(() => {
     const formatter = new Intl.DateTimeFormat('en-US', {
