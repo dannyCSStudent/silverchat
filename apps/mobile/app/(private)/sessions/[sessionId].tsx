@@ -5,29 +5,13 @@ import type { Session } from '@supabase/supabase-js';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { SessionMemberCard } from '@/components/session-member-card';
 import { SessionOutcomeCard } from '@/components/session-outcome-card';
 import { SessionFollowUpCard } from '@/components/session-follow-up-card';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
 import { authorizedApiRequest } from '@/lib/api';
-
-type SessionDetailResponse = {
-  current_user_role: 'initiator' | 'recipient';
-  session: {
-    id: string;
-    status?: string | null;
-    created_at?: string | null;
-    ended_at?: string | null;
-    other_profile?: {
-      user_id: string;
-      display_name: string;
-      avatar_url?: string | null;
-      country_code?: string | null;
-    } | null;
-  };
-};
+import type { MatchSessionDetailResponse } from '@/lib/match-sessions';
 
 type MyReportRecord = {
   reported_user_id: string;
@@ -43,7 +27,7 @@ export default function MatchSessionScreen() {
   const colors = Colors[colorScheme];
   const { session, recentMatches } = useAuth();
   const { sessionId } = useLocalSearchParams<{ sessionId?: string | string[] }>();
-  const [detail, setDetail] = useState<SessionDetailResponse | null>(null);
+  const [detail, setDetail] = useState<MatchSessionDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshingSession, setRefreshingSession] = useState(false);
@@ -78,7 +62,7 @@ export default function MatchSessionScreen() {
     setError(null);
 
     try {
-      const response = await authorizedApiRequest<SessionDetailResponse>(
+      const response = await authorizedApiRequest<MatchSessionDetailResponse>(
         session,
         `/match/sessions/${resolvedSessionId}`,
       );
@@ -252,10 +236,6 @@ export default function MatchSessionScreen() {
             country_code: summary.other_profile?.country_code ?? null,
           }}
         />
-      ) : null}
-
-      {summary?.other_profile ? (
-        <SessionMemberCard title="Other member" member={summary.other_profile} />
       ) : null}
 
       {session && summary?.other_profile ? (

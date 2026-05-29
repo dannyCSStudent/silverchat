@@ -11,6 +11,7 @@ import {
 import type { Session, User } from '@supabase/supabase-js';
 
 import { apiRequest } from '@/lib/api';
+import type { RecentMatchSession } from '@/lib/match-sessions';
 import { supabase, supabaseEnvError } from '@/lib/supabase';
 
 type SessionState = {
@@ -67,20 +68,6 @@ type MatchJoinResponse = {
   queue_entry?: QueueEntryRecord | null;
   session_id?: string | null;
   matched_profile?: {
-    user_id: string;
-    display_name: string;
-    avatar_url?: string;
-    country_code?: string;
-  } | null;
-};
-
-type RecentMatchSession = {
-  id: string;
-  status?: string | null;
-  current_user_role?: 'initiator' | 'recipient' | null;
-  created_at?: string;
-  ended_at?: string;
-  other_profile?: {
     user_id: string;
     display_name: string;
     avatar_url?: string;

@@ -17,6 +17,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { authorizedApiRequest } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import type { MatchSessionSummary, MatchSessionDetailResponse } from '@/lib/match-sessions';
 import { getOnboardingNextAction } from '@/lib/onboarding';
 import {
   getMatchPoolExplanation,
@@ -56,19 +57,7 @@ export default function QueueScreen() {
     country_code?: string;
   } | null>(null);
   const [matchedSessionId, setMatchedSessionId] = useState<string | null>(null);
-  const [matchedSessionDetail, setMatchedSessionDetail] = useState<{
-    id: string;
-    status?: string | null;
-    current_user_role: 'initiator' | 'recipient';
-    created_at?: string | null;
-    ended_at?: string | null;
-    other_profile?: {
-      user_id: string;
-      display_name: string;
-      avatar_url?: string | null;
-      country_code?: string | null;
-    } | null;
-  } | null>(null);
+  const [matchedSessionDetail, setMatchedSessionDetail] = useState<MatchSessionSummary | null>(null);
   const [matchContext, setMatchContext] = useState<{
     pool: 'preferred' | 'fallback';
     reason: string;
@@ -101,29 +90,11 @@ export default function QueueScreen() {
         }
 
         try {
-          const detail = await authorizedApiRequest<{
-            current_user_role: 'initiator' | 'recipient';
-            session: {
-              id: string;
-              status?: string | null;
-              created_at?: string | null;
-              ended_at?: string | null;
-              other_profile?: {
-                user_id: string;
-                display_name: string;
-                avatar_url?: string | null;
-                country_code?: string | null;
-              } | null;
-            };
-          }>(session, `/match/sessions/${response.session_id}`);
-          setMatchedSessionDetail({
-            id: detail.session.id,
-            status: detail.session.status ?? null,
-            current_user_role: detail.current_user_role,
-            created_at: detail.session.created_at ?? null,
-            ended_at: detail.session.ended_at ?? null,
-            other_profile: detail.session.other_profile ?? null,
-          });
+          const detail = await authorizedApiRequest<MatchSessionDetailResponse>(
+            session,
+            `/match/sessions/${response.session_id}`,
+          );
+          setMatchedSessionDetail(detail.session);
         } catch {
           // Ignore snapshot refresh issues here; the queue can still render with the match payload.
         }
@@ -395,20 +366,23 @@ export default function QueueScreen() {
       {matchedProfile ? (
         <ThemedView style={styles.card}>
           {matchedSessionDetail ? (
-            <SessionOutcomeCard
+              <SessionOutcomeCard
               title="Latest match"
               sessionId={matchedSessionDetail.id}
               status={matchedSessionDetail.status}
-              currentUserRole={matchedSessionDetail.current_user_role}
+              currentUserRole={matchedSessionDetail.current_user_role ?? 'initiator'}
               createdAt={matchedSessionDetail.created_at ?? null}
               endedAt={matchedSessionDetail.ended_at ?? null}
               otherMember={{
                 user_id: matchedSessionDetail.other_profile?.user_id ?? matchedProfile.user_id,
                 display_name:
                   matchedSessionDetail.other_profile?.display_name ?? matchedProfile.display_name,
-                avatar_url: matchedSessionDetail.other_profile?.avatar_url ?? matchedProfile.avatar_url ?? null,
+                avatar_url:
+                  matchedSessionDetail.other_profile?.avatar_url ?? matchedProfile.avatar_url ?? null,
                 country_code:
-                  matchedSessionDetail.other_profile?.country_code ?? matchedProfile.country_code ?? 'Country not set',
+                  matchedSessionDetail.other_profile?.country_code ??
+                  matchedProfile.country_code ??
+                  'Country not set',
               }}
             />
           ) : (
