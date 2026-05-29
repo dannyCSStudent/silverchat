@@ -15,6 +15,7 @@ import { SessionOutcomeCard } from '@/components/session-outcome-card';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { authorizedApiRequest } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { getOnboardingNextAction } from '@/lib/onboarding';
 import {
@@ -37,6 +38,7 @@ export default function QueueScreen() {
     message,
     onboardingChecklist,
     profile,
+    session,
     queueEntry,
     queueEligible,
     refreshData,
@@ -52,6 +54,20 @@ export default function QueueScreen() {
     display_name: string;
     avatar_url?: string;
     country_code?: string;
+  } | null>(null);
+  const [matchedSessionId, setMatchedSessionId] = useState<string | null>(null);
+  const [matchedSessionDetail, setMatchedSessionDetail] = useState<{
+    id: string;
+    status?: string | null;
+    current_user_role: 'initiator' | 'recipient';
+    created_at?: string | null;
+    ended_at?: string | null;
+    other_profile?: {
+      user_id: string;
+      display_name: string;
+      avatar_url?: string | null;
+      country_code?: string | null;
+    } | null;
   } | null>(null);
   const [matchContext, setMatchContext] = useState<{
     pool: 'preferred' | 'fallback';
@@ -71,14 +87,51 @@ export default function QueueScreen() {
     try {
       const response = await joinQueue();
       setMatchedProfile(response.matched_profile ?? null);
+      setMatchedSessionId(response.session_id ?? null);
       setMatchContext(response.match_context ?? null);
+      setMatchedSessionDetail(null);
       setLocalMessage(
         response.status === 'matched'
           ? `Matched with ${response.matched_profile?.display_name ?? 'another member'}.`
           : 'You are in queue. Stay available while we look for a conversation.',
       );
+      if (response.status === 'matched' && response.session_id) {
+        if (!session) {
+          return;
+        }
+
+        try {
+          const detail = await authorizedApiRequest<{
+            current_user_role: 'initiator' | 'recipient';
+            session: {
+              id: string;
+              status?: string | null;
+              created_at?: string | null;
+              ended_at?: string | null;
+              other_profile?: {
+                user_id: string;
+                display_name: string;
+                avatar_url?: string | null;
+                country_code?: string | null;
+              } | null;
+            };
+          }>(session, `/match/sessions/${response.session_id}`);
+          setMatchedSessionDetail({
+            id: detail.session.id,
+            status: detail.session.status ?? null,
+            current_user_role: detail.current_user_role,
+            created_at: detail.session.created_at ?? null,
+            ended_at: detail.session.ended_at ?? null,
+            other_profile: detail.session.other_profile ?? null,
+          });
+        } catch {
+          // Ignore snapshot refresh issues here; the queue can still render with the match payload.
+        }
+      }
     } catch (error) {
       setMatchedProfile(null);
+      setMatchedSessionId(null);
+      setMatchedSessionDetail(null);
       setMatchContext(null);
       setLocalMessage(error instanceof Error ? error.message : 'Unable to join matchmaking.');
     }
@@ -341,22 +394,42 @@ export default function QueueScreen() {
 
       {matchedProfile ? (
         <ThemedView style={styles.card}>
-          <SessionMemberCard
-            title="Latest match"
-            member={matchedProfile}
-            leading={
-              matchedProfile.avatar_url ? (
-                <Image source={{ uri: matchedProfile.avatar_url }} style={styles.avatar} contentFit="cover" />
-              ) : (
-                <View style={styles.avatarFallback}>
-                  <ThemedText style={styles.avatarFallbackText}>
-                    {matchedProfile.display_name.slice(0, 1).toUpperCase()}
-                  </ThemedText>
-                </View>
-              )
-            }
-            footer={<ThemedText style={styles.cardCopy}>Matched just now in the active queue.</ThemedText>}
-          />
+          {matchedSessionDetail ? (
+            <SessionOutcomeCard
+              title="Latest match"
+              sessionId={matchedSessionDetail.id}
+              status={matchedSessionDetail.status}
+              currentUserRole={matchedSessionDetail.current_user_role}
+              createdAt={matchedSessionDetail.created_at ?? null}
+              endedAt={matchedSessionDetail.ended_at ?? null}
+              durationLabel={null}
+              otherMember={{
+                user_id: matchedSessionDetail.other_profile?.user_id ?? matchedProfile.user_id,
+                display_name:
+                  matchedSessionDetail.other_profile?.display_name ?? matchedProfile.display_name,
+                avatar_url: matchedSessionDetail.other_profile?.avatar_url ?? matchedProfile.avatar_url ?? null,
+                country_code:
+                  matchedSessionDetail.other_profile?.country_code ?? matchedProfile.country_code ?? 'Country not set',
+              }}
+            />
+          ) : (
+            <SessionMemberCard
+              title="Latest match"
+              member={matchedProfile}
+              leading={
+                matchedProfile.avatar_url ? (
+                  <Image source={{ uri: matchedProfile.avatar_url }} style={styles.avatar} contentFit="cover" />
+                ) : (
+                  <View style={styles.avatarFallback}>
+                    <ThemedText style={styles.avatarFallbackText}>
+                      {matchedProfile.display_name.slice(0, 1).toUpperCase()}
+                    </ThemedText>
+                  </View>
+                )
+              }
+              footer={<ThemedText style={styles.cardCopy}>Matched just now in the active queue.</ThemedText>}
+            />
+          )}
           {matchContext ? (
             <View style={styles.matchContextCard}>
               <ThemedText style={styles.cardLabel}>Why this match</ThemedText>
@@ -375,6 +448,11 @@ export default function QueueScreen() {
                   : 'Fallback pool means the app used the best available overlap.'}
               </ThemedText>
             </View>
+          ) : null}
+          {matchedSessionId ? (
+            <Link href={`/(private)/sessions/${matchedSessionId}`} style={styles.sessionLink}>
+              <ThemedText style={styles.sessionLinkText}>Open session detail</ThemedText>
+            </Link>
           ) : null}
         </ThemedView>
       ) : null}
@@ -452,6 +530,11 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: 'rgba(39,86,107,0.08)',
   },
+  sessionLink: {
+    alignSelf: 'flex-start',
+    paddingTop: 4,
+  },
+  sessionLinkText: { color: '#27566B', fontWeight: '700' },
   recentMatchLink: { borderRadius: 18, padding: 2 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(24,33,43,0.08)' },
   avatarFallback: {
