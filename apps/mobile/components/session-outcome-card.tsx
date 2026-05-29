@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { FreshnessLine } from '@/components/freshness-line';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { SessionMemberCard } from '@/components/session-member-card';
@@ -28,6 +30,25 @@ export function SessionOutcomeCard({
   durationLabel,
   otherMember,
 }: SessionOutcomeCardProps) {
+  const computedDurationLabel = useMemo(() => {
+    if (durationLabel) {
+      return durationLabel;
+    }
+
+    if (!createdAt || !endedAt) {
+      return null;
+    }
+
+    const startedAt = new Date(createdAt).getTime();
+    const finishedAt = new Date(endedAt).getTime();
+    if (Number.isNaN(startedAt) || Number.isNaN(finishedAt) || finishedAt <= startedAt) {
+      return null;
+    }
+
+    const durationMinutes = Math.max(1, Math.round((finishedAt - startedAt) / 60000));
+    return durationMinutes === 1 ? 'About 1 minute' : `${durationMinutes} minutes`;
+  }, [createdAt, durationLabel, endedAt]);
+
   return (
     <SessionMemberCard
       title={title}
@@ -41,7 +62,7 @@ export function SessionOutcomeCard({
               { label: 'Session id', value: sessionId },
               { label: 'Status', value: status ?? 'matched' },
               { label: 'Role', value: currentUserRole },
-              { label: 'Length', value: durationLabel ?? '—' },
+              { label: 'Length', value: computedDurationLabel ?? '—' },
             ]}
           />
         </>
