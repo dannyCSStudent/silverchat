@@ -403,8 +403,8 @@ export function AdminHealthPanel() {
           ) : null}
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
             Sampled{" "}
-            {currentHealth.sampledAt
-              ? new Date(currentHealth.sampledAt).toLocaleString()
+            {formatRelativeAgeFromTimestamp(currentHealth.sampledAt)
+              ? `Sampled ${formatRelativeAgeFromTimestamp(currentHealth.sampledAt)}`
               : "unknown time"}
           </p>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
