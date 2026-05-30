@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -29,6 +29,7 @@ import {
 } from '@/lib/match-signals';
 
 export default function QueueScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const {
@@ -494,10 +495,23 @@ export default function QueueScreen() {
 
       <Pressable
         disabled={loading}
-        onPress={() => void handleQueueAttempt()}
+        onPress={() => {
+          if (isAvailabilityPaused) {
+            router.push('/(private)/preferences');
+            return;
+          }
+
+          void handleQueueAttempt();
+        }}
         style={[styles.primaryButton, (!queueEligible || loading) && styles.primaryButtonMuted]}>
         <ThemedText style={styles.primaryButtonText}>
-          {loading ? 'Joining...' : queueEligible ? 'Join queue' : 'Why can’t I join yet?'}
+          {loading
+            ? 'Joining...'
+            : isAvailabilityPaused
+              ? 'Resume matchmaking'
+              : queueEligible
+                ? 'Join queue'
+                : 'Why can’t I join yet?'}
         </ThemedText>
       </Pressable>
 
