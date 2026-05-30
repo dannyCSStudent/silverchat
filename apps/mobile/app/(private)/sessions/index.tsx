@@ -340,6 +340,7 @@ export default function MatchHistoryScreen() {
           countryCode={historyConversationTarget.other_profile.country_code ?? null}
           memberName={historyConversationTarget.other_profile.display_name}
           pool={historyConversationTarget.ended_at ? 'fallback' : 'queue'}
+          storageKey={`conversation-starter:${historyConversationTarget.id}`}
         />
       ) : null}
 

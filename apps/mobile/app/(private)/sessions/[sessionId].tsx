@@ -245,6 +245,7 @@ export default function MatchSessionScreen() {
           }
           countryCode={summary.other_profile.country_code ?? null}
           memberName={summary.other_profile.display_name}
+          storageKey={`conversation-starter:${summary.id}`}
         />
       ) : null}
 

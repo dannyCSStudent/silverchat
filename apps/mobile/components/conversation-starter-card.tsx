@@ -1,6 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -17,6 +18,7 @@ type ConversationStarterCardProps = {
   title?: string;
   copyLabel?: string;
   featuredCopyLabel?: string;
+  storageKey?: string;
 };
 
 export function ConversationStarterCard({
@@ -30,6 +32,7 @@ export function ConversationStarterCard({
   title = 'Conversation starters',
   copyLabel = 'Copy',
   featuredCopyLabel = 'Copy best opener',
+  storageKey,
 }: ConversationStarterCardProps) {
   const starters = buildConversationStarters({
     memberName,
@@ -40,6 +43,7 @@ export function ConversationStarterCard({
     topSharedInterest,
   });
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [savedStarter, setSavedStarter] = useState<string | null>(null);
 
   useEffect(() => {
     if (copiedIndex === null) {
@@ -53,9 +57,37 @@ export function ConversationStarterCard({
     return () => clearTimeout(timeout);
   }, [copiedIndex]);
 
+  useEffect(() => {
+    if (!storageKey) {
+      setSavedStarter(null);
+      return;
+    }
+
+    let active = true;
+    void AsyncStorage.getItem(storageKey)
+      .then((value) => {
+        if (active) {
+          setSavedStarter(value);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSavedStarter(null);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [storageKey]);
+
   async function handleCopy(starter: string, index: number) {
     await Clipboard.setStringAsync(starter);
     setCopiedIndex(index);
+    if (storageKey) {
+      await AsyncStorage.setItem(storageKey, starter).catch(() => {});
+      setSavedStarter(starter);
+    }
   }
 
   const featuredStarter = starters[0] ?? null;
@@ -76,6 +108,7 @@ export function ConversationStarterCard({
         ) : null}
       </View>
       {contextHint ? <ThemedText style={styles.hint}>{contextHint}</ThemedText> : null}
+      {savedStarter ? <ThemedText style={styles.savedHint}>Saved opener ready to reuse.</ThemedText> : null}
       <View style={styles.list}>
         {starters.map((starter, index) => (
           <View key={`${starter}-${index}`} style={styles.row}>
@@ -92,6 +125,16 @@ export function ConversationStarterCard({
           </View>
         ))}
       </View>
+      {savedStarter ? (
+        <Pressable
+          onPress={() => void handleCopy(savedStarter, 0)}
+          style={({ pressed }) => [styles.savedButton, pressed ? styles.copyButtonPressed : undefined]}
+        >
+          <ThemedText style={styles.copyButtonText}>
+            {copiedIndex === 0 && savedStarter === starters[0] ? 'Copied' : 'Copy saved opener'}
+          </ThemedText>
+        </Pressable>
+      ) : null}
     </ThemedView>
   );
 }
@@ -101,6 +144,7 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   label: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, opacity: 0.62 },
   hint: { fontSize: 14, lineHeight: 20, opacity: 0.75 },
+  savedHint: { fontSize: 12, lineHeight: 16, opacity: 0.6 },
   list: { gap: 10 },
   row: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   bullet: { width: 12, fontSize: 16, lineHeight: 22, fontWeight: '700' },
@@ -122,6 +166,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     backgroundColor: 'rgba(39,86,107,0.04)',
+  },
+  savedButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(39,86,107,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(39,86,107,0.02)',
   },
   copyButtonText: {
     color: '#27566B',

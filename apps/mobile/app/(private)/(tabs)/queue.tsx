@@ -480,6 +480,7 @@ export default function QueueScreen() {
               sharedTopics={matchContext.shared_interests}
               topSharedCategory={matchContext.top_shared_category ?? null}
               topSharedInterest={matchContext.top_shared_interest ?? null}
+              storageKey={matchedSessionId ? `conversation-starter:${matchedSessionId}` : undefined}
             />
           ) : null}
         </ThemedView>
