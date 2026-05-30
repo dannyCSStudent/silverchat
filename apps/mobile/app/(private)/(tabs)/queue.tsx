@@ -374,7 +374,7 @@ export default function QueueScreen() {
               currentUserRole={matchedSessionDetail.current_user_role ?? 'initiator'}
               createdAt={matchedSessionDetail.created_at ?? null}
               endedAt={matchedSessionDetail.ended_at ?? null}
-              actions={<SessionCardActions sessionId={matchedSessionDetail.id} openHref={`/(private)/sessions/${matchedSessionDetail.id}`} />}
+              actions={<SessionCardActions sessionId={matchedSessionDetail.id} />}
               otherMember={{
                 user_id: matchedSessionDetail.other_profile?.user_id ?? matchedProfile.user_id,
                 display_name:
@@ -406,10 +406,7 @@ export default function QueueScreen() {
                 <View style={styles.matchFooter}>
                   <ThemedText style={styles.cardCopy}>Matched just now in the active queue.</ThemedText>
                   {matchedSessionId ? (
-                    <SessionCardActions
-                      sessionId={matchedSessionId}
-                      openHref={`/(private)/sessions/${matchedSessionId}`}
-                    />
+                    <SessionCardActions sessionId={matchedSessionId} />
                   ) : null}
                 </View>
               }
@@ -454,7 +451,7 @@ export default function QueueScreen() {
               currentUserRole={session.current_user_role ?? 'initiator'}
               createdAt={session.created_at ?? null}
               endedAt={session.ended_at ?? null}
-              actions={<SessionCardActions sessionId={session.id} openHref={`/(private)/sessions/${session.id}`} />}
+              actions={<SessionCardActions sessionId={session.id} />}
               otherMember={{
                 user_id: session.other_profile?.user_id ?? session.id,
                 display_name: session.other_profile?.display_name ?? 'Another member',

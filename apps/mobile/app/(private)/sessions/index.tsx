@@ -290,7 +290,6 @@ export default function MatchHistoryScreen() {
                 <View key={session.id} style={styles.lookupMatchCard}>
                   <SessionCardActions
                     sessionId={session.id}
-                    openHref={`/(private)/sessions/${session.id}`}
                     openLabel={`Open ${session.other_profile?.display_name ?? 'session'} detail`}
                   />
                   <ThemedText style={styles.lookupMatchReason}>
@@ -412,7 +411,7 @@ export default function MatchHistoryScreen() {
               currentUserRole={session.current_user_role ?? 'initiator'}
               createdAt={session.created_at ?? null}
               endedAt={session.ended_at ?? null}
-              actions={<SessionCardActions sessionId={session.id} openHref={`/(private)/sessions/${session.id}`} />}
+              actions={<SessionCardActions sessionId={session.id} />}
               otherMember={{
                 user_id: session.other_profile?.user_id ?? session.id,
                 display_name: session.other_profile?.display_name ?? 'Another member',
@@ -440,7 +439,7 @@ export default function MatchHistoryScreen() {
             currentUserRole={orderedMatches[0].current_user_role ?? 'initiator'}
             createdAt={orderedMatches[0].created_at ?? null}
             endedAt={orderedMatches[0].ended_at ?? null}
-            actions={<SessionCardActions sessionId={orderedMatches[0].id} openHref={`/(private)/sessions/${orderedMatches[0].id}`} />}
+            actions={<SessionCardActions sessionId={orderedMatches[0].id} />}
             otherMember={{
               user_id: orderedMatches[0].other_profile?.user_id ?? orderedMatches[0].id,
               display_name: orderedMatches[0].other_profile?.display_name ?? 'Another member',

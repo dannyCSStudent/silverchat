@@ -6,15 +6,17 @@ import { ThemedText } from '@/components/themed-text';
 
 type SessionCardActionsProps = {
   sessionId: string;
-  openHref?: string | null;
+  showOpenLink?: boolean;
   openLabel?: string;
 };
 
 export function SessionCardActions({
   sessionId,
-  openHref,
+  showOpenLink = true,
   openLabel = 'Open session detail',
 }: SessionCardActionsProps) {
+  const openHref = showOpenLink ? `/(private)/sessions/${sessionId}` : null;
+
   return (
     <View style={styles.row}>
       {openHref ? (
