@@ -1,6 +1,7 @@
 import { Link, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useMemo, useState } from 'react';
+import * as Clipboard from 'expo-clipboard';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -19,6 +20,7 @@ export default function MatchHistoryScreen() {
   const [roleFilter, setRoleFilter] = useState<'all' | 'initiator' | 'recipient'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'matched' | 'ended'>('all');
   const [sessionLookup, setSessionLookup] = useState('');
+  const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
 
   const orderedMatches = useMemo(
     () =>
@@ -216,6 +218,10 @@ export default function MatchHistoryScreen() {
       router.push(`/(private)/sessions/${lookupMatches[0].session.id}`);
     }
   };
+  const handleCopySessionId = async (sessionId: string) => {
+    await Clipboard.setStringAsync(sessionId);
+    setCopiedSessionId(sessionId);
+  };
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
@@ -286,14 +292,27 @@ export default function MatchHistoryScreen() {
                 {sessionLookup.trim() ? ` for "${sessionLookup.trim()}"` : ''}.
               </ThemedText>
               {lookupMatches.slice(0, 3).map(({ session, matchReasons }) => (
-                <Link key={session.id} href={`/(private)/sessions/${session.id}`} style={styles.secondaryButton}>
-                  <ThemedText style={styles.secondaryButtonText}>
-                    Open {session.other_profile?.display_name ?? 'session'} detail
-                  </ThemedText>
-                  <ThemedText style={styles.lookupMatchReason}>
-                    Matched by {matchReasons.join(', ')}
-                  </ThemedText>
-                </Link>
+                <View key={session.id} style={styles.lookupMatchCard}>
+                  <Link href={`/(private)/sessions/${session.id}`} style={styles.secondaryButton}>
+                    <ThemedText style={styles.secondaryButtonText}>
+                      Open {session.other_profile?.display_name ?? 'session'} detail
+                    </ThemedText>
+                    <ThemedText style={styles.lookupMatchReason}>
+                      Matched by {matchReasons.join(', ')}
+                    </ThemedText>
+                  </Link>
+                  <Pressable
+                    onPress={() => handleCopySessionId(session.id)}
+                    style={({ pressed }) => [
+                      styles.copyButton,
+                      pressed ? styles.filterChipPressed : undefined,
+                    ]}
+                  >
+                    <ThemedText style={styles.copyButtonText}>
+                      {copiedSessionId === session.id ? 'Copied session id' : 'Copy session id'}
+                    </ThemedText>
+                  </Pressable>
+                </View>
               ))}
               {lookupMatches.length > 3 ? (
                 <ThemedText style={styles.cardCopy}>
@@ -447,6 +466,14 @@ export default function MatchHistoryScreen() {
           <Link href={`/(private)/sessions/${orderedMatches[0].id}`} style={styles.secondaryButton}>
             <ThemedText style={styles.secondaryButtonText}>Open session detail</ThemedText>
           </Link>
+          <Pressable
+            onPress={() => handleCopySessionId(orderedMatches[0].id)}
+            style={({ pressed }) => [styles.copyButton, pressed ? styles.filterChipPressed : undefined]}
+          >
+            <ThemedText style={styles.copyButtonText}>
+              {copiedSessionId === orderedMatches[0].id ? 'Copied session id' : 'Copy session id'}
+            </ThemedText>
+          </Pressable>
           <FreshnessLine prefix="Updated" timestamp={orderedMatches[0].created_at ?? null} />
         </ThemedView>
       ) : null}
@@ -541,6 +568,7 @@ const styles = StyleSheet.create({
   filterChipCount: { color: '#27566B', opacity: 0.72, fontWeight: '700' },
   filterChipCountActive: { opacity: 1 },
   linkCard: { borderRadius: 24 },
+  lookupMatchCard: { gap: 8 },
   clearButton: {
     borderRadius: 999,
     borderWidth: 1,
@@ -560,4 +588,13 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: { color: '#27566B', fontWeight: '700' },
   lookupMatchReason: { color: '#27566B', opacity: 0.72, fontSize: 12, lineHeight: 16 },
+  copyButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(39,86,107,0.24)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  copyButtonText: { color: '#27566B', fontWeight: '700' },
 });

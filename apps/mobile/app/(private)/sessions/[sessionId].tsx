@@ -2,6 +2,7 @@ import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
+import * as Clipboard from 'expo-clipboard';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -26,6 +27,7 @@ export default function MatchSessionScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshingSession, setRefreshingSession] = useState(false);
+  const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
   const [relationshipState, setRelationshipState] = useState<{
     alreadyReported: boolean;
     alreadyBlocked: boolean;
@@ -139,6 +141,15 @@ export default function MatchSessionScreen() {
   }, [loadDetail, loadRelationshipState]);
 
   const summary = detail?.session;
+  const handleCopySessionId = useCallback(async () => {
+    const value = summary?.id ?? resolvedSessionId;
+    if (!value) {
+      return;
+    }
+
+    await Clipboard.setStringAsync(value);
+    setCopiedSessionId(value);
+  }, [resolvedSessionId, summary?.id]);
   const sessionDurationLabel = useMemo(() => {
     if (!summary?.created_at || !summary?.ended_at) {
       return null;
@@ -196,6 +207,14 @@ export default function MatchSessionScreen() {
         >
           <ThemedText style={styles.refreshButtonText}>
             {refreshingSession ? 'Refreshing...' : 'Refresh session'}
+          </ThemedText>
+        </Pressable>
+        <Pressable
+          onPress={() => void handleCopySessionId()}
+          style={({ pressed }) => [styles.copyButton, pressed ? styles.buttonPressed : undefined]}
+        >
+          <ThemedText style={styles.copyButtonText}>
+            {copiedSessionId === (summary?.id ?? resolvedSessionId) ? 'Copied session id' : 'Copy session id'}
           </ThemedText>
         </Pressable>
       </ThemedView>
@@ -278,6 +297,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   refreshButtonText: { color: '#27566B', fontWeight: '700' },
+  copyButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(39,86,107,0.24)',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+  copyButtonText: { color: '#27566B', fontWeight: '700' },
   buttonPressed: { opacity: 0.85 },
   secondaryButton: {
     borderRadius: 999,
