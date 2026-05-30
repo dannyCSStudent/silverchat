@@ -321,6 +321,10 @@ export default function AccountScreen() {
           <ReadinessMetricList
             metrics={[
               { label: 'Profile status', value: profile.profile_status },
+              {
+                label: 'Availability',
+                value: profile.profile_status === 'paused' ? 'Paused' : 'Active',
+              },
               { label: 'Age verification', value: profile.age_verified_status },
               { label: 'Onboarding', value: sessionState?.onboarding_complete ? 'Complete' : 'In progress' },
               { label: 'Queue eligible', value: queueEligible ? 'Yes' : 'No' },

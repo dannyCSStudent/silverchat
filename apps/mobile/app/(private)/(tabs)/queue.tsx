@@ -68,7 +68,11 @@ export default function QueueScreen() {
 
   async function handleQueueAttempt() {
     if (!queueEligible) {
-      setLocalMessage('Finish the remaining onboarding steps before joining the queue.');
+      setLocalMessage(
+        isAvailabilityPaused
+          ? 'Matchmaking is paused. Open Preferences to resume when you are ready.'
+          : 'Finish the remaining onboarding steps before joining the queue.',
+      );
       return;
     }
 
@@ -172,6 +176,13 @@ export default function QueueScreen() {
     ? queueBlockerTitle
     : matchPreviewGuidance?.title ?? null;
   const matchImprovementHint = !queueEligible ? null : matchPreviewGuidance?.hint ?? null;
+  const isAvailabilityPaused = profile?.profile_status === 'paused';
+  const availabilityStatus =
+    profile?.profile_status === 'paused'
+      ? 'Paused'
+      : profile?.profile_status === 'active'
+        ? 'Available'
+        : profile?.profile_status ?? 'pending';
   const queueWaitSummary = (() => {
     if (!queueEntry) {
       return null;
@@ -218,6 +229,24 @@ export default function QueueScreen() {
         />
         <FreshnessLine prefix="Last synced" timestamp={lastSyncedAt} />
       </ThemedView>
+
+      {isAvailabilityPaused ? (
+        <ThemedView style={styles.card}>
+          <ThemedText type="subtitle">Matchmaking paused</ThemedText>
+          <ThemedText style={styles.cardCopy}>
+            Your profile is hidden from the queue until you resume availability in Preferences.
+          </ThemedText>
+          <ReadinessMetricList
+            metrics={[
+              { label: 'Availability', value: availabilityStatus },
+              { label: 'Queue access', value: 'Hidden' },
+            ]}
+          />
+          <Link href="/(private)/preferences" style={styles.secondaryButton}>
+            <ThemedText style={styles.secondaryButtonText}>Open Preferences</ThemedText>
+          </Link>
+        </ThemedView>
+      ) : null}
 
       {nextAction ? (
         <OnboardingNextStepCard
