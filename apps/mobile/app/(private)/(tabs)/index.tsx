@@ -170,6 +170,25 @@ export default function AccountScreen() {
         </View>
       </ThemedView>
 
+      {profile?.profile_status === 'paused' ? (
+        <ThemedView style={[styles.card, styles.availabilityCard]}>
+          <ThemedText style={styles.availabilityLabel}>Matchmaking paused</ThemedText>
+          <ThemedText type="subtitle">You are hidden from the queue</ThemedText>
+          <ThemedText style={styles.cardCopy}>
+            Resume availability in Preferences when you want to show up in matchmaking again.
+          </ThemedText>
+          <ReadinessMetricList
+            metrics={[
+              { label: 'Availability', value: 'Paused' },
+              { label: 'Queue access', value: 'Hidden' },
+            ]}
+          />
+          <Link href="/(private)/preferences" style={styles.secondaryButton}>
+            <ThemedText style={styles.secondaryButtonText}>Open preferences</ThemedText>
+          </Link>
+        </ThemedView>
+      ) : null}
+
       {nextAction ? (
         <OnboardingNextStepCard
           action={nextAction}
@@ -353,8 +372,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(183,68,68,0.18)',
     backgroundColor: 'rgba(183,68,68,0.06)',
   },
+  availabilityCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(39,86,107,0.18)',
+    backgroundColor: 'rgba(39,86,107,0.06)',
+  },
   cardLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, opacity: 0.62 },
   attentionLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, color: '#B74444' },
+  availabilityLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, color: '#27566B' },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
   copyGroup: { flex: 1, gap: 4 },
   rowBetween: { flexDirection: 'row', gap: 12, justifyContent: 'space-between', alignItems: 'flex-start' },
