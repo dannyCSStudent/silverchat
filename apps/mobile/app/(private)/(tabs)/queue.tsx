@@ -2,6 +2,7 @@ import { Link } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
+import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -64,6 +65,7 @@ export default function QueueScreen() {
     shared_interests: string[];
   } | null>(null);
   const [refreshingPreview, setRefreshingPreview] = useState(false);
+  const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
 
   async function handleQueueAttempt() {
     if (!queueEligible) {
@@ -119,6 +121,11 @@ export default function QueueScreen() {
       setRefreshingPreview(false);
     }
   }
+
+  const handleCopySessionId = useCallback(async (value: string) => {
+    await Clipboard.setStringAsync(value);
+    setCopiedSessionId(value);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -423,9 +430,19 @@ export default function QueueScreen() {
             </View>
           ) : null}
           {matchedSessionId ? (
-            <Link href={`/(private)/sessions/${matchedSessionId}`} style={styles.sessionLink}>
-              <ThemedText style={styles.sessionLinkText}>Open session detail</ThemedText>
-            </Link>
+            <View style={styles.matchActionRow}>
+              <Link href={`/(private)/sessions/${matchedSessionId}`} style={styles.sessionLink}>
+                <ThemedText style={styles.sessionLinkText}>Open session detail</ThemedText>
+              </Link>
+              <Pressable
+                onPress={() => void handleCopySessionId(matchedSessionId)}
+                style={({ pressed }) => [styles.copyButton, pressed ? styles.buttonPressed : undefined]}
+              >
+                <ThemedText style={styles.copyButtonText}>
+                  {copiedSessionId === matchedSessionId ? 'Copied session id' : 'Copy session id'}
+                </ThemedText>
+              </Pressable>
+            </View>
           ) : null}
         </ThemedView>
       ) : null}
@@ -439,22 +456,32 @@ export default function QueueScreen() {
             </Link>
           </View>
           {recentMatches.slice(0, 3).map((session) => (
-            <Link key={session.id} href={`/(private)/sessions/${session.id}`} style={styles.recentMatchLink}>
-              <SessionOutcomeCard
-                title="Recent match"
-                sessionId={session.id}
-                status={session.status}
-                currentUserRole={session.current_user_role ?? 'initiator'}
-                createdAt={session.created_at ?? null}
-                endedAt={session.ended_at ?? null}
-                otherMember={{
-                  user_id: session.other_profile?.user_id ?? session.id,
-                  display_name: session.other_profile?.display_name ?? 'Another member',
-                  avatar_url: session.other_profile?.avatar_url ?? null,
-                  country_code: session.other_profile?.country_code ?? 'unknown country',
-                }}
-              />
-            </Link>
+            <View key={session.id} style={styles.recentMatchBlock}>
+              <Link href={`/(private)/sessions/${session.id}`} style={styles.recentMatchLink}>
+                <SessionOutcomeCard
+                  title="Recent match"
+                  sessionId={session.id}
+                  status={session.status}
+                  currentUserRole={session.current_user_role ?? 'initiator'}
+                  createdAt={session.created_at ?? null}
+                  endedAt={session.ended_at ?? null}
+                  otherMember={{
+                    user_id: session.other_profile?.user_id ?? session.id,
+                    display_name: session.other_profile?.display_name ?? 'Another member',
+                    avatar_url: session.other_profile?.avatar_url ?? null,
+                    country_code: session.other_profile?.country_code ?? 'unknown country',
+                  }}
+                />
+              </Link>
+              <Pressable
+                onPress={() => void handleCopySessionId(session.id)}
+                style={({ pressed }) => [styles.copyButton, pressed ? styles.buttonPressed : undefined]}
+              >
+                <ThemedText style={styles.copyButtonText}>
+                  {copiedSessionId === session.id ? 'Copied session id' : 'Copy session id'}
+                </ThemedText>
+              </Pressable>
+            </View>
           ))}
         </ThemedView>
       ) : null}
@@ -515,7 +542,19 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   sessionLinkText: { color: '#27566B', fontWeight: '700' },
+  matchActionRow: { gap: 10 },
+  recentMatchBlock: { gap: 8 },
   recentMatchLink: { borderRadius: 18, padding: 2 },
+  copyButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(39,86,107,0.24)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  copyButtonText: { color: '#27566B', fontWeight: '700' },
+  buttonPressed: { opacity: 0.85 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(24,33,43,0.08)' },
   avatarFallback: {
     width: 64,
