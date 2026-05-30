@@ -1,15 +1,18 @@
 import * as Clipboard from 'expo-clipboard';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import type { Session } from '@supabase/supabase-js';
 
 import { FreshnessLine } from '@/components/freshness-line';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { authorizedApiRequest } from '@/lib/api';
 import type { MatchSessionAnalyticsResponse } from '@/lib/match-sessions';
 
 type SessionHistoryReportCardProps = {
   analytics: MatchSessionAnalyticsResponse;
+  session: Session | null;
 };
 
 function formatSessionLength(minutes: number | null | undefined) {
@@ -47,8 +50,16 @@ function buildReportText(analytics: MatchSessionAnalyticsResponse) {
   ].join('\n');
 }
 
-export function SessionHistoryReportCard({ analytics }: SessionHistoryReportCardProps) {
+type MatchSessionAnalyticsExportResponse = {
+  generated_at: string;
+  filename: string;
+  csv: string;
+};
+
+export function SessionHistoryReportCard({ analytics, session }: SessionHistoryReportCardProps) {
   const [copied, setCopied] = useState(false);
+  const [copyingCsv, setCopyingCsv] = useState(false);
+  const [csvCopied, setCsvCopied] = useState(false);
   const reportText = useMemo(() => buildReportText(analytics), [analytics]);
 
   const handleCopy = async () => {
@@ -57,13 +68,43 @@ export function SessionHistoryReportCard({ analytics }: SessionHistoryReportCard
     setTimeout(() => setCopied(false), 1800);
   };
 
+  const handleCopyCsv = async () => {
+    if (!session) {
+      return;
+    }
+
+    setCopyingCsv(true);
+    try {
+      const exportSnapshot = await authorizedApiRequest<MatchSessionAnalyticsExportResponse>(
+        session,
+        '/match/sessions/summary/export',
+      );
+      await Clipboard.setStringAsync(exportSnapshot.csv);
+      setCsvCopied(true);
+      setTimeout(() => setCsvCopied(false), 1800);
+    } finally {
+      setCopyingCsv(false);
+    }
+  };
+
   return (
     <ThemedView style={styles.card}>
       <View style={styles.headerRow}>
         <ThemedText type="subtitle">Session report</ThemedText>
-        <Pressable onPress={() => void handleCopy()} style={({ pressed }) => [styles.copyButton, pressed ? styles.pressed : undefined]}>
-          <ThemedText style={styles.copyButtonText}>{copied ? 'Copied report' : 'Copy report'}</ThemedText>
-        </Pressable>
+        <View style={styles.actionRow}>
+          <Pressable onPress={() => void handleCopy()} style={({ pressed }) => [styles.copyButton, pressed ? styles.pressed : undefined]}>
+            <ThemedText style={styles.copyButtonText}>{copied ? 'Copied report' : 'Copy report'}</ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={() => void handleCopyCsv()}
+            style={({ pressed }) => [styles.copyButton, pressed ? styles.pressed : undefined, copyingCsv ? styles.copyButtonActive : undefined]}
+            disabled={!session || copyingCsv}
+          >
+            <ThemedText style={styles.copyButtonText}>
+              {csvCopied ? 'Copied CSV' : copyingCsv ? 'Copying CSV...' : 'Copy CSV'}
+            </ThemedText>
+          </Pressable>
+        </View>
       </View>
 
       <FreshnessLine prefix="Summary updated" timestamp={analytics.generated_at} />
@@ -85,6 +126,7 @@ export function SessionHistoryReportCard({ analytics }: SessionHistoryReportCard
 const styles = StyleSheet.create({
   card: { borderRadius: 24, padding: 18, gap: 12 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   copy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
   copyButton: {
     borderRadius: 999,
@@ -95,4 +137,5 @@ const styles = StyleSheet.create({
   },
   copyButtonText: { color: '#27566B', fontSize: 12, fontWeight: '700' },
   pressed: { opacity: 0.85 },
+  copyButtonActive: { borderColor: 'rgba(39,86,107,0.4)' },
 });

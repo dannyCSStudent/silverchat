@@ -11,6 +11,7 @@ from app.schemas.matchmaking import (
     MatchContext,
     MatchJoinRequest,
     MatchJoinResponse,
+    MatchSessionAnalyticsExportResponse,
     MatchSessionActivityBucket,
     MatchSessionAnalyticsResponse,
     MatchSessionDetailResponse,
@@ -179,6 +180,34 @@ def _parse_datetime(value):
     return None
 
 
+def _csv_escape(value):
+    text = "" if value is None else str(value)
+    if any(marker in text for marker in [",", '"', "\n", "\r"]):
+        return '"' + text.replace('"', '""') + '"'
+    return text
+
+
+def _build_session_analytics_csv(analytics: MatchSessionAnalyticsResponse) -> str:
+    rows = [
+        ["section", "label", "value"],
+        ["summary", "total_sessions", analytics.total_sessions],
+        ["summary", "initiated_count", analytics.initiated_count],
+        ["summary", "received_count", analytics.received_count],
+        ["summary", "matched_count", analytics.matched_count],
+        ["summary", "ended_count", analytics.ended_count],
+        ["summary", "average_length_minutes", analytics.average_length_minutes or ""],
+        ["summary", "longest_length_minutes", analytics.longest_length_minutes or ""],
+    ]
+
+    for bucket in analytics.recent_activity:
+        rows.append(["activity", bucket.date, bucket.count])
+
+    return "\n".join(
+        ",".join(_csv_escape(cell) for cell in row)
+        for row in rows
+    )
+
+
 def _build_session_analytics(user_id: str) -> MatchSessionAnalyticsResponse:
     session_rows = queue.list_user_sessions(user_id, limit=50)
     recent_activity = {
@@ -231,6 +260,16 @@ def _build_session_analytics(user_id: str) -> MatchSessionAnalyticsResponse:
             MatchSessionActivityBucket(date=date, count=count)
             for date, count in recent_activity.items()
         ],
+    )
+
+
+@router.get("/sessions/summary/export", response_model=MatchSessionAnalyticsExportResponse)
+def export_match_session_summary(user=Depends(get_current_user)):
+    analytics = _build_session_analytics(user.id)
+    return MatchSessionAnalyticsExportResponse(
+        generated_at=datetime.now(timezone.utc),
+        filename=f"match-session-summary-{datetime.now(timezone.utc).date().isoformat()}.csv",
+        csv=_build_session_analytics_csv(analytics),
     )
 
 

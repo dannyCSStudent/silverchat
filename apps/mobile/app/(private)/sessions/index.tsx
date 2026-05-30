@@ -101,7 +101,7 @@ export default function MatchHistoryScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const { matchSessionAnalytics, recentMatches } = useAuth();
+  const { matchSessionAnalytics, recentMatches, session } = useAuth();
   const [roleFilter, setRoleFilter] = useState<'all' | 'initiator' | 'recipient'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'matched' | 'ended'>('all');
   const [sessionLookup, setSessionLookup] = useState('');
@@ -318,7 +318,7 @@ export default function MatchHistoryScreen() {
         </View>
       </ThemedView>
 
-      <SessionHistoryReportCard analytics={historyAnalytics} />
+      <SessionHistoryReportCard analytics={historyAnalytics} session={session} />
 
       <ThemedView style={styles.card}>
         <View style={styles.headerRow}>

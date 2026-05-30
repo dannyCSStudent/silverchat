@@ -86,6 +86,14 @@ class MatchSessionAnalyticsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class MatchSessionAnalyticsExportResponse(BaseModel):
+    generated_at: datetime
+    filename: str
+    csv: str
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class QueueStatusResponse(BaseModel):
     queue_entry: QueueEntryRecord | None = None
     queue_position: int | None = None
