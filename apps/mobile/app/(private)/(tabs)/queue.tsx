@@ -374,6 +374,7 @@ export default function QueueScreen() {
               currentUserRole={matchedSessionDetail.current_user_role ?? 'initiator'}
               createdAt={matchedSessionDetail.created_at ?? null}
               endedAt={matchedSessionDetail.ended_at ?? null}
+              actions={<CopySessionIdButton sessionId={matchedSessionDetail.id} />}
               otherMember={{
                 user_id: matchedSessionDetail.other_profile?.user_id ?? matchedProfile.user_id,
                 display_name:
@@ -445,18 +446,19 @@ export default function QueueScreen() {
           {recentMatches.slice(0, 3).map((session) => (
             <View key={session.id} style={styles.recentMatchBlock}>
               <Link href={`/(private)/sessions/${session.id}`} style={styles.recentMatchLink}>
-                <SessionOutcomeCard
-                  title="Recent match"
-                  sessionId={session.id}
-                  status={session.status}
-                  currentUserRole={session.current_user_role ?? 'initiator'}
-                  createdAt={session.created_at ?? null}
-                  endedAt={session.ended_at ?? null}
-                  otherMember={{
-                    user_id: session.other_profile?.user_id ?? session.id,
-                    display_name: session.other_profile?.display_name ?? 'Another member',
-                    avatar_url: session.other_profile?.avatar_url ?? null,
-                    country_code: session.other_profile?.country_code ?? 'unknown country',
+              <SessionOutcomeCard
+                title="Recent match"
+                sessionId={session.id}
+                status={session.status}
+                currentUserRole={session.current_user_role ?? 'initiator'}
+                createdAt={session.created_at ?? null}
+                endedAt={session.ended_at ?? null}
+                actions={<CopySessionIdButton sessionId={session.id} />}
+                otherMember={{
+                  user_id: session.other_profile?.user_id ?? session.id,
+                  display_name: session.other_profile?.display_name ?? 'Another member',
+                  avatar_url: session.other_profile?.avatar_url ?? null,
+                  country_code: session.other_profile?.country_code ?? 'unknown country',
                   }}
                 />
               </Link>

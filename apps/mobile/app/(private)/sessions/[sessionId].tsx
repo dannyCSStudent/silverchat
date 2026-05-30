@@ -199,7 +199,6 @@ export default function MatchSessionScreen() {
             {refreshingSession ? 'Refreshing...' : 'Refresh session'}
           </ThemedText>
         </Pressable>
-        {summary?.id ? <CopySessionIdButton sessionId={summary.id} /> : null}
       </ThemedView>
 
       {loading ? (
@@ -226,6 +225,7 @@ export default function MatchSessionScreen() {
           createdAt={summary.created_at ?? null}
           endedAt={summary.ended_at ?? null}
           durationLabel={sessionDurationLabel}
+          actions={<CopySessionIdButton sessionId={summary.id} />}
           otherMember={{
             user_id: summary.other_profile?.user_id ?? 'unknown',
             display_name: summary.other_profile?.display_name ?? 'Another member',

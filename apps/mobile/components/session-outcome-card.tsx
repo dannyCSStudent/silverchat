@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { ReactNode, useMemo } from 'react';
 
 import { FreshnessLine } from '@/components/freshness-line';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
@@ -12,6 +12,7 @@ type SessionOutcomeCardProps = {
   createdAt?: string | null;
   endedAt?: string | null;
   durationLabel?: string | null;
+  actions?: ReactNode;
   otherMember: {
     user_id: string;
     display_name: string;
@@ -28,6 +29,7 @@ export function SessionOutcomeCard({
   createdAt,
   endedAt,
   durationLabel,
+  actions,
   otherMember,
 }: SessionOutcomeCardProps) {
   const computedDurationLabel = useMemo(() => {
@@ -65,6 +67,7 @@ export function SessionOutcomeCard({
               { label: 'Length', value: computedDurationLabel ?? '—' },
             ]}
           />
+          {actions ? <>{actions}</> : null}
         </>
       }
     />

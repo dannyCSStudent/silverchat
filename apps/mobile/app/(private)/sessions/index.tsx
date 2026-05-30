@@ -413,6 +413,7 @@ export default function MatchHistoryScreen() {
                 currentUserRole={session.current_user_role ?? 'initiator'}
                 createdAt={session.created_at ?? null}
                 endedAt={session.ended_at ?? null}
+                actions={<CopySessionIdButton sessionId={session.id} />}
                 otherMember={{
                   user_id: session.other_profile?.user_id ?? session.id,
                   display_name: session.other_profile?.display_name ?? 'Another member',
@@ -441,6 +442,7 @@ export default function MatchHistoryScreen() {
             currentUserRole={orderedMatches[0].current_user_role ?? 'initiator'}
             createdAt={orderedMatches[0].created_at ?? null}
             endedAt={orderedMatches[0].ended_at ?? null}
+            actions={<CopySessionIdButton sessionId={orderedMatches[0].id} />}
             otherMember={{
               user_id: orderedMatches[0].other_profile?.user_id ?? orderedMatches[0].id,
               display_name: orderedMatches[0].other_profile?.display_name ?? 'Another member',
@@ -451,7 +453,6 @@ export default function MatchHistoryScreen() {
           <Link href={`/(private)/sessions/${orderedMatches[0].id}`} style={styles.secondaryButton}>
             <ThemedText style={styles.secondaryButtonText}>Open session detail</ThemedText>
           </Link>
-          <CopySessionIdButton sessionId={orderedMatches[0].id} />
           <FreshnessLine prefix="Updated" timestamp={orderedMatches[0].created_at ?? null} />
         </ThemedView>
       ) : null}
