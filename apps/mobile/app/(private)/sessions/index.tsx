@@ -3,9 +3,10 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { useMemo, useState } from 'react';
 
 import { SessionCardActions } from '@/components/session-card-actions';
+import { SessionHistoryReportCard } from '@/components/session-history-report-card';
+import { FreshnessLine } from '@/components/freshness-line';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FreshnessLine } from '@/components/freshness-line';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { SessionOutcomeCard } from '@/components/session-outcome-card';
 import { Colors } from '@/constants/theme';
@@ -317,6 +318,8 @@ export default function MatchHistoryScreen() {
         </View>
       </ThemedView>
 
+      <SessionHistoryReportCard analytics={historyAnalytics} />
+
       <ThemedView style={styles.card}>
         <View style={styles.headerRow}>
           <ThemedText type="subtitle">History</ThemedText>
@@ -324,9 +327,6 @@ export default function MatchHistoryScreen() {
             {recentMatches.length} session{recentMatches.length === 1 ? '' : 's'}
           </ThemedText>
         </View>
-        {matchSessionAnalytics ? (
-          <FreshnessLine prefix="Summary updated" timestamp={matchSessionAnalytics.generated_at} />
-        ) : null}
         <ReadinessMetricList metrics={historyMetrics} />
         <View style={styles.activityBlock}>
           <ThemedText style={styles.cardLabel}>Recent activity</ThemedText>
