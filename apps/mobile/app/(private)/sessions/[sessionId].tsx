@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 
-import { CopySessionIdButton } from '@/components/copy-session-id-button';
+import { SessionCardActions } from '@/components/session-card-actions';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { SessionOutcomeCard } from '@/components/session-outcome-card';
@@ -225,7 +225,7 @@ export default function MatchSessionScreen() {
           createdAt={summary.created_at ?? null}
           endedAt={summary.ended_at ?? null}
           durationLabel={sessionDurationLabel}
-          actions={<CopySessionIdButton sessionId={summary.id} />}
+          actions={<SessionCardActions sessionId={summary.id} />}
           otherMember={{
             user_id: summary.other_profile?.user_id ?? 'unknown',
             display_name: summary.other_profile?.display_name ?? 'Another member',
