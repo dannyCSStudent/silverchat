@@ -26,6 +26,12 @@ def get_my_presence(user=Depends(get_current_user)):
     return presence.get_by_user_id(user.id)
 
 
+@router.get("/{user_id}", response_model=PresenceRecord | None)
+def get_user_presence(user_id: str, user=Depends(get_current_user)):
+    _ = user
+    return presence.get_by_user_id(user_id)
+
+
 @router.put("/me", response_model=PresenceRecord)
 def update_my_presence(payload: PresenceUpdate, user=Depends(get_current_user)):
     return presence.upsert(

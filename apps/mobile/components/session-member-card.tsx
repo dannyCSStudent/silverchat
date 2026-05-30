@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { View } from 'react-native';
 
+import { MemberPresenceBadge } from '@/components/member-presence-badge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 
@@ -25,6 +26,7 @@ export function SessionMemberCard({ title, member, leading, footer }: SessionMem
       <ThemedText type="subtitle">{title}</ThemedText>
       <ThemedText style={styles.name}>{member.display_name ?? 'Another member'}</ThemedText>
       <ThemedText style={styles.copy}>{member.country_code ?? 'Country not set'}</ThemedText>
+      <MemberPresenceBadge userId={member.user_id} />
       <ThemedText style={styles.meta}>Member id: {member.user_id}</ThemedText>
       {footer ? <View style={styles.footer}>{footer}</View> : null}
     </ThemedView>
