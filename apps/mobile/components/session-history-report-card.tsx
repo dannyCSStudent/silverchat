@@ -5,6 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 
 import { FreshnessLine } from '@/components/freshness-line';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
+import { PresenceLegend } from '@/components/presence-legend';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { authorizedApiRequest } from '@/lib/api';
@@ -111,6 +112,7 @@ export function SessionHistoryReportCard({ analytics, session }: SessionHistoryR
       <ThemedText style={styles.copy}>
         Copy a concise history report with totals, duration, and recent activity for the current window.
       </ThemedText>
+      <PresenceLegend />
       <ReadinessMetricList
         metrics={[
           { label: 'Total sessions', value: String(analytics.total_sessions) },
