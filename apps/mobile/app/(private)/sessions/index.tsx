@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 
 import { SessionCardActions } from '@/components/session-card-actions';
 import { SessionHistoryReportCard } from '@/components/session-history-report-card';
+import { ConversationStarterCard } from '@/components/conversation-starter-card';
 import { FreshnessLine } from '@/components/freshness-line';
 import { MatchmakingAvailabilityCard } from '@/components/matchmaking-availability-card';
 import { ThemedText } from '@/components/themed-text';
@@ -222,6 +223,7 @@ export default function MatchHistoryScreen() {
         return rightTime - leftTime;
       });
   }, [orderedMatches, sessionLookup]);
+  const historyConversationTarget = filteredMatches[0] ?? orderedMatches[0] ?? null;
   const handleLookupSubmit = () => {
     if (lookupMatches.length === 1) {
       router.push(`/(private)/sessions/${lookupMatches[0].session.id}`);
@@ -331,6 +333,15 @@ export default function MatchHistoryScreen() {
       ) : null}
 
       <SessionHistoryReportCard analytics={historyAnalytics} session={session} />
+
+      {historyConversationTarget?.other_profile ? (
+        <ConversationStarterCard
+          contextHint="Use these if you want to reconnect or send a lighter follow-up later."
+          countryCode={historyConversationTarget.other_profile.country_code ?? null}
+          memberName={historyConversationTarget.other_profile.display_name}
+          pool={historyConversationTarget.ended_at ? 'fallback' : 'queue'}
+        />
+      ) : null}
 
       <ThemedView style={styles.card}>
         <View style={styles.headerRow}>
