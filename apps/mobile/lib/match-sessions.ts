@@ -19,6 +19,23 @@ export type MatchSessionDetailResponse = {
   session: MatchSessionSummary;
 };
 
+export type MatchSessionActivityBucket = {
+  date: string;
+  count: number;
+};
+
+export type MatchSessionAnalyticsResponse = {
+  generated_at: string;
+  total_sessions: number;
+  initiated_count: number;
+  received_count: number;
+  matched_count: number;
+  ended_count: number;
+  average_length_minutes?: number | null;
+  longest_length_minutes?: number | null;
+  recent_activity: MatchSessionActivityBucket[];
+};
+
 export type RecentMatchSession = MatchSessionSummary;
 
 export type UserReportRecord = {

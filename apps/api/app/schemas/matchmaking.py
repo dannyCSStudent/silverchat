@@ -65,6 +65,27 @@ class MatchSessionDetailResponse(BaseModel):
     current_user_role: Literal["initiator", "recipient"]
 
 
+class MatchSessionActivityBucket(BaseModel):
+    date: str
+    count: int
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class MatchSessionAnalyticsResponse(BaseModel):
+    generated_at: datetime
+    total_sessions: int
+    initiated_count: int
+    received_count: int
+    matched_count: int
+    ended_count: int
+    average_length_minutes: int | None = None
+    longest_length_minutes: int | None = None
+    recent_activity: list[MatchSessionActivityBucket] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class QueueStatusResponse(BaseModel):
     queue_entry: QueueEntryRecord | None = None
     queue_position: int | None = None

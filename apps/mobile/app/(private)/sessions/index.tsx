@@ -11,12 +11,96 @@ import { SessionOutcomeCard } from '@/components/session-outcome-card';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
+import type {
+  MatchSessionAnalyticsResponse,
+  RecentMatchSession,
+} from '@/lib/match-sessions';
+
+function formatSessionLength(minutes: number | null | undefined) {
+  if (minutes == null) {
+    return '—';
+  }
+
+  return minutes === 1 ? 'About 1 minute' : `${minutes} minutes`;
+}
+
+function buildLocalSessionAnalytics(matches: RecentMatchSession[]): MatchSessionAnalyticsResponse {
+  const lengthsInMinutes = matches
+    .map((session) => {
+      if (!session.created_at || !session.ended_at) {
+        return null;
+      }
+
+      const startedAt = new Date(session.created_at).getTime();
+      const endedAt = new Date(session.ended_at).getTime();
+      if (Number.isNaN(startedAt) || Number.isNaN(endedAt) || endedAt <= startedAt) {
+        return null;
+      }
+
+      return Math.round((endedAt - startedAt) / 60000);
+    })
+    .filter((length): length is number => length !== null);
+
+  const recentActivity = new Map<string, number>();
+  const today = new Date();
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const date = new Date(today);
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - offset);
+    recentActivity.set(date.toISOString().slice(0, 10), 0);
+  }
+
+  matches.forEach((session) => {
+    if (!session.created_at) {
+      return;
+    }
+
+    const createdAt = new Date(session.created_at);
+    if (Number.isNaN(createdAt.getTime())) {
+      return;
+    }
+
+    const bucket = createdAt.toISOString().slice(0, 10);
+    if (!recentActivity.has(bucket)) {
+      return;
+    }
+
+    recentActivity.set(bucket, (recentActivity.get(bucket) ?? 0) + 1);
+  });
+
+  const totalMinutes = lengthsInMinutes.reduce((sum, length) => sum + length, 0);
+  const averageMinutes = lengthsInMinutes.length
+    ? Math.max(1, Math.round(totalMinutes / lengthsInMinutes.length))
+    : null;
+
+  return {
+    generated_at: matches[0]?.created_at ?? new Date().toISOString(),
+    total_sessions: matches.length,
+    initiated_count: matches.filter((session) => session.current_user_role === 'initiator').length,
+    received_count: matches.filter((session) => session.current_user_role === 'recipient').length,
+    matched_count: matches.filter((session) => !session.ended_at).length,
+    ended_count: matches.filter((session) => Boolean(session.ended_at)).length,
+    average_length_minutes: averageMinutes,
+    longest_length_minutes: lengthsInMinutes.length ? Math.max(...lengthsInMinutes) : null,
+    recent_activity: Array.from(recentActivity.entries()).map(([date, count]) => ({
+      date,
+      count,
+    })),
+  };
+}
+
+function formatActivityDate(date: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(`${date}T00:00:00Z`));
+}
 
 export default function MatchHistoryScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const { recentMatches } = useAuth();
+  const { matchSessionAnalytics, recentMatches } = useAuth();
   const [roleFilter, setRoleFilter] = useState<'all' | 'initiator' | 'recipient'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'matched' | 'ended'>('all');
   const [sessionLookup, setSessionLookup] = useState('');
@@ -40,103 +124,27 @@ export default function MatchHistoryScreen() {
     });
   }, [orderedMatches, roleFilter, statusFilter]);
 
-  const initiatedCount = useMemo(
-    () => recentMatches.filter((session) => session.current_user_role === 'initiator').length,
-    [recentMatches],
+  const historyAnalytics = useMemo(
+    () => matchSessionAnalytics ?? buildLocalSessionAnalytics(orderedMatches),
+    [matchSessionAnalytics, orderedMatches],
   );
-  const receivedCount = useMemo(
-    () => recentMatches.filter((session) => session.current_user_role === 'recipient').length,
-    [recentMatches],
-  );
-  const matchedCount = useMemo(
-    () => recentMatches.filter((session) => !session.ended_at).length,
-    [recentMatches],
-  );
-  const endedCount = useMemo(
-    () => recentMatches.filter((session) => Boolean(session.ended_at)).length,
-    [recentMatches],
-  );
-  const durationSummary = useMemo(() => {
-    const lengthsInMinutes = orderedMatches
-      .map((session) => {
-        if (!session.created_at || !session.ended_at) {
-          return null;
-        }
-
-        const startedAt = new Date(session.created_at).getTime();
-        const endedAt = new Date(session.ended_at).getTime();
-        if (Number.isNaN(startedAt) || Number.isNaN(endedAt) || endedAt <= startedAt) {
-          return null;
-        }
-
-        return Math.round((endedAt - startedAt) / 60000);
-      })
-      .filter((length): length is number => length !== null);
-
-    if (lengthsInMinutes.length === 0) {
-      return {
-        average: '—',
-        longest: '—',
-      };
-    }
-
-    const totalMinutes = lengthsInMinutes.reduce((sum, length) => sum + length, 0);
-    const averageMinutes = Math.max(1, Math.round(totalMinutes / lengthsInMinutes.length));
-    const longestMinutes = Math.max(...lengthsInMinutes);
-
-    return {
-      average: averageMinutes === 1 ? 'About 1 minute' : `${averageMinutes} minutes`,
-      longest: longestMinutes === 1 ? 'About 1 minute' : `${longestMinutes} minutes`,
-    };
-  }, [orderedMatches]);
   const historyMetrics = [
-    { label: 'Total sessions', value: String(recentMatches.length) },
-    { label: 'Initiated', value: String(initiatedCount) },
-    { label: 'Received', value: String(receivedCount) },
-    { label: 'Matched', value: String(matchedCount) },
-    { label: 'Ended', value: String(endedCount) },
-    { label: 'Avg length', value: durationSummary.average },
-    { label: 'Longest', value: durationSummary.longest },
+    { label: 'Total sessions', value: String(historyAnalytics.total_sessions) },
+    { label: 'Initiated', value: String(historyAnalytics.initiated_count) },
+    { label: 'Received', value: String(historyAnalytics.received_count) },
+    { label: 'Matched', value: String(historyAnalytics.matched_count) },
+    { label: 'Ended', value: String(historyAnalytics.ended_count) },
+    { label: 'Avg length', value: formatSessionLength(historyAnalytics.average_length_minutes) },
+    { label: 'Longest', value: formatSessionLength(historyAnalytics.longest_length_minutes) },
   ];
-  const recentActivity = useMemo(() => {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
-    const buckets = new Map<string, number>();
-    const today = new Date();
-
-    for (let offset = 6; offset >= 0; offset -= 1) {
-      const date = new Date(today);
-      date.setHours(0, 0, 0, 0);
-      date.setDate(date.getDate() - offset);
-      buckets.set(date.toDateString(), 0);
-    }
-
-    orderedMatches.forEach((session) => {
-      if (!session.created_at) {
-        return;
-      }
-
-      const createdAt = new Date(session.created_at);
-      if (Number.isNaN(createdAt.getTime())) {
-        return;
-      }
-
-      createdAt.setHours(0, 0, 0, 0);
-      const key = createdAt.toDateString();
-      if (!buckets.has(key)) {
-        return;
-      }
-
-      buckets.set(key, (buckets.get(key) ?? 0) + 1);
-    });
-
-    return Array.from(buckets.entries()).map(([key, count]) => ({
-      label: formatter.format(new Date(key)),
-      count,
-    }));
-  }, [orderedMatches]);
+  const recentActivity = useMemo(
+    () =>
+      historyAnalytics.recent_activity.map((bucket) => ({
+        label: formatActivityDate(bucket.date),
+        count: bucket.count,
+      })),
+    [historyAnalytics],
+  );
   const sessionIdHint = orderedMatches[0]?.id ? `Most recent session id: ${orderedMatches[0].id}` : null;
   const lookupHint = 'Try a session id, member name, country code, initiator, recipient, matched, or ended.';
   const lookupShortcuts = useMemo(
@@ -316,6 +324,9 @@ export default function MatchHistoryScreen() {
             {recentMatches.length} session{recentMatches.length === 1 ? '' : 's'}
           </ThemedText>
         </View>
+        {matchSessionAnalytics ? (
+          <FreshnessLine prefix="Summary updated" timestamp={matchSessionAnalytics.generated_at} />
+        ) : null}
         <ReadinessMetricList metrics={historyMetrics} />
         <View style={styles.activityBlock}>
           <ThemedText style={styles.cardLabel}>Recent activity</ThemedText>
@@ -334,8 +345,8 @@ export default function MatchHistoryScreen() {
         <View style={styles.filterRow}>
           {[
             { id: 'all' as const, label: 'All', count: recentMatches.length },
-            { id: 'initiator' as const, label: 'Initiated', count: initiatedCount },
-            { id: 'recipient' as const, label: 'Received', count: receivedCount },
+            { id: 'initiator' as const, label: 'Initiated', count: historyAnalytics.initiated_count },
+            { id: 'recipient' as const, label: 'Received', count: historyAnalytics.received_count },
           ].map((filter) => (
             <Pressable
               key={filter.id}
@@ -369,8 +380,8 @@ export default function MatchHistoryScreen() {
         <View style={styles.filterRow}>
           {[
             { id: 'all' as const, label: 'Any status', count: recentMatches.length },
-            { id: 'matched' as const, label: 'Matched', count: matchedCount },
-            { id: 'ended' as const, label: 'Ended', count: endedCount },
+            { id: 'matched' as const, label: 'Matched', count: historyAnalytics.matched_count },
+            { id: 'ended' as const, label: 'Ended', count: historyAnalytics.ended_count },
           ].map((filter) => (
             <Pressable
               key={filter.id}

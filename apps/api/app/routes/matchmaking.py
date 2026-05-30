@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -11,6 +11,8 @@ from app.schemas.matchmaking import (
     MatchContext,
     MatchJoinRequest,
     MatchJoinResponse,
+    MatchSessionActivityBucket,
+    MatchSessionAnalyticsResponse,
     MatchSessionDetailResponse,
     MatchSessionSummary,
     MatchSessionsResponse,
@@ -161,6 +163,77 @@ def _rank_candidates(user_id: str, payload_country_code: str | None):
     return current_profile, ranked_candidates
 
 
+def _parse_datetime(value):
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+    if isinstance(value, str):
+        normalized = value.replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError:
+            return None
+
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+    return None
+
+
+def _build_session_analytics(user_id: str) -> MatchSessionAnalyticsResponse:
+    session_rows = queue.list_user_sessions(user_id, limit=50)
+    recent_activity = {
+        (datetime.now(timezone.utc) - timedelta(days=offset)).date().isoformat(): 0
+        for offset in range(6, -1, -1)
+    }
+    lengths_in_minutes: list[int] = []
+    initiated_count = 0
+    received_count = 0
+    ended_count = 0
+
+    for row in session_rows:
+        if row.get("initiator_user_id") == user_id:
+            initiated_count += 1
+        else:
+            received_count += 1
+
+        created_at = _parse_datetime(row.get("created_at"))
+        ended_at = _parse_datetime(row.get("ended_at"))
+        if ended_at:
+            ended_count += 1
+
+        if created_at:
+            activity_key = created_at.astimezone(timezone.utc).date().isoformat()
+            if activity_key in recent_activity:
+                recent_activity[activity_key] += 1
+
+        if created_at and ended_at and ended_at > created_at:
+            lengths_in_minutes.append(
+                max(1, round((ended_at - created_at).total_seconds() / 60))
+            )
+
+    average_length_minutes = (
+        max(1, round(sum(lengths_in_minutes) / len(lengths_in_minutes)))
+        if lengths_in_minutes
+        else None
+    )
+    longest_length_minutes = max(lengths_in_minutes) if lengths_in_minutes else None
+
+    return MatchSessionAnalyticsResponse(
+        generated_at=datetime.now(timezone.utc),
+        total_sessions=len(session_rows),
+        initiated_count=initiated_count,
+        received_count=received_count,
+        matched_count=len(session_rows) - ended_count,
+        ended_count=ended_count,
+        average_length_minutes=average_length_minutes,
+        longest_length_minutes=longest_length_minutes,
+        recent_activity=[
+            MatchSessionActivityBucket(date=date, count=count)
+            for date, count in recent_activity.items()
+        ],
+    )
+
+
 @router.post("/join", response_model=MatchJoinResponse)
 def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
     if not _is_queue_eligible(user.id):
@@ -272,11 +345,16 @@ def list_match_sessions(user=Depends(get_current_user)):
     )
 
 
+@router.get("/sessions/summary", response_model=MatchSessionAnalyticsResponse)
+def get_match_session_summary(user=Depends(get_current_user)):
+    return _build_session_analytics(user.id)
+
+
 @router.get("/sessions/{session_id}", response_model=MatchSessionDetailResponse)
 def get_match_session(session_id: str, user=Depends(get_current_user)):
     session_rows = queue.get_sessions([session_id])
     if not session_rows:
-      raise HTTPException(status_code=404, detail="Match session not found.")
+        raise HTTPException(status_code=404, detail="Match session not found.")
 
     session_row = session_rows[0]
     if user.id not in {

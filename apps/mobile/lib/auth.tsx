@@ -11,7 +11,10 @@ import {
 import type { Session, User } from '@supabase/supabase-js';
 
 import { apiRequest } from '@/lib/api';
-import type { RecentMatchSession } from '@/lib/match-sessions';
+import type {
+  MatchSessionAnalyticsResponse,
+  RecentMatchSession,
+} from '@/lib/match-sessions';
 import { supabase, supabaseEnvError } from '@/lib/supabase';
 
 type SessionState = {
@@ -123,6 +126,7 @@ type AuthContextValue = {
   loading: boolean;
   message: string | null;
   matchPreview: MatchPreviewResponse | null;
+  matchSessionAnalytics: MatchSessionAnalyticsResponse | null;
   lastSyncedAt: string | null;
   queueEntry: QueueEntryRecord | null;
   queuePosition: number | null;
@@ -221,6 +225,23 @@ async function loadAccountSnapshot(nextSession: Session | null): Promise<Account
   };
 }
 
+async function loadMatchSessionAnalytics(
+  nextSession: Session | null,
+): Promise<MatchSessionAnalyticsResponse | null> {
+  if (!nextSession) {
+    return null;
+  }
+
+  try {
+    return await authorizedRequest<MatchSessionAnalyticsResponse>(
+      nextSession,
+      '/match/sessions/summary',
+    );
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [availableInterests, setAvailableInterests] = useState<InterestRecord[]>([]);
   const [initialized, setInitialized] = useState(false);
@@ -228,6 +249,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [matchPreview, setMatchPreview] = useState<MatchPreviewResponse | null>(null);
+  const [matchSessionAnalytics, setMatchSessionAnalytics] =
+    useState<MatchSessionAnalyticsResponse | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [queueEntry, setQueueEntry] = useState<QueueEntryRecord | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
@@ -320,7 +343,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSessionState(snapshot.sessionState);
         setInterests(snapshot.interests);
         setQueueEntry(snapshot.queueEntry);
+        setQueuePosition(snapshot.queuePosition);
+        setQueueSize(snapshot.queueSize);
+        setMembersAhead(snapshot.membersAhead);
+        setQueuePool(snapshot.queuePool);
+        setRecentMatches(snapshot.recentMatches);
         await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
+        const sessionAnalytics = await loadMatchSessionAnalytics(nextSession);
+        setMatchSessionAnalytics(sessionAnalytics);
         lastRefreshAtRef.current = Date.now();
         setLastSyncedAt(new Date().toISOString());
       } catch (error) {
@@ -340,6 +370,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (active) {
             setAvailableInterests(snapshot.availableInterests);
             setMatchPreview(null);
+            setMatchSessionAnalytics(null);
+            setProfile(null);
+            setSessionState(null);
+            setInterests([]);
             setQueueEntry(snapshot.queueEntry);
             setQueuePosition(snapshot.queuePosition);
             setQueueSize(snapshot.queueSize);
@@ -386,6 +420,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setQueuePool(snapshot.queuePool);
         setRecentMatches(snapshot.recentMatches);
         await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
+        const sessionAnalytics = await loadMatchSessionAnalytics(nextSession);
+        setMatchSessionAnalytics(sessionAnalytics);
         lastRefreshAtRef.current = Date.now();
         setLastSyncedAt(new Date().toISOString());
       } catch (snapshotError) {
@@ -625,6 +661,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setQueuePool(queueStatus.recommended_pool ?? null);
       }
       setRecentMatches(matchSessions.sessions);
+      setMatchSessionAnalytics(await loadMatchSessionAnalytics(session));
 
       setMessage(
         response.status === 'matched'
@@ -654,6 +691,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       initialized,
       interests,
       matchPreview,
+      matchSessionAnalytics,
       lastSyncedAt,
       queueEntry,
       queuePosition,
@@ -688,6 +726,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       initialized,
       interests,
       matchPreview,
+      matchSessionAnalytics,
       lastSyncedAt,
       queueEntry,
       queuePosition,
