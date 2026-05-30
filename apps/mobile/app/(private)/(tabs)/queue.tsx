@@ -57,6 +57,7 @@ export default function QueueScreen() {
     avatar_url?: string;
     country_code?: string;
   } | null>(null);
+  const [matchedSessionId, setMatchedSessionId] = useState<string | null>(null);
   const [matchedSessionDetail, setMatchedSessionDetail] = useState<MatchSessionSummary | null>(null);
   const [matchContext, setMatchContext] = useState<{
     pool: 'preferred' | 'fallback';
@@ -76,6 +77,7 @@ export default function QueueScreen() {
     try {
       const response = await joinQueue();
       setMatchedProfile(response.matched_profile ?? null);
+      setMatchedSessionId(response.session_id ?? null);
       setMatchContext(response.match_context ?? null);
       setMatchedSessionDetail(null);
       setLocalMessage(
@@ -100,6 +102,7 @@ export default function QueueScreen() {
       }
     } catch (error) {
       setMatchedProfile(null);
+      setMatchedSessionId(null);
       setMatchedSessionDetail(null);
       setMatchContext(null);
       setLocalMessage(error instanceof Error ? error.message : 'Unable to join matchmaking.');
@@ -399,7 +402,17 @@ export default function QueueScreen() {
                   </View>
                 )
               }
-              footer={<ThemedText style={styles.cardCopy}>Matched just now in the active queue.</ThemedText>}
+              footer={
+                <View style={styles.matchFooter}>
+                  <ThemedText style={styles.cardCopy}>Matched just now in the active queue.</ThemedText>
+                  {matchedSessionId ? (
+                    <SessionCardActions
+                      sessionId={matchedSessionId}
+                      openHref={`/(private)/sessions/${matchedSessionId}`}
+                    />
+                  ) : null}
+                </View>
+              }
             />
           )}
           {matchContext ? (
@@ -501,6 +514,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: 'rgba(39,86,107,0.08)',
   },
+  matchFooter: { gap: 10 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   headerLink: { paddingVertical: 2 },
   headerLinkText: { color: '#27566B', fontWeight: '700' },
