@@ -2,7 +2,7 @@ import { Link, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useMemo, useState } from 'react';
 
-import { CopySessionIdButton } from '@/components/copy-session-id-button';
+import { SessionCardActions } from '@/components/session-card-actions';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FreshnessLine } from '@/components/freshness-line';
@@ -288,15 +288,14 @@ export default function MatchHistoryScreen() {
               </ThemedText>
               {lookupMatches.slice(0, 3).map(({ session, matchReasons }) => (
                 <View key={session.id} style={styles.lookupMatchCard}>
-                  <Link href={`/(private)/sessions/${session.id}`} style={styles.secondaryButton}>
-                    <ThemedText style={styles.secondaryButtonText}>
-                      Open {session.other_profile?.display_name ?? 'session'} detail
-                    </ThemedText>
-                    <ThemedText style={styles.lookupMatchReason}>
-                      Matched by {matchReasons.join(', ')}
-                    </ThemedText>
-                  </Link>
-                  <CopySessionIdButton sessionId={session.id} />
+                  <SessionCardActions
+                    sessionId={session.id}
+                    openHref={`/(private)/sessions/${session.id}`}
+                    openLabel={`Open ${session.other_profile?.display_name ?? 'session'} detail`}
+                  />
+                  <ThemedText style={styles.lookupMatchReason}>
+                    Matched by {matchReasons.join(', ')}
+                  </ThemedText>
                 </View>
               ))}
               {lookupMatches.length > 3 ? (
@@ -413,14 +412,7 @@ export default function MatchHistoryScreen() {
               currentUserRole={session.current_user_role ?? 'initiator'}
               createdAt={session.created_at ?? null}
               endedAt={session.ended_at ?? null}
-              actions={
-                <View style={styles.sessionCardActions}>
-                  <Link href={`/(private)/sessions/${session.id}`} style={styles.sessionLink}>
-                    <ThemedText style={styles.sessionLinkText}>Open session detail</ThemedText>
-                  </Link>
-                  <CopySessionIdButton sessionId={session.id} />
-                </View>
-              }
+              actions={<SessionCardActions sessionId={session.id} openHref={`/(private)/sessions/${session.id}`} />}
               otherMember={{
                 user_id: session.other_profile?.user_id ?? session.id,
                 display_name: session.other_profile?.display_name ?? 'Another member',
@@ -448,14 +440,7 @@ export default function MatchHistoryScreen() {
             currentUserRole={orderedMatches[0].current_user_role ?? 'initiator'}
             createdAt={orderedMatches[0].created_at ?? null}
             endedAt={orderedMatches[0].ended_at ?? null}
-            actions={
-              <View style={styles.sessionCardActions}>
-                <Link href={`/(private)/sessions/${orderedMatches[0].id}`} style={styles.sessionLink}>
-                  <ThemedText style={styles.sessionLinkText}>Open session detail</ThemedText>
-                </Link>
-                <CopySessionIdButton sessionId={orderedMatches[0].id} />
-              </View>
-            }
+            actions={<SessionCardActions sessionId={orderedMatches[0].id} openHref={`/(private)/sessions/${orderedMatches[0].id}`} />}
             otherMember={{
               user_id: orderedMatches[0].other_profile?.user_id ?? orderedMatches[0].id,
               display_name: orderedMatches[0].other_profile?.display_name ?? 'Another member',
@@ -556,12 +541,6 @@ const styles = StyleSheet.create({
   filterChipTextActive: { fontWeight: '800' },
   filterChipCount: { color: '#27566B', opacity: 0.72, fontWeight: '700' },
   filterChipCountActive: { opacity: 1 },
-  sessionCardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' },
-  sessionLink: {
-    alignSelf: 'flex-start',
-    paddingTop: 4,
-  },
-  sessionLinkText: { color: '#27566B', fontWeight: '700' },
   lookupMatchCard: { gap: 8 },
   clearButton: {
     borderRadius: 999,
@@ -571,15 +550,5 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   clearButtonText: { color: '#27566B', fontSize: 12, fontWeight: '700' },
-  secondaryButton: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(39,86,107,0.24)',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    gap: 4,
-  },
-  secondaryButtonText: { color: '#27566B', fontWeight: '700' },
   lookupMatchReason: { color: '#27566B', opacity: 0.72, fontSize: 12, lineHeight: 16 },
 });

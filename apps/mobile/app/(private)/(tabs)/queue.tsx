@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
 
-import { CopySessionIdButton } from '@/components/copy-session-id-button';
+import { SessionCardActions } from '@/components/session-card-actions';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
@@ -371,14 +371,7 @@ export default function QueueScreen() {
               currentUserRole={matchedSessionDetail.current_user_role ?? 'initiator'}
               createdAt={matchedSessionDetail.created_at ?? null}
               endedAt={matchedSessionDetail.ended_at ?? null}
-              actions={
-                <View style={styles.sessionCardActions}>
-                  <Link href={`/(private)/sessions/${matchedSessionDetail.id}`} style={styles.sessionLink}>
-                    <ThemedText style={styles.sessionLinkText}>Open session detail</ThemedText>
-                  </Link>
-                  <CopySessionIdButton sessionId={matchedSessionDetail.id} />
-                </View>
-              }
+              actions={<SessionCardActions sessionId={matchedSessionDetail.id} openHref={`/(private)/sessions/${matchedSessionDetail.id}`} />}
               otherMember={{
                 user_id: matchedSessionDetail.other_profile?.user_id ?? matchedProfile.user_id,
                 display_name:
@@ -442,26 +435,19 @@ export default function QueueScreen() {
           {recentMatches.slice(0, 3).map((session) => (
             <SessionOutcomeCard
               key={session.id}
-                title="Recent match"
-                sessionId={session.id}
-                status={session.status}
-                currentUserRole={session.current_user_role ?? 'initiator'}
-                createdAt={session.created_at ?? null}
-                endedAt={session.ended_at ?? null}
-              actions={
-                <View style={styles.sessionCardActions}>
-                  <Link href={`/(private)/sessions/${session.id}`} style={styles.sessionLink}>
-                    <ThemedText style={styles.sessionLinkText}>Open session detail</ThemedText>
-                  </Link>
-                  <CopySessionIdButton sessionId={session.id} />
-                </View>
-              }
-                otherMember={{
-                  user_id: session.other_profile?.user_id ?? session.id,
-                  display_name: session.other_profile?.display_name ?? 'Another member',
-                  avatar_url: session.other_profile?.avatar_url ?? null,
-                  country_code: session.other_profile?.country_code ?? 'unknown country',
-                }}
+              title="Recent match"
+              sessionId={session.id}
+              status={session.status}
+              currentUserRole={session.current_user_role ?? 'initiator'}
+              createdAt={session.created_at ?? null}
+              endedAt={session.ended_at ?? null}
+              actions={<SessionCardActions sessionId={session.id} openHref={`/(private)/sessions/${session.id}`} />}
+              otherMember={{
+                user_id: session.other_profile?.user_id ?? session.id,
+                display_name: session.other_profile?.display_name ?? 'Another member',
+                avatar_url: session.other_profile?.avatar_url ?? null,
+                country_code: session.other_profile?.country_code ?? 'unknown country',
+              }}
             />
           ))}
         </ThemedView>
@@ -518,13 +504,6 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   headerLink: { paddingVertical: 2 },
   headerLinkText: { color: '#27566B', fontWeight: '700' },
-  sessionLink: {
-    alignSelf: 'flex-start',
-    paddingTop: 4,
-  },
-  sessionLinkText: { color: '#27566B', fontWeight: '700' },
-  sessionCardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' },
-  buttonPressed: { opacity: 0.85 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(24,33,43,0.08)' },
   avatarFallback: {
     width: 64,
