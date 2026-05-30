@@ -6,6 +6,7 @@ import type { Session } from '@supabase/supabase-js';
 import { SessionCardActions } from '@/components/session-card-actions';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ConversationStarterCard } from '@/components/conversation-starter-card';
 import { SessionOutcomeCard } from '@/components/session-outcome-card';
 import { SessionFollowUpCard } from '@/components/session-follow-up-card';
 import { Colors } from '@/constants/theme';
@@ -232,6 +233,18 @@ export default function MatchSessionScreen() {
             avatar_url: summary.other_profile?.avatar_url ?? null,
             country_code: summary.other_profile?.country_code ?? null,
           }}
+        />
+      ) : null}
+
+      {summary?.other_profile ? (
+        <ConversationStarterCard
+          contextHint={
+            summary.ended_at
+              ? 'Use one of these if you want to reconnect later.'
+              : 'Keep things light while the session is still open.'
+          }
+          countryCode={summary.other_profile.country_code ?? null}
+          memberName={summary.other_profile.display_name}
         />
       ) : null}
 

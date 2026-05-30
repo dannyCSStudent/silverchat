@@ -13,6 +13,7 @@ import { PresenceLegend } from '@/components/presence-legend';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
 import { OnboardingNextStepCard } from '@/components/onboarding-next-step-card';
 import { MatchmakingAvailabilityCard } from '@/components/matchmaking-availability-card';
+import { ConversationStarterCard } from '@/components/conversation-starter-card';
 import { SessionMemberCard } from '@/components/session-member-card';
 import { SessionOutcomeCard } from '@/components/session-outcome-card';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
@@ -462,6 +463,19 @@ export default function QueueScreen() {
                   : 'Fallback pool means the app used the best available overlap.'}
               </ThemedText>
             </View>
+          ) : null}
+          {matchContext ? (
+            <ConversationStarterCard
+              contextHint="Use one of these openers if you want to keep the conversation going."
+              countryCode={
+                matchedSessionDetail?.other_profile?.country_code ?? matchedProfile.country_code ?? null
+              }
+              memberName={
+                matchedSessionDetail?.other_profile?.display_name ?? matchedProfile.display_name
+              }
+              pool={matchContext.pool}
+              sharedTopics={matchContext.shared_interests}
+            />
           ) : null}
         </ThemedView>
       ) : null}
