@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { FreshnessLine } from '@/components/freshness-line';
+import { PresenceLegend } from '@/components/presence-legend';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
 import { OnboardingNextStepCard } from '@/components/onboarding-next-step-card';
 import { MatchmakingAvailabilityCard } from '@/components/matchmaking-availability-card';
@@ -233,6 +234,9 @@ export default function QueueScreen() {
             { label: 'Presence', value: presence?.status ?? 'unknown' },
           ]}
         />
+        <View style={styles.legendBlock}>
+          <PresenceLegend />
+        </View>
         <FreshnessLine prefix="Last synced" timestamp={lastSyncedAt} />
       </ThemedView>
 
@@ -530,6 +534,7 @@ const styles = StyleSheet.create({
   cardLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, opacity: 0.62 },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
   statusText: { fontSize: 22, fontWeight: '700' },
+  legendBlock: { marginTop: 2 },
   checklist: { gap: 12 },
   checklistRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   checkIndicator: { width: 12, height: 12, borderRadius: 6, backgroundColor: 'rgba(183,68,68,0.7)' },

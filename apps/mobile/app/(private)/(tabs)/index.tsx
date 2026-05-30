@@ -6,6 +6,7 @@ import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FreshnessLine } from '@/components/freshness-line';
+import { PresenceLegend } from '@/components/presence-legend';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
@@ -344,6 +345,9 @@ export default function AccountScreen() {
               { label: 'Queue eligible', value: queueEligible ? 'Yes' : 'No' },
             ]}
           />
+          <View style={styles.legendBlock}>
+            <PresenceLegend />
+          </View>
           <OnboardingChecklistSummary items={onboardingChecklist} />
         </ThemedView>
       ) : null}
@@ -376,6 +380,7 @@ const styles = StyleSheet.create({
   attentionLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, color: '#B74444' },
   availabilityLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, color: '#27566B' },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
+  legendBlock: { marginTop: 2 },
   copyGroup: { flex: 1, gap: 4 },
   rowBetween: { flexDirection: 'row', gap: 12, justifyContent: 'space-between', alignItems: 'flex-start' },
   missingFieldList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
