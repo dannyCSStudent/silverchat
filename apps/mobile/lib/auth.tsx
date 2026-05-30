@@ -67,6 +67,9 @@ type MatchJoinResponse = {
     pool: 'preferred' | 'fallback';
     reason: string;
     shared_interests: string[];
+    top_shared_category?: string | null;
+    top_shared_category_count?: number | null;
+    top_shared_interest?: string | null;
   } | null;
   status: 'queued' | 'matched';
   queue_entry?: QueueEntryRecord | null;

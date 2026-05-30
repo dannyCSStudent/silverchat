@@ -37,6 +37,9 @@ class MatchContext(BaseModel):
     reason: str
     shared_interests: list[str] = Field(default_factory=list)
     pool: Literal["preferred", "fallback"]
+    top_shared_category: str | None = None
+    top_shared_category_count: int | None = None
+    top_shared_interest: str | None = None
 
     model_config = ConfigDict(extra="ignore")
 

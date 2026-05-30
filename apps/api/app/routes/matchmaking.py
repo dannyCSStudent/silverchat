@@ -52,6 +52,7 @@ def _is_queue_eligible(user_id: str):
 
 def _build_match_context(
     shared_interest_names: list[str],
+    shared_interest_records: list[dict[str, str | None]],
     preferred_pool: bool,
     country_matched: bool,
 ) -> MatchContext:
@@ -65,10 +66,29 @@ def _build_match_context(
     if not reason_parts:
         reason_parts.append("best available fallback")
 
+    category_counts: dict[str, int] = {}
+    for item in shared_interest_records:
+        category = item.get("category")
+        if isinstance(category, str) and category:
+            category_counts[category] = category_counts.get(category, 0) + 1
+
+    top_shared_category = None
+    top_shared_category_count = None
+    if category_counts:
+        top_shared_category, top_shared_category_count = max(
+            category_counts.items(),
+            key=lambda item: (item[1], item[0]),
+        )
+
+    top_shared_interest = shared_interest_names[0] if shared_interest_names else None
+
     return MatchContext(
         reason=f"Matched because of {', '.join(reason_parts)}.",
         shared_interests=shared_interest_names,
         pool="preferred" if preferred_pool else "fallback",
+        top_shared_category=top_shared_category,
+        top_shared_category_count=top_shared_category_count,
+        top_shared_interest=top_shared_interest,
     )
 
 
@@ -316,6 +336,7 @@ def join_matchmaking(payload: MatchJoinRequest, user=Depends(get_current_user)):
         ),
         match_context=_build_match_context(
             shared_interest_names=shared_interest_names,
+            shared_interest_records=selected["shared_interest_records"],
             preferred_pool=preferred_pool,
             country_matched=country_matched,
         ),

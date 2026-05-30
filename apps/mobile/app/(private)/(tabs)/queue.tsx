@@ -68,6 +68,9 @@ export default function QueueScreen() {
     pool: 'preferred' | 'fallback';
     reason: string;
     shared_interests: string[];
+    top_shared_category?: string | null;
+    top_shared_category_count?: number | null;
+    top_shared_interest?: string | null;
   } | null>(null);
   const [refreshingPreview, setRefreshingPreview] = useState(false);
 
@@ -475,6 +478,8 @@ export default function QueueScreen() {
               }
               pool={matchContext.pool}
               sharedTopics={matchContext.shared_interests}
+              topSharedCategory={matchContext.top_shared_category ?? null}
+              topSharedInterest={matchContext.top_shared_interest ?? null}
             />
           ) : null}
         </ThemedView>

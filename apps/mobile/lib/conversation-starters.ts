@@ -3,6 +3,8 @@ type ConversationStarterInput = {
   countryCode?: string | null;
   pool?: 'preferred' | 'fallback' | 'queue' | null;
   sharedTopics?: string[];
+  topSharedCategory?: string | null;
+  topSharedInterest?: string | null;
 };
 
 function formatTopic(topic: string) {
@@ -14,6 +16,8 @@ export function buildConversationStarters({
   countryCode,
   pool,
   sharedTopics = [],
+  topSharedCategory,
+  topSharedInterest,
 }: ConversationStarterInput) {
   const name = memberName?.trim() || 'this member';
   const country = countryCode?.trim().toUpperCase() || null;
@@ -35,6 +39,15 @@ export function buildConversationStarters({
       starters.push(`Ask whether ${topics[1]} or ${firstTopic} is the current favorite.`);
     }
     starters.push(`Ask what they enjoy most about ${firstTopic}.`);
+  } else if (topSharedCategory || topSharedInterest) {
+    const category = topSharedCategory?.trim().toLowerCase() ?? 'that topic';
+    const interest = topSharedInterest?.trim().toLowerCase() ?? null;
+    starters.push(
+      interest
+        ? `Ask ${name} what they like most about ${interest}.`
+        : `Ask ${name} what got them interested in ${category}.`,
+    );
+    starters.push(`Ask what usually makes ${category} a good conversation starter for them.`);
   } else {
     starters.push(`Ask ${name} what they’ve been enjoying lately.`);
     starters.push(`Ask what usually makes a conversation feel comfortable for them.`);

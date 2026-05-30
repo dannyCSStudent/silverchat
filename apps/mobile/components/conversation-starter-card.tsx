@@ -11,6 +11,8 @@ type ConversationStarterCardProps = {
   countryCode?: string | null;
   pool?: 'preferred' | 'fallback' | 'queue' | null;
   sharedTopics?: string[];
+  topSharedCategory?: string | null;
+  topSharedInterest?: string | null;
   contextHint?: string | null;
   title?: string;
   copyLabel?: string;
@@ -22,6 +24,8 @@ export function ConversationStarterCard({
   countryCode,
   pool,
   sharedTopics,
+  topSharedCategory,
+  topSharedInterest,
   contextHint,
   title = 'Conversation starters',
   copyLabel = 'Copy',
@@ -32,6 +36,8 @@ export function ConversationStarterCard({
     countryCode,
     pool,
     sharedTopics,
+    topSharedCategory,
+    topSharedInterest,
   });
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
