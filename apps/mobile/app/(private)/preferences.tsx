@@ -5,12 +5,34 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ThemePreference, useThemePreference } from '@/lib/theme-preference';
+import { useAuth } from '@/lib/auth';
 
 export default function PreferencesScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const isDark = colorScheme === 'dark';
   const themePreference = useThemePreference();
+  const { loading, profile, saveProfile } = useAuth();
+
+  const profileStatus = profile?.profile_status ?? 'pending';
+  const isPaused = profileStatus === 'paused';
+  const isActive = profileStatus === 'active';
+
+  const handleToggleAvailability = async () => {
+    if (!profile) {
+      return;
+    }
+
+    await saveProfile({
+      display_name: profile.display_name,
+      date_of_birth: profile.date_of_birth,
+      bio: profile.bio ?? undefined,
+      avatar_url: profile.avatar_url ?? undefined,
+      country_code: profile.country_code ?? undefined,
+      age_verified_status: profile.age_verified_status,
+      profile_status: isPaused ? 'active' : 'paused',
+    });
+  };
 
   return (
     <ScrollView
@@ -22,8 +44,50 @@ export default function PreferencesScreen() {
           Theme and device setup
         </ThemedText>
         <ThemedText style={styles.copy}>
-          Keep display controls in one place while the onboarding flow is being built.
+          Keep display and matchmaking controls in one place.
         </ThemedText>
+      </ThemedView>
+
+      <ThemedView style={[styles.section, isDark && styles.sectionDark]}>
+        <View style={styles.sectionHeader}>
+          <ThemedText type="subtitle">Availability</ThemedText>
+          <ThemedText style={styles.sectionMeta}>
+            {isActive ? 'Visible in queue' : isPaused ? 'Paused' : profileStatus}
+          </ThemedText>
+        </View>
+        <ThemedText style={styles.helperText}>
+          Pausing hides your profile from matchmaking until you are ready to return.
+        </ThemedText>
+        <View style={styles.availabilityRow}>
+          <View style={styles.availabilityCopy}>
+            <ThemedText style={styles.availabilityLabel}>
+              {isPaused ? 'You are currently paused.' : 'You are currently available.'}
+            </ThemedText>
+            <ThemedText style={styles.helperText}>
+              {isPaused
+                ? 'Resume when you want to show up in the queue again.'
+                : 'Pause if you need a break or want to stay out of matchmaking.'}
+            </ThemedText>
+          </View>
+          <Pressable
+            onPress={() => void handleToggleAvailability()}
+            disabled={!profile || loading}
+            style={({ pressed }) => [
+              styles.availabilityButton,
+              isPaused ? styles.availabilityButtonActive : styles.availabilityButtonMuted,
+              (pressed || loading) ? styles.buttonPressed : undefined,
+            ]}
+          >
+            <ThemedText
+              style={[
+                styles.availabilityButtonText,
+                !isPaused ? styles.availabilityButtonTextLight : styles.availabilityButtonTextDark,
+              ]}
+            >
+              {loading ? 'Saving...' : isPaused ? 'Resume matchmaking' : 'Pause matchmaking'}
+            </ThemedText>
+          </Pressable>
+        </View>
       </ThemedView>
 
       <ThemedView style={[styles.section, isDark && styles.sectionDark]}>
@@ -96,6 +160,28 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   helperText: { fontSize: 13, lineHeight: 20, color: '#64748B' },
+  availabilityRow: { gap: 12 },
+  availabilityCopy: { gap: 4 },
+  availabilityLabel: { fontSize: 15, lineHeight: 22, fontWeight: '700' },
+  availabilityButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignSelf: 'flex-start',
+  },
+  availabilityButtonActive: {
+    backgroundColor: '#27566B',
+    borderColor: '#27566B',
+  },
+  availabilityButtonMuted: {
+    borderColor: 'rgba(24,33,43,0.12)',
+    backgroundColor: '#FFF8F2',
+  },
+  buttonPressed: { opacity: 0.85 },
+  availabilityButtonText: { fontSize: 14, fontWeight: '700' },
+  availabilityButtonTextLight: { color: '#FFF8F2' },
+  availabilityButtonTextDark: { color: '#27566B' },
   themeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   themeChip: {
     borderRadius: 999,
