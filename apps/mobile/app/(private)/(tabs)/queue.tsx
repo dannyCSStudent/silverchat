@@ -42,6 +42,7 @@ export default function QueueScreen() {
     message,
     onboardingChecklist,
     profile,
+    presence,
     session,
     queueEntry,
     queueEligible,
@@ -227,7 +228,10 @@ export default function QueueScreen() {
           {queueEligible ? 'Ready for matchmaking' : 'Not ready yet'}
         </ThemedText>
         <ReadinessMetricList
-          metrics={[{ label: 'Profile status', value: profile?.profile_status ?? 'pending' }]}
+          metrics={[
+            { label: 'Profile status', value: profile?.profile_status ?? 'pending' },
+            { label: 'Presence', value: presence?.status ?? 'unknown' },
+          ]}
         />
         <FreshnessLine prefix="Last synced" timestamp={lastSyncedAt} />
       </ThemedView>

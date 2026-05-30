@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { AppState } from 'react-native';
 import type { Session, User } from '@supabase/supabase-js';
 
 import { apiRequest } from '@/lib/api';
@@ -86,6 +87,13 @@ type QueueStatusResponse = {
   recommended_pool?: 'preferred' | 'fallback' | 'queue' | null;
 };
 
+type PresenceRecord = {
+  user_id: string;
+  status: 'online' | 'away' | 'offline';
+  last_seen_at: string;
+  updated_at?: string | null;
+};
+
 type MatchSessionsResponse = {
   sessions: RecentMatchSession[];
 };
@@ -134,6 +142,7 @@ type AuthContextValue = {
   membersAhead: number | null;
   queuePool: 'preferred' | 'fallback' | 'queue' | null;
   recentMatches: RecentMatchSession[];
+  presence: PresenceRecord | null;
   onboardingChecklist: Array<{
     complete: boolean;
     id: 'email' | 'profile' | 'interests' | 'onboarding';
@@ -169,6 +178,7 @@ type AccountSnapshot = {
   membersAhead: number | null;
   queuePool: 'preferred' | 'fallback' | 'queue' | null;
   recentMatches: RecentMatchSession[];
+  presence: PresenceRecord | null;
 };
 
 async function authorizedRequest<T>(session: Session, path: string, options: RequestInit = {}) {
@@ -200,15 +210,17 @@ async function loadAccountSnapshot(nextSession: Session | null): Promise<Account
       membersAhead: null,
       queuePool: null,
       recentMatches: [],
+      presence: null,
     };
   }
 
-  const [sessionState, profile, userInterests, queueStatus, matchSessions] = await Promise.all([
+  const [sessionState, profile, userInterests, queueStatus, matchSessions, presence] = await Promise.all([
     authorizedRequest<SessionState>(nextSession, '/auth/session'),
     authorizedRequest<ProfileRecord | null>(nextSession, '/profiles/me'),
     authorizedRequest<UserInterestRecord[]>(nextSession, '/interests/me'),
     authorizedRequest<QueueStatusResponse>(nextSession, '/match/queue'),
     authorizedRequest<MatchSessionsResponse>(nextSession, '/match/sessions'),
+    loadPresence(nextSession),
   ]);
 
   return {
@@ -222,6 +234,7 @@ async function loadAccountSnapshot(nextSession: Session | null): Promise<Account
     membersAhead: queueStatus.members_ahead ?? null,
     queuePool: queueStatus.recommended_pool ?? null,
     recentMatches: matchSessions.sessions,
+    presence,
   };
 }
 
@@ -237,6 +250,36 @@ async function loadMatchSessionAnalytics(
       nextSession,
       '/match/sessions/summary',
     );
+  } catch {
+    return null;
+  }
+}
+
+async function loadPresence(nextSession: Session | null): Promise<PresenceRecord | null> {
+  if (!nextSession) {
+    return null;
+  }
+
+  try {
+    return await authorizedRequest<PresenceRecord>(nextSession, '/presence/me');
+  } catch {
+    return null;
+  }
+}
+
+async function syncPresence(
+  nextSession: Session | null,
+  status: PresenceRecord['status'],
+): Promise<PresenceRecord | null> {
+  if (!nextSession) {
+    return null;
+  }
+
+  try {
+    return await authorizedRequest<PresenceRecord>(nextSession, '/presence/me', {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
   } catch {
     return null;
   }
@@ -258,6 +301,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [membersAhead, setMembersAhead] = useState<number | null>(null);
   const [queuePool, setQueuePool] = useState<'preferred' | 'fallback' | 'queue' | null>(null);
   const [recentMatches, setRecentMatches] = useState<RecentMatchSession[]>([]);
+  const [presence, setPresence] = useState<PresenceRecord | null>(null);
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [sessionState, setSessionState] = useState<SessionState | null>(null);
@@ -348,6 +392,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMembersAhead(snapshot.membersAhead);
         setQueuePool(snapshot.queuePool);
         setRecentMatches(snapshot.recentMatches);
+        setPresence(snapshot.presence);
         await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
         const sessionAnalytics = await loadMatchSessionAnalytics(nextSession);
         setMatchSessionAnalytics(sessionAnalytics);
@@ -380,6 +425,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setMembersAhead(snapshot.membersAhead);
             setQueuePool(snapshot.queuePool);
             setRecentMatches(snapshot.recentMatches);
+            setPresence(snapshot.presence);
             setLastSyncedAt(new Date().toISOString());
           }
         } catch {
@@ -419,6 +465,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMembersAhead(snapshot.membersAhead);
         setQueuePool(snapshot.queuePool);
         setRecentMatches(snapshot.recentMatches);
+        setPresence(snapshot.presence);
         await loadMatchPreview(nextSession, snapshot.profile, snapshot.interests, snapshot.sessionState);
         const sessionAnalytics = await loadMatchSessionAnalytics(nextSession);
         setMatchSessionAnalytics(sessionAnalytics);
@@ -444,12 +491,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       void refreshData(nextSession);
+      void syncPresence(nextSession, nextSession ? 'online' : 'offline').then((nextPresence) => {
+        if (nextPresence) {
+          setPresence(nextPresence);
+        }
+      });
       setInitialized(true);
+    });
+
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (!session) {
+        return;
+      }
+
+      if (nextState === 'active') {
+        void syncPresence(session, 'online').then((nextPresence) => {
+          if (nextPresence) {
+            setPresence(nextPresence);
+          }
+        });
+      } else if (nextState === 'background' || nextState === 'inactive') {
+        void syncPresence(session, 'away').then((nextPresence) => {
+          if (nextPresence) {
+            setPresence(nextPresence);
+          }
+        });
+      }
     });
 
     return () => {
       active = false;
       subscription.unsubscribe();
+      appStateSubscription.remove();
     };
   }, []);
 
@@ -662,6 +735,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setRecentMatches(matchSessions.sessions);
       setMatchSessionAnalytics(await loadMatchSessionAnalytics(session));
+      setPresence(await syncPresence(session, 'online'));
 
       setMessage(
         response.status === 'matched'
@@ -699,6 +773,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       membersAhead,
       queuePool,
       recentMatches,
+      presence,
       joinQueue,
       loading,
       message,
@@ -734,6 +809,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       membersAhead,
       queuePool,
       recentMatches,
+      presence,
       joinQueue,
       loading,
       message,

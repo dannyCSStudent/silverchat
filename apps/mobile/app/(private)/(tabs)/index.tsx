@@ -37,6 +37,7 @@ export default function AccountScreen() {
     saveProfile,
     lastSyncedAt,
     refreshData,
+    presence,
   } = useAuth();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [dateOfBirth, setDateOfBirth] = useState(profile?.date_of_birth ?? '');
@@ -337,6 +338,7 @@ export default function AccountScreen() {
                 label: 'Availability',
                 value: profile.profile_status === 'paused' ? 'Paused' : 'Active',
               },
+              { label: 'Presence', value: presence?.status ?? 'unknown' },
               { label: 'Age verification', value: profile.age_verified_status },
               { label: 'Onboarding', value: sessionState?.onboarding_complete ? 'Complete' : 'In progress' },
               { label: 'Queue eligible', value: queueEligible ? 'Yes' : 'No' },

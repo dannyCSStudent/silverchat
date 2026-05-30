@@ -12,6 +12,7 @@ from app.routes.blocks import router as blocks_router
 from app.routes.health import router as health_router
 from app.routes.interests import router as interests_router
 from app.routes.matchmaking import router as matchmaking_router
+from app.routes.presence import router as presence_router
 from app.routes.profiles import router as profiles_router
 from app.routes.reports import router as reports_router
 
@@ -64,5 +65,6 @@ app.include_router(blocks_router)
 app.include_router(health_router)
 app.include_router(interests_router)
 app.include_router(matchmaking_router)
+app.include_router(presence_router)
 app.include_router(profiles_router)
 app.include_router(reports_router)
