@@ -14,6 +14,7 @@ type ConversationStarterCardProps = {
   contextHint?: string | null;
   title?: string;
   copyLabel?: string;
+  featuredCopyLabel?: string;
 };
 
 export function ConversationStarterCard({
@@ -24,6 +25,7 @@ export function ConversationStarterCard({
   contextHint,
   title = 'Conversation starters',
   copyLabel = 'Copy',
+  featuredCopyLabel = 'Copy best opener',
 }: ConversationStarterCardProps) {
   const starters = buildConversationStarters({
     memberName,
@@ -50,9 +52,23 @@ export function ConversationStarterCard({
     setCopiedIndex(index);
   }
 
+  const featuredStarter = starters[0] ?? null;
+
   return (
     <ThemedView style={styles.card}>
-      <ThemedText style={styles.label}>{title}</ThemedText>
+      <View style={styles.headerRow}>
+        <ThemedText style={styles.label}>{title}</ThemedText>
+        {featuredStarter ? (
+          <Pressable
+            onPress={() => void handleCopy(featuredStarter, 0)}
+            style={({ pressed }) => [styles.featuredButton, pressed ? styles.copyButtonPressed : undefined]}
+          >
+            <ThemedText style={styles.copyButtonText}>
+              {copiedIndex === 0 ? 'Copied' : featuredCopyLabel}
+            </ThemedText>
+          </Pressable>
+        ) : null}
+      </View>
       {contextHint ? <ThemedText style={styles.hint}>{contextHint}</ThemedText> : null}
       <View style={styles.list}>
         {starters.map((starter, index) => (
@@ -76,6 +92,7 @@ export function ConversationStarterCard({
 
 const styles = StyleSheet.create({
   card: { borderRadius: 24, padding: 18, gap: 10 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   label: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, opacity: 0.62 },
   hint: { fontSize: 14, lineHeight: 20, opacity: 0.75 },
   list: { gap: 10 },
@@ -91,6 +108,14 @@ const styles = StyleSheet.create({
   },
   copyButtonPressed: {
     backgroundColor: 'rgba(39,86,107,0.08)',
+  },
+  featuredButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(39,86,107,0.28)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(39,86,107,0.04)',
   },
   copyButtonText: {
     color: '#27566B',
