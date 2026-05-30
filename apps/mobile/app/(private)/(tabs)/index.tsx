@@ -11,6 +11,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
 import { OnboardingNextStepCard } from '@/components/onboarding-next-step-card';
+import { MatchmakingAvailabilityCard } from '@/components/matchmaking-availability-card';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { useAuth } from '@/lib/auth';
 import { getOnboardingNextAction } from '@/lib/onboarding';
@@ -171,22 +172,14 @@ export default function AccountScreen() {
       </ThemedView>
 
       {profile?.profile_status === 'paused' ? (
-        <ThemedView style={[styles.card, styles.availabilityCard]}>
-          <ThemedText style={styles.availabilityLabel}>Matchmaking paused</ThemedText>
-          <ThemedText type="subtitle">You are hidden from the queue</ThemedText>
-          <ThemedText style={styles.cardCopy}>
-            Resume availability in Preferences when you want to show up in matchmaking again.
-          </ThemedText>
-          <ReadinessMetricList
-            metrics={[
-              { label: 'Availability', value: 'Paused' },
-              { label: 'Queue access', value: 'Hidden' },
-            ]}
-          />
-          <Link href="/(private)/preferences" style={styles.secondaryButton}>
-            <ThemedText style={styles.secondaryButtonText}>Open preferences</ThemedText>
-          </Link>
-        </ThemedView>
+        <MatchmakingAvailabilityCard
+          body="Resume availability in Preferences when you want to show up in matchmaking again."
+          metrics={[
+            { label: 'Availability', value: 'Paused' },
+            { label: 'Queue access', value: 'Hidden' },
+          ]}
+          actionLabel="Open preferences"
+        />
       ) : null}
 
       {nextAction ? (

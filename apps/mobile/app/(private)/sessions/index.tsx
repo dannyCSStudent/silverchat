@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { SessionCardActions } from '@/components/session-card-actions';
 import { SessionHistoryReportCard } from '@/components/session-history-report-card';
 import { FreshnessLine } from '@/components/freshness-line';
+import { MatchmakingAvailabilityCard } from '@/components/matchmaking-availability-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
@@ -101,7 +102,7 @@ export default function MatchHistoryScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const { matchSessionAnalytics, recentMatches, session } = useAuth();
+  const { matchSessionAnalytics, profile, recentMatches, session } = useAuth();
   const [roleFilter, setRoleFilter] = useState<'all' | 'initiator' | 'recipient'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'matched' | 'ended'>('all');
   const [sessionLookup, setSessionLookup] = useState('');
@@ -317,6 +318,17 @@ export default function MatchHistoryScreen() {
           ) : null}
         </View>
       </ThemedView>
+
+      {profile?.profile_status === 'paused' ? (
+        <MatchmakingAvailabilityCard
+          body="Resume availability in Preferences when you want to show up in matchmaking again."
+          metrics={[
+            { label: 'Availability', value: 'Paused' },
+            { label: 'Queue access', value: 'Hidden' },
+          ]}
+          actionLabel="Open preferences"
+        />
+      ) : null}
 
       <SessionHistoryReportCard analytics={historyAnalytics} session={session} />
 

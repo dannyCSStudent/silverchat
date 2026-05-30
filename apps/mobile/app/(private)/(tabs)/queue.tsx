@@ -11,6 +11,7 @@ import { FlowStepChipList } from '@/components/flow-step-chip-list';
 import { FreshnessLine } from '@/components/freshness-line';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
 import { OnboardingNextStepCard } from '@/components/onboarding-next-step-card';
+import { MatchmakingAvailabilityCard } from '@/components/matchmaking-availability-card';
 import { SessionMemberCard } from '@/components/session-member-card';
 import { SessionOutcomeCard } from '@/components/session-outcome-card';
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
@@ -232,21 +233,14 @@ export default function QueueScreen() {
       </ThemedView>
 
       {isAvailabilityPaused ? (
-        <ThemedView style={styles.card}>
-          <ThemedText type="subtitle">Matchmaking paused</ThemedText>
-          <ThemedText style={styles.cardCopy}>
-            Your profile is hidden from the queue until you resume availability in Preferences.
-          </ThemedText>
-          <ReadinessMetricList
-            metrics={[
-              { label: 'Availability', value: availabilityStatus },
-              { label: 'Queue access', value: 'Hidden' },
-            ]}
-          />
-          <Link href="/(private)/preferences" style={styles.secondaryButton}>
-            <ThemedText style={styles.secondaryButtonText}>Open Preferences</ThemedText>
-          </Link>
-        </ThemedView>
+        <MatchmakingAvailabilityCard
+          body="Your profile is hidden from the queue until you resume availability in Preferences."
+          metrics={[
+            { label: 'Availability', value: availabilityStatus },
+            { label: 'Queue access', value: 'Hidden' },
+          ]}
+          actionLabel="Open Preferences"
+        />
       ) : null}
 
       {nextAction ? (
