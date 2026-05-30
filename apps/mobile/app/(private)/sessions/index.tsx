@@ -405,23 +405,29 @@ export default function MatchHistoryScreen() {
 
         {filteredMatches.length > 0 ? (
           filteredMatches.map((session) => (
-            <Link key={session.id} href={`/(private)/sessions/${session.id}`} style={styles.linkCard}>
-              <SessionOutcomeCard
-                title="Recent match"
-                sessionId={session.id}
-                status={session.status}
-                currentUserRole={session.current_user_role ?? 'initiator'}
-                createdAt={session.created_at ?? null}
-                endedAt={session.ended_at ?? null}
-                actions={<CopySessionIdButton sessionId={session.id} />}
-                otherMember={{
-                  user_id: session.other_profile?.user_id ?? session.id,
-                  display_name: session.other_profile?.display_name ?? 'Another member',
-                  avatar_url: session.other_profile?.avatar_url ?? null,
-                  country_code: session.other_profile?.country_code ?? 'unknown country',
-                }}
-              />
-            </Link>
+            <SessionOutcomeCard
+              key={session.id}
+              title="Recent match"
+              sessionId={session.id}
+              status={session.status}
+              currentUserRole={session.current_user_role ?? 'initiator'}
+              createdAt={session.created_at ?? null}
+              endedAt={session.ended_at ?? null}
+              actions={
+                <View style={styles.sessionCardActions}>
+                  <Link href={`/(private)/sessions/${session.id}`} style={styles.sessionLink}>
+                    <ThemedText style={styles.sessionLinkText}>Open session detail</ThemedText>
+                  </Link>
+                  <CopySessionIdButton sessionId={session.id} />
+                </View>
+              }
+              otherMember={{
+                user_id: session.other_profile?.user_id ?? session.id,
+                display_name: session.other_profile?.display_name ?? 'Another member',
+                avatar_url: session.other_profile?.avatar_url ?? null,
+                country_code: session.other_profile?.country_code ?? 'unknown country',
+              }}
+            />
           ))
         ) : (
           <ThemedText style={styles.cardCopy}>
@@ -442,7 +448,14 @@ export default function MatchHistoryScreen() {
             currentUserRole={orderedMatches[0].current_user_role ?? 'initiator'}
             createdAt={orderedMatches[0].created_at ?? null}
             endedAt={orderedMatches[0].ended_at ?? null}
-            actions={<CopySessionIdButton sessionId={orderedMatches[0].id} />}
+            actions={
+              <View style={styles.sessionCardActions}>
+                <Link href={`/(private)/sessions/${orderedMatches[0].id}`} style={styles.sessionLink}>
+                  <ThemedText style={styles.sessionLinkText}>Open session detail</ThemedText>
+                </Link>
+                <CopySessionIdButton sessionId={orderedMatches[0].id} />
+              </View>
+            }
             otherMember={{
               user_id: orderedMatches[0].other_profile?.user_id ?? orderedMatches[0].id,
               display_name: orderedMatches[0].other_profile?.display_name ?? 'Another member',
@@ -450,9 +463,6 @@ export default function MatchHistoryScreen() {
               country_code: orderedMatches[0].other_profile?.country_code ?? 'unknown country',
             }}
           />
-          <Link href={`/(private)/sessions/${orderedMatches[0].id}`} style={styles.secondaryButton}>
-            <ThemedText style={styles.secondaryButtonText}>Open session detail</ThemedText>
-          </Link>
           <FreshnessLine prefix="Updated" timestamp={orderedMatches[0].created_at ?? null} />
         </ThemedView>
       ) : null}
@@ -546,7 +556,12 @@ const styles = StyleSheet.create({
   filterChipTextActive: { fontWeight: '800' },
   filterChipCount: { color: '#27566B', opacity: 0.72, fontWeight: '700' },
   filterChipCountActive: { opacity: 1 },
-  linkCard: { borderRadius: 24 },
+  sessionCardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' },
+  sessionLink: {
+    alignSelf: 'flex-start',
+    paddingTop: 4,
+  },
+  sessionLinkText: { color: '#27566B', fontWeight: '700' },
   lookupMatchCard: { gap: 8 },
   clearButton: {
     borderRadius: 999,

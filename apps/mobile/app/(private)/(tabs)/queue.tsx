@@ -57,7 +57,6 @@ export default function QueueScreen() {
     avatar_url?: string;
     country_code?: string;
   } | null>(null);
-  const [matchedSessionId, setMatchedSessionId] = useState<string | null>(null);
   const [matchedSessionDetail, setMatchedSessionDetail] = useState<MatchSessionSummary | null>(null);
   const [matchContext, setMatchContext] = useState<{
     pool: 'preferred' | 'fallback';
@@ -77,7 +76,6 @@ export default function QueueScreen() {
     try {
       const response = await joinQueue();
       setMatchedProfile(response.matched_profile ?? null);
-      setMatchedSessionId(response.session_id ?? null);
       setMatchContext(response.match_context ?? null);
       setMatchedSessionDetail(null);
       setLocalMessage(
@@ -102,7 +100,6 @@ export default function QueueScreen() {
       }
     } catch (error) {
       setMatchedProfile(null);
-      setMatchedSessionId(null);
       setMatchedSessionDetail(null);
       setMatchContext(null);
       setLocalMessage(error instanceof Error ? error.message : 'Unable to join matchmaking.');
@@ -367,14 +364,21 @@ export default function QueueScreen() {
       {matchedProfile ? (
         <ThemedView style={styles.card}>
           {matchedSessionDetail ? (
-              <SessionOutcomeCard
+            <SessionOutcomeCard
               title="Latest match"
               sessionId={matchedSessionDetail.id}
               status={matchedSessionDetail.status}
               currentUserRole={matchedSessionDetail.current_user_role ?? 'initiator'}
               createdAt={matchedSessionDetail.created_at ?? null}
               endedAt={matchedSessionDetail.ended_at ?? null}
-              actions={<CopySessionIdButton sessionId={matchedSessionDetail.id} />}
+              actions={
+                <View style={styles.sessionCardActions}>
+                  <Link href={`/(private)/sessions/${matchedSessionDetail.id}`} style={styles.sessionLink}>
+                    <ThemedText style={styles.sessionLinkText}>Open session detail</ThemedText>
+                  </Link>
+                  <CopySessionIdButton sessionId={matchedSessionDetail.id} />
+                </View>
+              }
               otherMember={{
                 user_id: matchedSessionDetail.other_profile?.user_id ?? matchedProfile.user_id,
                 display_name:
@@ -424,14 +428,6 @@ export default function QueueScreen() {
               </ThemedText>
             </View>
           ) : null}
-          {matchedSessionId ? (
-            <View style={styles.matchActionRow}>
-              <Link href={`/(private)/sessions/${matchedSessionId}`} style={styles.sessionLink}>
-                <ThemedText style={styles.sessionLinkText}>Open session detail</ThemedText>
-              </Link>
-              <CopySessionIdButton sessionId={matchedSessionId} />
-            </View>
-          ) : null}
         </ThemedView>
       ) : null}
 
@@ -444,26 +440,29 @@ export default function QueueScreen() {
             </Link>
           </View>
           {recentMatches.slice(0, 3).map((session) => (
-            <View key={session.id} style={styles.recentMatchBlock}>
-              <Link href={`/(private)/sessions/${session.id}`} style={styles.recentMatchLink}>
-              <SessionOutcomeCard
+            <SessionOutcomeCard
+              key={session.id}
                 title="Recent match"
                 sessionId={session.id}
                 status={session.status}
                 currentUserRole={session.current_user_role ?? 'initiator'}
                 createdAt={session.created_at ?? null}
                 endedAt={session.ended_at ?? null}
-                actions={<CopySessionIdButton sessionId={session.id} />}
+              actions={
+                <View style={styles.sessionCardActions}>
+                  <Link href={`/(private)/sessions/${session.id}`} style={styles.sessionLink}>
+                    <ThemedText style={styles.sessionLinkText}>Open session detail</ThemedText>
+                  </Link>
+                  <CopySessionIdButton sessionId={session.id} />
+                </View>
+              }
                 otherMember={{
                   user_id: session.other_profile?.user_id ?? session.id,
                   display_name: session.other_profile?.display_name ?? 'Another member',
                   avatar_url: session.other_profile?.avatar_url ?? null,
                   country_code: session.other_profile?.country_code ?? 'unknown country',
-                  }}
-                />
-              </Link>
-              <CopySessionIdButton sessionId={session.id} />
-            </View>
+                }}
+            />
           ))}
         </ThemedView>
       ) : null}
@@ -524,9 +523,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   sessionLinkText: { color: '#27566B', fontWeight: '700' },
-  matchActionRow: { gap: 10 },
-  recentMatchBlock: { gap: 8 },
-  recentMatchLink: { borderRadius: 18, padding: 2 },
+  sessionCardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' },
   buttonPressed: { opacity: 0.85 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(24,33,43,0.08)' },
   avatarFallback: {
