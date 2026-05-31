@@ -8,12 +8,16 @@ type SessionCardActionsProps = {
   sessionId: string;
   showOpenLink?: boolean;
   openLabel?: string;
+  callHref?: Href | null;
+  callLabel?: string;
 };
 
 export function SessionCardActions({
   sessionId,
   showOpenLink = true,
   openLabel = 'Open session detail',
+  callHref = null,
+  callLabel = 'Start call',
 }: SessionCardActionsProps) {
   const openHref = showOpenLink ? `/(private)/sessions/${sessionId}` : null;
 
@@ -22,6 +26,11 @@ export function SessionCardActions({
       {openHref ? (
         <Link href={openHref as Href} style={styles.link}>
           <ThemedText style={styles.linkText}>{openLabel}</ThemedText>
+        </Link>
+      ) : null}
+      {callHref ? (
+        <Link href={callHref} style={styles.link}>
+          <ThemedText style={styles.linkText}>{callLabel}</ThemedText>
         </Link>
       ) : null}
       <CopySessionIdButton sessionId={sessionId} />

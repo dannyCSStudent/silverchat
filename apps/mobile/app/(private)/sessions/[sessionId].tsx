@@ -226,7 +226,13 @@ export default function MatchSessionScreen() {
           createdAt={summary.created_at ?? null}
           endedAt={summary.ended_at ?? null}
           durationLabel={sessionDurationLabel}
-          actions={<SessionCardActions sessionId={summary.id} showOpenLink={false} />}
+          actions={
+            <SessionCardActions
+              sessionId={summary.id}
+              showOpenLink={false}
+              callHref={summary.status !== 'ended' ? `/(private)/sessions/${summary.id}/call` : null}
+            />
+          }
           otherMember={{
             user_id: summary.other_profile?.user_id ?? 'unknown',
             display_name: summary.other_profile?.display_name ?? 'Another member',

@@ -21,6 +21,17 @@
 
 - `POST /match/join`
 - `GET /match/preview`
+- `GET /match/queue`
+- `GET /match/sessions`
+- `GET /match/sessions/summary`
+- `GET /match/sessions/summary/export`
+- `GET /match/sessions/{session_id}`
+
+## Presence
+
+- `GET /presence/me`
+- `PUT /presence/me`
+- `GET /presence/{user_id}`
 
 ## Reports and moderation
 
@@ -53,4 +64,4 @@
 ## Realtime
 
 - `WS /ws/matchmaking`
-- `WS /ws/signaling`
+- `WS /ws/signaling?session_id={session_id}&token={access_token}`

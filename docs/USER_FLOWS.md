@@ -25,6 +25,7 @@ Review match preview signals
 Refresh signals after profile or interest changes
 Join queue
 Receive match context after a successful match
+Open the call room for an active session
 Skip, end, or report the session as needed
 
 ## Safety actions

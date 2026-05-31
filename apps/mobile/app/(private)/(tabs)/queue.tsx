@@ -348,6 +348,7 @@ export default function QueueScreen() {
               <ThemedText style={styles.qualityLabel}>{matchQuality.title}</ThemedText>
               <ThemedText type="subtitle">{matchQuality.label}</ThemedText>
               <ThemedText style={styles.cardCopy}>{matchQuality.hint}</ThemedText>
+              <ThemedText style={styles.qualityNextStep}>{matchQuality.nextStep}</ThemedText>
             </View>
           ) : null}
           {matchPreview.top_shared_category || matchPreview.top_shared_interest ? (
@@ -452,7 +453,12 @@ export default function QueueScreen() {
               currentUserRole={matchedSessionDetail.current_user_role ?? 'initiator'}
               createdAt={matchedSessionDetail.created_at ?? null}
               endedAt={matchedSessionDetail.ended_at ?? null}
-              actions={<SessionCardActions sessionId={matchedSessionDetail.id} />}
+              actions={
+                <SessionCardActions
+                  sessionId={matchedSessionDetail.id}
+                  callHref={matchedSessionDetail.status !== 'ended' ? `/(private)/sessions/${matchedSessionDetail.id}/call` : null}
+                />
+              }
               otherMember={{
                 user_id: matchedSessionDetail.other_profile?.user_id ?? matchedProfile.user_id,
                 display_name:
@@ -484,7 +490,10 @@ export default function QueueScreen() {
                 <View style={styles.matchFooter}>
                   <ThemedText style={styles.cardCopy}>Matched just now in the active queue.</ThemedText>
                   {matchedSessionId ? (
-                    <SessionCardActions sessionId={matchedSessionId} />
+                    <SessionCardActions
+                      sessionId={matchedSessionId}
+                      callHref={`/(private)/sessions/${matchedSessionId}/call`}
+                    />
                   ) : null}
                 </View>
               }
@@ -545,7 +554,6 @@ export default function QueueScreen() {
               currentUserRole={session.current_user_role ?? 'initiator'}
               createdAt={session.created_at ?? null}
               endedAt={session.ended_at ?? null}
-              actions={<SessionCardActions sessionId={session.id} />}
               otherMember={{
                 user_id: session.other_profile?.user_id ?? session.id,
                 display_name: session.other_profile?.display_name ?? 'Another member',
@@ -626,6 +634,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(31,122,97,0.08)',
   },
   qualityLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.9, color: '#1F7A61' },
+  qualityNextStep: { fontSize: 13, lineHeight: 18, opacity: 0.72 },
   profileImpactList: { gap: 10 },
   profileImpactRow: {
     borderRadius: 16,

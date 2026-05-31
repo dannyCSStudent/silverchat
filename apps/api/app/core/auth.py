@@ -22,6 +22,10 @@ def get_current_user(authorization: str | None = Header(default=None)):
     if scheme.lower() != "bearer" or not token:
         raise HTTPException(status_code=401, detail="Expected Bearer token")
 
+    return get_user_from_access_token(token)
+
+
+def get_user_from_access_token(token: str):
     response = supabase.auth.get_user(token)
     user = getattr(response, "user", None)
     if not user:

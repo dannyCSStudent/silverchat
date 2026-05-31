@@ -28,6 +28,7 @@ export type MatchSignalGuidance = {
 export type MatchQualityAssessment = {
   hint: string;
   label: string;
+  nextStep: string;
   title: string;
 };
 
@@ -92,6 +93,7 @@ export function getMatchQualityAssessment(input: {
     return {
       hint: 'The queue is still building enough active members to improve the next match.',
       label: 'Queue building',
+      nextStep: 'Wait for more active members or refresh later.',
       title: 'Match quality',
     };
   }
@@ -100,6 +102,7 @@ export function getMatchQualityAssessment(input: {
     return {
       hint: 'Your current signals are still thin. Add more interests to widen the next match.',
       label: 'Thin signals',
+      nextStep: 'Add a few more interests before joining.',
       title: 'Match quality',
     };
   }
@@ -111,19 +114,27 @@ export function getMatchQualityAssessment(input: {
           ? 'Same-country members and a strong shared-interest cluster are both available.'
           : 'The app is using the strongest shared-interest cluster available right now.',
       label: input.matchPreview.recommended_pool === 'preferred' ? 'Strong local fit' : 'Strong overlap',
+      nextStep:
+        input.matchPreview.recommended_pool === 'preferred'
+          ? 'Join now for a stronger local match.'
+          : 'Join now or refresh if you want a different overlap.',
       title: 'Match quality',
     };
   }
 
-  return {
-    hint:
-      input.matchPreview.recommended_pool === 'preferred'
-        ? 'Local candidates are available, but a deeper interest mix still helps the queue.'
-        : 'The match is usable, but adding more interests can improve the next signal.',
-    label: 'Balanced fit',
-    title: 'Match quality',
-  };
-}
+    return {
+      hint:
+        input.matchPreview.recommended_pool === 'preferred'
+          ? 'Local candidates are available, but a deeper interest mix still helps the queue.'
+          : 'The match is usable, but adding more interests can improve the next signal.',
+      label: 'Balanced fit',
+      nextStep:
+        input.matchPreview.recommended_pool === 'preferred'
+          ? 'Join now, then improve your interest mix later.'
+          : 'Join now or add one more interest to tune future matches.',
+      title: 'Match quality',
+    };
+  }
 
 export function getMatchGuidanceCopy(mode: MatchGuidanceMode, surface: MatchGuidanceSurface) {
   switch (mode) {

@@ -9,6 +9,7 @@
 - Match preview and match context
 - Random matchmaking
 - Skip and requeue flow
+- Session-level call room and signaling relay
 - Reports and blocks
 - Moderation dashboard
 - Member detail pages
@@ -20,7 +21,7 @@
 
 - Better profile completion guidance
 - More explicit match-quality tuning
-- Session-level chat tools
+- Complete video call media stack
 - Stronger moderation notifications
 - Alerts for degraded admin or backlog spikes
 
