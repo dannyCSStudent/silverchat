@@ -25,6 +25,19 @@ export type MatchSignalGuidance = {
   title: string;
 };
 
+export function getProfileFieldImpact(field: string) {
+  switch (field) {
+    case 'display name':
+      return 'Used to make the match feel human and recognizable.';
+    case 'date of birth':
+      return 'Used to confirm age gates and safety eligibility.';
+    case 'country code':
+      return 'Used to improve local match quality and preferred-pool selection.';
+    default:
+      return 'Used by the match gate before you can join.';
+  }
+}
+
 export function getMatchPoolMessage(pool: MatchPreviewLike['recommended_pool'] | null | undefined) {
   switch (pool) {
     case 'preferred':

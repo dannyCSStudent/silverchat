@@ -16,7 +16,7 @@ import { MatchmakingAvailabilityCard } from '@/components/matchmaking-availabili
 import { ReadinessMetricList } from '@/components/readiness-metric-list';
 import { useAuth } from '@/lib/auth';
 import { getOnboardingNextAction } from '@/lib/onboarding';
-import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
+import { getProfileFieldImpact, getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 import { pickAvatarAsset, uploadAvatar } from '@/lib/storage';
 
 function formatDateInput(value: string) {
@@ -220,6 +220,14 @@ export default function AccountScreen() {
               );
             })}
           </View>
+          <View style={styles.fieldImpactList}>
+            {profileMatchSuggestion.missingProfileFields?.map((field) => (
+              <View key={`impact-${field}`} style={styles.fieldImpactRow}>
+                <ThemedText style={styles.fieldImpactLabel}>{field}</ThemedText>
+                <ThemedText style={styles.fieldImpactCopy}>{getProfileFieldImpact(field)}</ThemedText>
+              </View>
+            ))}
+          </View>
           <FlowStepChipList
             accentColor="#B74444"
             steps={profileMatchSuggestion.missingFlowSteps ?? []}
@@ -391,6 +399,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.72)',
   },
   missingFieldText: { fontSize: 13, fontWeight: '700', color: '#B74444' },
+  fieldImpactList: { gap: 10 },
+  fieldImpactRow: {
+    borderRadius: 18,
+    padding: 12,
+    gap: 4,
+    backgroundColor: 'rgba(183,68,68,0.05)',
+  },
+  fieldImpactLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.9, color: '#B74444' },
+  fieldImpactCopy: { fontSize: 14, lineHeight: 20, opacity: 0.75 },
   avatarSection: { gap: 10 },
   avatarLabel: { fontSize: 13, fontWeight: '700', opacity: 0.7, textTransform: 'uppercase' },
   avatarPreview: { width: 112, height: 112, borderRadius: 56, backgroundColor: 'rgba(24,33,43,0.08)' },
