@@ -27,6 +27,7 @@ import {
   getProfileFieldImpact,
   getMatchPoolExplanation,
   getMatchPoolMessage,
+  getMatchQualityAssessment,
   getMatchPreviewGuidance,
   getMatchSignalGuidance,
   getMatchSignalSuggestion,
@@ -167,6 +168,11 @@ export default function QueueScreen() {
   const queueBlockerActionLabel = queueBlockerGuidance?.actionLabel ?? null;
   const matchPreviewGuidance = getMatchPreviewGuidance({
     availableInterests,
+    interests,
+    matchPreview,
+    profile,
+  });
+  const matchQuality = getMatchQualityAssessment({
     interests,
     matchPreview,
     profile,
@@ -337,6 +343,13 @@ export default function QueueScreen() {
           <ThemedText type="subtitle">Match signals</ThemedText>
           <ThemedText style={styles.cardCopy}>{matchPreview.recommendation}</ThemedText>
           <ThemedText style={styles.cardCopy}>{matchPreview.recommendation_reason}</ThemedText>
+          {matchQuality ? (
+            <View style={styles.qualityCard}>
+              <ThemedText style={styles.qualityLabel}>{matchQuality.title}</ThemedText>
+              <ThemedText type="subtitle">{matchQuality.label}</ThemedText>
+              <ThemedText style={styles.cardCopy}>{matchQuality.hint}</ThemedText>
+            </View>
+          ) : null}
           {matchPreview.top_shared_category || matchPreview.top_shared_interest ? (
             <ThemedText style={styles.cardCopy}>
               Strongest overlap: {matchPreview.top_shared_category ?? 'Interest'}
@@ -606,6 +619,13 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: 'rgba(39,86,107,0.08)',
   },
+  qualityCard: {
+    borderRadius: 18,
+    padding: 14,
+    gap: 6,
+    backgroundColor: 'rgba(31,122,97,0.08)',
+  },
+  qualityLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.9, color: '#1F7A61' },
   profileImpactList: { gap: 10 },
   profileImpactRow: {
     borderRadius: 16,

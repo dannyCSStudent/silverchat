@@ -25,6 +25,12 @@ export type MatchSignalGuidance = {
   title: string;
 };
 
+export type MatchQualityAssessment = {
+  hint: string;
+  label: string;
+  title: string;
+};
+
 export function getProfileFieldImpact(field: string) {
   switch (field) {
     case 'display name':
@@ -62,6 +68,61 @@ export function getMatchPoolExplanation(pool: MatchPreviewLike['recommended_pool
     default:
       return null;
   }
+}
+
+export function getMatchQualityAssessment(input: {
+  interests: string[];
+  matchPreview: MatchPreviewLike | null;
+  profile: {
+    country_code?: string | null;
+    date_of_birth?: string | null;
+    display_name?: string | null;
+    onboarding_completed_at?: string | null;
+  } | null;
+}): MatchQualityAssessment | null {
+  if (!input.matchPreview) {
+    return null;
+  }
+
+  const sharedCount = input.matchPreview.shared_interests.length;
+  const topCategoryCount = input.matchPreview.top_shared_category_count ?? 0;
+  const interestCount = input.interests.length;
+
+  if (input.matchPreview.recommended_pool === 'queue') {
+    return {
+      hint: 'The queue is still building enough active members to improve the next match.',
+      label: 'Queue building',
+      title: 'Match quality',
+    };
+  }
+
+  if (sharedCount === 0 || interestCount < 2) {
+    return {
+      hint: 'Your current signals are still thin. Add more interests to widen the next match.',
+      label: 'Thin signals',
+      title: 'Match quality',
+    };
+  }
+
+  if (topCategoryCount >= 2 && sharedCount >= 2) {
+    return {
+      hint:
+        input.matchPreview.recommended_pool === 'preferred'
+          ? 'Same-country members and a strong shared-interest cluster are both available.'
+          : 'The app is using the strongest shared-interest cluster available right now.',
+      label: input.matchPreview.recommended_pool === 'preferred' ? 'Strong local fit' : 'Strong overlap',
+      title: 'Match quality',
+    };
+  }
+
+  return {
+    hint:
+      input.matchPreview.recommended_pool === 'preferred'
+        ? 'Local candidates are available, but a deeper interest mix still helps the queue.'
+        : 'The match is usable, but adding more interests can improve the next signal.',
+    label: 'Balanced fit',
+    title: 'Match quality',
+  };
 }
 
 export function getMatchGuidanceCopy(mode: MatchGuidanceMode, surface: MatchGuidanceSurface) {
