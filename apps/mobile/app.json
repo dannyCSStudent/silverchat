@@ -10,10 +10,18 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.silverchat.app"
+      "bundleIdentifier": "com.silverchat.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "SilverChat needs camera access to start a video call.",
+        "NSMicrophoneUsageDescription": "SilverChat needs microphone access to join a voice or video call."
+      }
     },
     "android": {
       "package": "com.silverchat.app",
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

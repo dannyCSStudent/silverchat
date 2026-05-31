@@ -25,6 +25,12 @@ export type SignalingMessage =
       peer_count?: number;
     }
   | {
+      type: 'offer' | 'answer' | 'ice-candidate';
+      session_id: string;
+      from_user_id?: string;
+      payload: unknown;
+    }
+  | {
       type: string;
       session_id: string;
       from_user_id?: string;

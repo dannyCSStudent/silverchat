@@ -10,6 +10,7 @@
 - Random matchmaking
 - Skip and requeue flow
 - Session-level call room and signaling relay
+- WebRTC media tracks and camera/microphone call room support
 - Reports and blocks
 - Moderation dashboard
 - Member detail pages
@@ -21,7 +22,7 @@
 
 - Better profile completion guidance
 - More explicit match-quality tuning
-- Complete video call media stack
+- TURN and call reliability hardening
 - Stronger moderation notifications
 - Alerts for degraded admin or backlog spikes
 

@@ -1,6 +1,13 @@
 import { Link, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  mediaDevices,
+  RTCIceCandidate,
+  RTCPeerConnection,
+  RTCSessionDescription,
+  RTCView,
+} from 'react-native-webrtc';
 
 import { SessionOutcomeCard } from '@/components/session-outcome-card';
 import { ThemedText } from '@/components/themed-text';
@@ -12,7 +19,32 @@ import { useAuth } from '@/lib/auth';
 import type { MatchSessionDetailResponse } from '@/lib/match-sessions';
 import { buildSignalingUrl, type SignalingMessage } from '@/lib/signaling';
 
-type CallState = 'idle' | 'connecting' | 'connected' | 'closed' | 'error';
+type MediaStreamLike = {
+  getTracks: () => Array<{ stop: () => void }>;
+  toURL: () => string;
+};
+
+type SignalMessage = {
+  type: 'offer' | 'answer' | 'ice-candidate' | 'ping' | 'leave';
+  payload?: unknown;
+};
+
+type NativeIceCandidateInit = {
+  candidate?: string;
+  sdpMLineIndex?: number | null;
+  sdpMid?: string | null;
+};
+
+type NativeRTCSessionDescriptionInit = {
+  sdp: string;
+  type: string | null;
+};
+
+type CallHealth = 'idle' | 'connecting' | 'connected' | 'ready' | 'closed' | 'error';
+
+const rtcConfiguration = {
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+};
 
 export default function MatchSessionCallScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -22,9 +54,16 @@ export default function MatchSessionCallScreen() {
   const [detail, setDetail] = useState<MatchSessionDetailResponse | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [callState, setCallState] = useState<CallState>('idle');
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [callState, setCallState] = useState<CallHealth>('idle');
   const [events, setEvents] = useState<string[]>([]);
+  const [localStream, setLocalStream] = useState<MediaStreamLike | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStreamLike | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
+  const peerRef = useRef<RTCPeerConnection | null>(null);
+  const pendingSignalsRef = useRef<string[]>([]);
+  const localStreamRef = useRef<MediaStreamLike | null>(null);
+  const isInitiatorRef = useRef(true);
 
   const resolvedSessionId = useMemo(() => {
     if (!sessionId) {
@@ -37,6 +76,82 @@ export default function MatchSessionCallScreen() {
   const cachedSession = useMemo(
     () => recentMatches.find((item) => item.id === resolvedSessionId) ?? null,
     [recentMatches, resolvedSessionId],
+  );
+
+  const summary = detail?.session ?? cachedSession;
+  const currentRole = detail?.current_user_role ?? summary?.current_user_role ?? 'initiator';
+  const isInitiator = currentRole === 'initiator';
+
+  const pushEvent = useCallback((message: string) => {
+    setEvents((current) => [...current.slice(-14), message]);
+  }, []);
+
+  const sendSignal = useCallback((message: SignalMessage) => {
+    const payload = JSON.stringify(message);
+    const socket = socketRef.current;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(payload);
+      return;
+    }
+
+    pendingSignalsRef.current.push(payload);
+  }, []);
+
+  const flushPendingSignals = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN || pendingSignalsRef.current.length === 0) {
+      return;
+    }
+
+    const queued = [...pendingSignalsRef.current];
+    pendingSignalsRef.current = [];
+    queued.forEach((payload) => socket.send(payload));
+  }, []);
+
+  const closePeer = useCallback(() => {
+    const peer = peerRef.current;
+    peerRef.current = null;
+
+    if (peer) {
+      try {
+        (peer as any).ontrack = null;
+        (peer as any).onicecandidate = null;
+        (peer as any).onconnectionstatechange = null;
+        peer.close();
+      } catch {
+        // Ignore teardown errors.
+      }
+    }
+  }, []);
+
+  const stopMedia = useCallback(() => {
+    const stream = localStreamRef.current;
+    localStreamRef.current = null;
+    setLocalStream(null);
+    setRemoteStream(null);
+
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+  }, []);
+
+  const toNativeSessionDescriptionInit = useCallback(
+    (payload: unknown): NativeRTCSessionDescriptionInit | null => {
+      if (!payload || typeof payload !== 'object') {
+        return null;
+      }
+
+      const candidate = payload as { sdp?: unknown; type?: unknown };
+      if (typeof candidate.sdp !== 'string' || typeof candidate.type !== 'string') {
+        return null;
+      }
+
+      return {
+        sdp: candidate.sdp,
+        type: candidate.type,
+      };
+    },
+    [],
   );
 
   const loadDetail = useCallback(async () => {
@@ -77,36 +192,132 @@ export default function MatchSessionCallScreen() {
       return;
     }
 
+    let active = true;
+    setMediaError(null);
+    setCallState('connecting');
+    pushEvent(`Requesting camera and microphone for session ${resolvedSessionId}...`);
+
+    void mediaDevices
+      .getUserMedia({
+        audio: true,
+        video: true,
+      })
+      .then((stream) => {
+        if (!active) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        const typedStream = stream as MediaStreamLike;
+        localStreamRef.current = typedStream;
+        setLocalStream(typedStream);
+        pushEvent('Local media stream ready.');
+      })
+      .catch((mediaError: unknown) => {
+        const message = mediaError instanceof Error ? mediaError.message : 'Unable to access camera or microphone.';
+        setMediaError(message);
+        setCallState('error');
+        pushEvent(`Media error: ${message}`);
+      });
+
+    return () => {
+      active = false;
+      stopMedia();
+    };
+  }, [pushEvent, resolvedSessionId, session, stopMedia]);
+
+  useEffect(() => {
+    if (!session || !resolvedSessionId) {
+      return;
+    }
+
     const socket = new WebSocket(buildSignalingUrl(resolvedSessionId, session.access_token));
     socketRef.current = socket;
-    setCallState('connecting');
-    setEvents((current) => [...current.slice(-10), `Connecting to session ${resolvedSessionId}...`]);
+    setCallState((current) => (current === 'error' ? current : 'connecting'));
+    pushEvent(`Connecting to signaling room for session ${resolvedSessionId}...`);
 
     socket.onopen = () => {
-      setCallState('connected');
-      setEvents((current) => [...current.slice(-10), 'Signaling socket connected.']);
+      flushPendingSignals();
+      setCallState((current) => (current === 'error' ? current : 'connected'));
+      pushEvent('Signaling socket connected.');
     };
 
     socket.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data as string) as SignalingMessage;
-        setEvents((current) => [
-          ...current.slice(-10),
-          `${payload.type}${payload.from_user_id ? ` from ${payload.from_user_id}` : ''}`,
-        ]);
+        pushEvent(`Signal: ${payload.type}`);
+
+        if (!peerRef.current) {
+          return;
+        }
+
+        if (payload.type === 'offer' && payload.payload) {
+          void (async () => {
+            const description = toNativeSessionDescriptionInit(payload.payload);
+            if (!description) {
+              return;
+            }
+
+            await peerRef.current?.setRemoteDescription(new RTCSessionDescription(description));
+            const answer = await peerRef.current?.createAnswer();
+            if (!answer) {
+              return;
+            }
+
+            await peerRef.current?.setLocalDescription(answer);
+            sendSignal({ type: 'answer', payload: answer.toJSON() });
+          })().catch((signalError: unknown) => {
+            const message =
+              signalError instanceof Error ? signalError.message : 'Unable to answer signaling offer.';
+            setError(message);
+            setCallState('error');
+            pushEvent(`Offer handling failed: ${message}`);
+          });
+          return;
+        }
+
+        if (payload.type === 'answer' && payload.payload) {
+          const description = toNativeSessionDescriptionInit(payload.payload);
+          if (!description) {
+            return;
+          }
+
+          void peerRef.current
+            ?.setRemoteDescription(new RTCSessionDescription(description))
+            .catch((signalError: unknown) => {
+              const message =
+                signalError instanceof Error ? signalError.message : 'Unable to apply signaling answer.';
+              setError(message);
+              setCallState('error');
+              pushEvent(`Answer handling failed: ${message}`);
+            });
+          return;
+        }
+
+        if (payload.type === 'ice-candidate' && payload.payload) {
+          void peerRef.current
+            ?.addIceCandidate(new RTCIceCandidate(payload.payload as NativeIceCandidateInit))
+            .catch((signalError: unknown) => {
+              const message =
+                signalError instanceof Error ? signalError.message : 'Unable to apply ICE candidate.';
+              setError(message);
+              setCallState('error');
+              pushEvent(`ICE handling failed: ${message}`);
+            });
+        }
       } catch {
-        setEvents((current) => [...current.slice(-10), 'Received a signaling event.']);
+        pushEvent('Received a signaling event.');
       }
     };
 
     socket.onerror = () => {
       setCallState('error');
-      setEvents((current) => [...current.slice(-10), 'Signaling error.']);
+      pushEvent('Signaling socket error.');
     };
 
     socket.onclose = () => {
       setCallState((current) => (current === 'error' ? current : 'closed'));
-      setEvents((current) => [...current.slice(-10), 'Signaling socket closed.']);
+      pushEvent('Signaling socket closed.');
     };
 
     return () => {
@@ -117,35 +328,102 @@ export default function MatchSessionCallScreen() {
       }
       socketRef.current = null;
     };
-  }, [resolvedSessionId, session]);
+  }, [flushPendingSignals, pushEvent, resolvedSessionId, sendSignal, session]);
 
-  async function sendPing() {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+  useEffect(() => {
+    if (!session || !resolvedSessionId || !localStream) {
       return;
     }
 
-    socketRef.current.send(JSON.stringify({ type: 'ping', payload: { ts: Date.now() } }));
-  }
+    const peer = new RTCPeerConnection(rtcConfiguration);
+    peerRef.current = peer;
+    isInitiatorRef.current = isInitiator;
 
-  async function leaveRoom() {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+    localStream.getTracks().forEach((track) => peer.addTrack(track as any, localStream as any));
+
+    (peer as any).ontrack = (event: { streams?: MediaStreamLike[] }) => {
+      const [stream] = event.streams ?? [];
+      if (stream) {
+        setRemoteStream(stream as MediaStreamLike);
+        pushEvent('Remote media stream attached.');
+      }
+    };
+
+    (peer as any).onicecandidate = (event: { candidate?: { toJSON: () => NativeIceCandidateInit } | null }) => {
+      if (event.candidate) {
+        sendSignal({
+          type: 'ice-candidate',
+          payload: event.candidate.toJSON(),
+        });
+      }
+    };
+
+    (peer as any).onconnectionstatechange = () => {
+      const state = peer.connectionState;
+      if (state === 'connected') {
+        setCallState('ready');
+        pushEvent('Peer connection ready.');
+      } else if (state === 'failed') {
+        setCallState('error');
+        pushEvent('Peer connection failed.');
+      } else if (state === 'disconnected') {
+        setCallState('closed');
+        pushEvent('Peer connection disconnected.');
+      }
+    };
+
+    if (isInitiatorRef.current) {
+      void (async () => {
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+        sendSignal({ type: 'offer', payload: offer.toJSON() });
+        pushEvent('Sent offer.');
+      })().catch((signalError: unknown) => {
+        const message =
+          signalError instanceof Error ? signalError.message : 'Unable to create signaling offer.';
+        setError(message);
+        setCallState('error');
+        pushEvent(`Offer creation failed: ${message}`);
+      });
+    }
+
+    return () => {
+      closePeer();
+    };
+  }, [closePeer, isInitiator, localStream, pushEvent, resolvedSessionId, sendSignal, session]);
+
+  useEffect(() => {
+    if (!session || !resolvedSessionId) {
       return;
     }
 
-    socketRef.current.send(JSON.stringify({ type: 'leave' }));
-  }
+    return () => {
+      closePeer();
+      stopMedia();
+      const socket = socketRef.current;
+      socketRef.current = null;
+      if (socket) {
+        try {
+          socket.close(1000, 'Leaving call room');
+        } catch {
+          // Ignore teardown failures.
+        }
+      }
+    };
+  }, [closePeer, resolvedSessionId, session, stopMedia]);
 
-  const summary = detail?.session ?? cachedSession;
   const callStatusLabel =
     callState === 'connected'
-      ? 'Ready'
-      : callState === 'connecting'
-        ? 'Connecting'
-        : callState === 'error'
-          ? 'Error'
-          : callState === 'closed'
-            ? 'Closed'
-            : 'Idle';
+      ? 'Signaling connected'
+      : callState === 'ready'
+        ? 'Media connected'
+        : callState === 'connecting'
+          ? 'Connecting'
+          : callState === 'error'
+            ? 'Error'
+            : callState === 'closed'
+              ? 'Closed'
+              : 'Idle';
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
@@ -155,8 +433,8 @@ export default function MatchSessionCallScreen() {
           Call room
         </ThemedText>
         <ThemedText style={styles.copy}>
-          This route opens the signaling room for the matched session. The media layer is not wired
-          yet, so this screen is currently the signaling testbed.
+          This screen now joins the session signaling room and prepares local camera and microphone
+          access. Real audio/video testing needs a dev client build, not Expo Go.
         </ThemedText>
         <Link href={summary ? `/(private)/sessions/${summary.id}` : '/(private)/(tabs)/queue'} style={styles.inlineLink}>
           <ThemedText style={styles.inlineLinkText}>Back to session</ThemedText>
@@ -171,25 +449,63 @@ export default function MatchSessionCallScreen() {
             ? `Session ${resolvedSessionId}`
             : 'No session id available for the call room.'}
         </ThemedText>
+        {mediaError ? <ThemedText style={styles.errorText}>{mediaError}</ThemedText> : null}
+        {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
         <View style={styles.buttonRow}>
-          <Pressable onPress={() => void sendPing()} style={styles.button}>
+          <Pressable
+            onPress={() => {
+              sendSignal({ type: 'ping', payload: { ts: Date.now() } });
+              pushEvent('Sent ping.');
+            }}
+            style={styles.button}
+          >
             <ThemedText style={styles.buttonText}>Send ping</ThemedText>
           </Pressable>
-          <Pressable onPress={() => void leaveRoom()} style={styles.secondaryButton}>
+          <Pressable
+            onPress={() => {
+              sendSignal({ type: 'leave' });
+              pushEvent('Requested leave.');
+            }}
+            style={styles.secondaryButton}
+          >
             <ThemedText style={styles.secondaryButtonText}>Leave room</ThemedText>
           </Pressable>
         </View>
-        <ThemedText style={styles.cardCopy}>
-          This is the backend signaling layer only. Video and audio streams still need a WebRTC
-          media library before you can test a real call.
-        </ThemedText>
+      </ThemedView>
+
+      <ThemedView style={styles.mediaCard}>
+        <ThemedText style={styles.cardLabel}>Media</ThemedText>
+        <View style={styles.videoFrame}>
+          {remoteStream ? (
+            <RTCView streamURL={remoteStream.toURL()} style={styles.remoteVideo} objectFit="cover" />
+          ) : (
+            <View style={styles.placeholder}>
+              <ThemedText style={styles.placeholderText}>Remote video will appear here.</ThemedText>
+            </View>
+          )}
+        </View>
+        <View style={styles.localPreviewRow}>
+          <View style={styles.localPreviewLabelRow}>
+            <ThemedText style={styles.cardCopy}>Local preview</ThemedText>
+            <ThemedText style={styles.smallStatus}>{localStream ? 'Live' : 'Waiting'}</ThemedText>
+          </View>
+          <View style={styles.localPreviewFrame}>
+            {localStream ? (
+              <RTCView streamURL={localStream.toURL()} style={styles.localVideo} objectFit="cover" />
+            ) : (
+              <View style={styles.placeholder}>
+                <ThemedText style={styles.placeholderText}>Camera preview will appear here.</ThemedText>
+              </View>
+            )}
+          </View>
+        </View>
       </ThemedView>
 
       {summary ? (
         <SessionOutcomeCard
           sessionId={summary.id}
           status={summary.status}
-          currentUserRole={detail?.current_user_role ?? summary.current_user_role ?? 'initiator'}
+          currentUserRole={currentRole}
           createdAt={summary.created_at ?? null}
           endedAt={summary.ended_at ?? null}
           otherMember={{
@@ -203,12 +519,7 @@ export default function MatchSessionCallScreen() {
         <ThemedView style={styles.card}>
           <ThemedText style={styles.cardCopy}>Loading session detail...</ThemedText>
         </ThemedView>
-      ) : error ? (
-        <ThemedView style={styles.card}>
-          <ThemedText type="subtitle">Session unavailable</ThemedText>
-          <ThemedText style={styles.cardCopy}>{error}</ThemedText>
-        </ThemedView>
-      ) : null}
+      ) : error ? null : null}
 
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Signaling log</ThemedText>
@@ -238,8 +549,10 @@ const styles = StyleSheet.create({
   inlineLink: { alignSelf: 'flex-start' },
   inlineLinkText: { color: '#27566B', fontWeight: '700' },
   card: { borderRadius: 24, padding: 18, gap: 10 },
+  mediaCard: { borderRadius: 24, padding: 18, gap: 12 },
   cardLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, opacity: 0.62 },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
+  errorText: { color: '#B74444', fontSize: 14, lineHeight: 20 },
   buttonRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   button: {
     borderRadius: 999,
@@ -258,6 +571,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryButtonText: { color: '#27566B', fontWeight: '700' },
+  videoFrame: {
+    borderRadius: 24,
+    minHeight: 260,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(24,33,43,0.08)',
+  },
+  remoteVideo: { width: '100%', height: '100%' },
+  localPreviewRow: { gap: 10 },
+  localPreviewLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  smallStatus: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.9, opacity: 0.62 },
+  localPreviewFrame: {
+    borderRadius: 18,
+    minHeight: 160,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(24,33,43,0.08)',
+  },
+  localVideo: { width: '100%', height: '100%' },
+  placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18 },
+  placeholderText: { fontSize: 14, lineHeight: 20, textAlign: 'center', opacity: 0.62 },
   logList: { gap: 6 },
   logLine: { fontSize: 13, lineHeight: 18, opacity: 0.72 },
 });

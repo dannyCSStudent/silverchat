@@ -47,8 +47,8 @@ The app now has a call-room route and backend signaling relay for a matched sess
 What is implemented:
 - `WS /ws/signaling?session_id=...&token=...`
 - private mobile call-room route for a matched session
+- local and remote WebRTC media tracks in the mobile call room
+- camera and microphone permission handling for the actual A/V stream
 
 What is still missing:
-- WebRTC media tracks for local camera and remote video
-- camera/microphone permission handling for the actual A/V stream
 - TURN/STUN configuration for real-world connectivity
