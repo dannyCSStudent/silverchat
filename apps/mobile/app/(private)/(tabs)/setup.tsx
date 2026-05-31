@@ -14,7 +14,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
 import { getOnboardingNextAction } from '@/lib/onboarding';
-import { getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
+import { getProfileFieldImpact, getMatchSignalGuidance, getMatchSignalSuggestion } from '@/lib/match-signals';
 
 export default function SetupScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -131,6 +131,16 @@ export default function SetupScreen() {
             <ThemedText style={styles.suggestionCopy}>
               {matchBoostGuidance.hint}
             </ThemedText>
+            {matchInterestSuggestion.kind === 'profile' ? (
+              <View style={styles.impactList}>
+                {matchInterestSuggestion.missingProfileFields?.map((field) => (
+                  <View key={`impact-${field}`} style={styles.impactRow}>
+                    <ThemedText style={styles.impactLabel}>{field}</ThemedText>
+                    <ThemedText style={styles.impactCopy}>{getProfileFieldImpact(field)}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            ) : null}
             <FlowStepChipList
               accentColor="#1F7A61"
               steps={matchInterestSuggestion.kind === 'profile' ? matchInterestSuggestion.missingFlowSteps ?? [] : []}
@@ -207,6 +217,15 @@ const styles = StyleSheet.create({
   suggestionLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', opacity: 0.68 },
   suggestionCopy: { fontSize: 14, lineHeight: 20, opacity: 0.84 },
   suggestionLink: { paddingTop: 6, alignSelf: 'flex-start' },
+  impactList: { gap: 10 },
+  impactRow: {
+    borderRadius: 16,
+    padding: 12,
+    gap: 4,
+    backgroundColor: 'rgba(31,122,97,0.06)',
+  },
+  impactLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.9, color: '#1F7A61' },
+  impactCopy: { fontSize: 14, lineHeight: 20, opacity: 0.78 },
   group: { gap: 10 },
   groupLabel: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', opacity: 0.64 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

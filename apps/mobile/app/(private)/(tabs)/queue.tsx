@@ -24,6 +24,7 @@ import { useAuth } from '@/lib/auth';
 import type { MatchSessionSummary, MatchSessionDetailResponse } from '@/lib/match-sessions';
 import { getOnboardingNextAction } from '@/lib/onboarding';
 import {
+  getProfileFieldImpact,
   getMatchPoolExplanation,
   getMatchPoolMessage,
   getMatchPreviewGuidance,
@@ -277,6 +278,34 @@ export default function QueueScreen() {
               - {item.label}
             </ThemedText>
           ))}
+          {queueBlockerSuggestion?.kind === 'profile' ? (
+            <View style={styles.profileImpactList}>
+              {!profile?.display_name?.trim() ? (
+                <View style={styles.profileImpactRow}>
+                  <ThemedText style={styles.profileImpactLabel}>display name</ThemedText>
+                  <ThemedText style={styles.profileImpactCopy}>
+                    {getProfileFieldImpact('display name')}
+                  </ThemedText>
+                </View>
+              ) : null}
+              {!profile?.date_of_birth ? (
+                <View style={styles.profileImpactRow}>
+                  <ThemedText style={styles.profileImpactLabel}>date of birth</ThemedText>
+                  <ThemedText style={styles.profileImpactCopy}>
+                    {getProfileFieldImpact('date of birth')}
+                  </ThemedText>
+                </View>
+              ) : null}
+              {!profile?.country_code?.trim() ? (
+                <View style={styles.profileImpactRow}>
+                  <ThemedText style={styles.profileImpactLabel}>country code</ThemedText>
+                  <ThemedText style={styles.profileImpactCopy}>
+                    {getProfileFieldImpact('country code')}
+                  </ThemedText>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
           <FlowStepChipList
             accentColor="#27566B"
             steps={queueBlockerSuggestion?.missingFlowSteps ?? []}
@@ -577,6 +606,15 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: 'rgba(39,86,107,0.08)',
   },
+  profileImpactList: { gap: 10 },
+  profileImpactRow: {
+    borderRadius: 16,
+    padding: 12,
+    gap: 4,
+    backgroundColor: 'rgba(183,68,68,0.06)',
+  },
+  profileImpactLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.9, color: '#B74444' },
+  profileImpactCopy: { fontSize: 14, lineHeight: 20, opacity: 0.78 },
   matchFooter: { gap: 10 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   headerLink: { paddingVertical: 2 },
