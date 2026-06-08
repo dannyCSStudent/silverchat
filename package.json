@@ -8,7 +8,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
     "seed": "pnpm --filter api seed",
-    "check-health": "node scripts/check-health.js"
+    "check-health": "node scripts/check-health.js",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.27",
@@ -24,6 +26,10 @@
     "node": ">=18"
   },
   "dependencies": {
-    "gh": "^2.8.9"
-  }
+    "gh": "^2.8.9",
+    "expo": "~54.0.35",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
+  },
+  "version": "1.0.0"
 }

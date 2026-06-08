@@ -57,8 +57,10 @@ export default function MatchSessionCallScreen() {
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [callState, setCallState] = useState<CallHealth>('idle');
   const [events, setEvents] = useState<string[]>([]);
+  const [peerCount, setPeerCount] = useState<number | null>(null);
   const [localStream, setLocalStream] = useState<MediaStreamLike | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStreamLike | null>(null);
+  const [restartNonce, setRestartNonce] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const pendingSignalsRef = useRef<string[]>([]);
@@ -108,6 +110,19 @@ export default function MatchSessionCallScreen() {
     queued.forEach((payload) => socket.send(payload));
   }, []);
 
+  const closeSocket = useCallback(() => {
+    const socket = socketRef.current;
+    socketRef.current = null;
+
+    if (socket) {
+      try {
+        socket.close(1000, 'Leaving call room');
+      } catch {
+        // Ignore close failures during teardown.
+      }
+    }
+  }, []);
+
   const closePeer = useCallback(() => {
     const peer = peerRef.current;
     peerRef.current = null;
@@ -134,6 +149,26 @@ export default function MatchSessionCallScreen() {
       stream.getTracks().forEach((track) => track.stop());
     }
   }, []);
+
+  const resetCallSession = useCallback(() => {
+    closeSocket();
+    closePeer();
+    stopMedia();
+    pendingSignalsRef.current = [];
+    setPeerCount(null);
+    setMediaError(null);
+    setError(null);
+    setCallState('idle');
+    setLocalStream(null);
+    setRemoteStream(null);
+  }, [closePeer, closeSocket, stopMedia]);
+
+  const restartCall = useCallback(() => {
+    resetCallSession();
+    setEvents([]);
+    setRestartNonce((current) => current + 1);
+    pushEvent('Restarting call room...');
+  }, [pushEvent, resetCallSession]);
 
   const toNativeSessionDescriptionInit = useCallback(
     (payload: unknown): NativeRTCSessionDescriptionInit | null => {
@@ -224,7 +259,7 @@ export default function MatchSessionCallScreen() {
       active = false;
       stopMedia();
     };
-  }, [pushEvent, resolvedSessionId, session, stopMedia]);
+  }, [pushEvent, restartNonce, resolvedSessionId, session, stopMedia]);
 
   useEffect(() => {
     if (!session || !resolvedSessionId) {
@@ -246,6 +281,33 @@ export default function MatchSessionCallScreen() {
       try {
         const payload = JSON.parse(event.data as string) as SignalingMessage;
         pushEvent(`Signal: ${payload.type}`);
+        if ('peer_count' in payload && typeof payload.peer_count === 'number') {
+          setPeerCount(payload.peer_count);
+        }
+
+        if (payload.type === 'ready') {
+          if ('peer_count' in payload && typeof payload.peer_count === 'number' && payload.peer_count < 2) {
+            pushEvent('Waiting for the other participant to join.');
+          }
+          return;
+        }
+
+        if (payload.type === 'peer-joined') {
+          pushEvent('Another participant joined the room.');
+          return;
+        }
+
+        if (payload.type === 'peer-left') {
+          pushEvent('The other participant left the room.');
+          setCallState('closed');
+          return;
+        }
+
+        if (payload.type === 'left') {
+          setCallState('closed');
+          pushEvent('You left the room.');
+          return;
+        }
 
         if (!peerRef.current) {
           return;
@@ -328,7 +390,7 @@ export default function MatchSessionCallScreen() {
       }
       socketRef.current = null;
     };
-  }, [flushPendingSignals, pushEvent, resolvedSessionId, sendSignal, session]);
+  }, [flushPendingSignals, pushEvent, restartNonce, resolvedSessionId, sendSignal, session]);
 
   useEffect(() => {
     if (!session || !resolvedSessionId || !localStream) {
@@ -390,7 +452,7 @@ export default function MatchSessionCallScreen() {
     return () => {
       closePeer();
     };
-  }, [closePeer, isInitiator, localStream, pushEvent, resolvedSessionId, sendSignal, session]);
+  }, [closePeer, isInitiator, localStream, pushEvent, restartNonce, resolvedSessionId, sendSignal, session]);
 
   useEffect(() => {
     if (!session || !resolvedSessionId) {
@@ -398,19 +460,9 @@ export default function MatchSessionCallScreen() {
     }
 
     return () => {
-      closePeer();
-      stopMedia();
-      const socket = socketRef.current;
-      socketRef.current = null;
-      if (socket) {
-        try {
-          socket.close(1000, 'Leaving call room');
-        } catch {
-          // Ignore teardown failures.
-        }
-      }
+      resetCallSession();
     };
-  }, [closePeer, resolvedSessionId, session, stopMedia]);
+  }, [resetCallSession, resolvedSessionId, session]);
 
   const callStatusLabel =
     callState === 'connected'
@@ -449,6 +501,13 @@ export default function MatchSessionCallScreen() {
             ? `Session ${resolvedSessionId}`
             : 'No session id available for the call room.'}
         </ThemedText>
+        <ThemedText style={styles.cardCopy}>
+          {peerCount === null
+            ? 'Waiting for room status...'
+            : peerCount >= 2
+              ? 'Second participant is present.'
+              : 'Waiting for another participant to join.'}
+        </ThemedText>
         {mediaError ? <ThemedText style={styles.errorText}>{mediaError}</ThemedText> : null}
         {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
         <View style={styles.buttonRow}>
@@ -460,6 +519,12 @@ export default function MatchSessionCallScreen() {
             style={styles.button}
           >
             <ThemedText style={styles.buttonText}>Send ping</ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={() => void restartCall()}
+            style={styles.secondaryButton}
+          >
+            <ThemedText style={styles.secondaryButtonText}>Retry call</ThemedText>
           </Pressable>
           <Pressable
             onPress={() => {
