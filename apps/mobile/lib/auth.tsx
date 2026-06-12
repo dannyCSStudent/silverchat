@@ -146,11 +146,11 @@ type AuthContextValue = {
   queuePool: 'preferred' | 'fallback' | 'queue' | null;
   recentMatches: RecentMatchSession[];
   presence: PresenceRecord | null;
-  onboardingChecklist: Array<{
+  onboardingChecklist: {
     complete: boolean;
     id: 'email' | 'profile' | 'interests' | 'onboarding';
     label: string;
-  }>;
+  }[];
   queueEligible: boolean;
   profile: ProfileRecord | null;
   session: Session | null;
@@ -198,8 +198,25 @@ async function authorizedRequest<T>(session: Session, path: string, options: Req
   });
 }
 
+async function authorizedRequestWithRouteError<T>(
+  session: Session,
+  path: string,
+  routeLabel: string,
+  options: RequestInit = {},
+) {
+  try {
+    return await authorizedRequest<T>(session, path, options);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'Unknown network error';
+    throw new Error(`${routeLabel} failed: ${detail}`);
+  }
+}
+
 async function loadAccountSnapshot(nextSession: Session | null): Promise<AccountSnapshot> {
-  const availableInterests = await apiRequest<InterestRecord[]>('/interests/');
+  const availableInterests = await apiRequest<InterestRecord[]>('/interests/').catch((error) => {
+    const detail = error instanceof Error ? error.message : 'Unknown network error';
+    throw new Error(`Interest catalog load failed: ${detail}`);
+  });
 
   if (!nextSession) {
     return {
@@ -218,11 +235,11 @@ async function loadAccountSnapshot(nextSession: Session | null): Promise<Account
   }
 
   const [sessionState, profile, userInterests, queueStatus, matchSessions, presence] = await Promise.all([
-    authorizedRequest<SessionState>(nextSession, '/auth/session'),
-    authorizedRequest<ProfileRecord | null>(nextSession, '/profiles/me'),
-    authorizedRequest<UserInterestRecord[]>(nextSession, '/interests/me'),
-    authorizedRequest<QueueStatusResponse>(nextSession, '/match/queue'),
-    authorizedRequest<MatchSessionsResponse>(nextSession, '/match/sessions'),
+    authorizedRequestWithRouteError<SessionState>(nextSession, '/auth/session', 'Auth session refresh'),
+    authorizedRequestWithRouteError<ProfileRecord | null>(nextSession, '/profiles/me', 'Profile refresh'),
+    authorizedRequestWithRouteError<UserInterestRecord[]>(nextSession, '/interests/me', 'Interest refresh'),
+    authorizedRequestWithRouteError<QueueStatusResponse>(nextSession, '/match/queue', 'Queue status refresh'),
+    authorizedRequestWithRouteError<MatchSessionsResponse>(nextSession, '/match/sessions', 'Match history refresh'),
     loadPresence(nextSession),
   ]);
 
@@ -651,7 +668,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMessage(null);
 
     try {
-      await authorizedRequest<ProfileRecord>(session, '/profiles/me', {
+      await authorizedRequestWithRouteError<ProfileRecord>(session, '/profiles/me', 'Profile save', {
         method: 'PUT',
         body: JSON.stringify({
           age_verified_status: payload.age_verified_status ?? 'self_attested',
@@ -680,13 +697,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMessage(null);
 
     try {
-      await authorizedRequest<UserInterestRecord[]>(session, '/interests/me', {
+      await authorizedRequestWithRouteError<UserInterestRecord[]>(session, '/interests/me', 'Interest save', {
         method: 'PUT',
         body: JSON.stringify({ interest_ids: interestIds }),
       });
 
       if (profile && interestIds.length > 0 && !profile.onboarding_completed_at) {
-        await authorizedRequest<ProfileRecord>(session, '/profiles/me', {
+        await authorizedRequestWithRouteError<ProfileRecord>(session, '/profiles/me', 'Onboarding completion save', {
           method: 'PATCH',
           body: JSON.stringify({
             onboarding_completed_at: new Date().toISOString(),
@@ -711,7 +728,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMessage(null);
 
     try {
-      const response = await authorizedRequest<MatchJoinResponse>(session, '/match/join', {
+      const response = await authorizedRequestWithRouteError<MatchJoinResponse>(session, '/match/join', 'Match join', {
         method: 'POST',
         body: JSON.stringify({
           country_code: profile?.country_code || null,

@@ -106,6 +106,7 @@ export default function AccountScreen() {
 
       const result = await uploadAvatar({
         file: 'file' in asset ? ((asset as typeof asset & { file?: File | null }).file ?? null) : null,
+        base64: 'base64' in asset ? ((asset as typeof asset & { base64?: string | null }).base64 ?? null) : null,
         mimeType: asset.mimeType,
         uri: asset.uri,
         userId: user.id,
