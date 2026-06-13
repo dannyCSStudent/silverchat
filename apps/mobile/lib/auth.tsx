@@ -161,7 +161,7 @@ type AuthContextValue = {
   signUp: (email: string, password: string) => Promise<void>;
   user: User | null;
   clearMessage: () => void;
-  refreshData: () => Promise<void>;
+  refreshData: (nextSession?: Session, options?: { silent?: boolean }) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   saveInterests: (interestIds: string[]) => Promise<void>;
@@ -212,11 +212,22 @@ async function authorizedRequestWithRouteError<T>(
   }
 }
 
+async function safeAuthorizedRequest<T>(
+  session: Session,
+  path: string,
+  routeLabel: string,
+  fallback: T,
+  options: RequestInit = {},
+) {
+  try {
+    return await authorizedRequestWithRouteError<T>(session, path, routeLabel, options);
+  } catch {
+    return fallback;
+  }
+}
+
 async function loadAccountSnapshot(nextSession: Session | null): Promise<AccountSnapshot> {
-  const availableInterests = await apiRequest<InterestRecord[]>('/interests/').catch((error) => {
-    const detail = error instanceof Error ? error.message : 'Unknown network error';
-    throw new Error(`Interest catalog load failed: ${detail}`);
-  });
+  const availableInterests = await apiRequest<InterestRecord[]>('/interests/').catch(() => []);
 
   if (!nextSession) {
     return {
@@ -235,11 +246,27 @@ async function loadAccountSnapshot(nextSession: Session | null): Promise<Account
   }
 
   const [sessionState, profile, userInterests, queueStatus, matchSessions, presence] = await Promise.all([
-    authorizedRequestWithRouteError<SessionState>(nextSession, '/auth/session', 'Auth session refresh'),
-    authorizedRequestWithRouteError<ProfileRecord | null>(nextSession, '/profiles/me', 'Profile refresh'),
-    authorizedRequestWithRouteError<UserInterestRecord[]>(nextSession, '/interests/me', 'Interest refresh'),
-    authorizedRequestWithRouteError<QueueStatusResponse>(nextSession, '/match/queue', 'Queue status refresh'),
-    authorizedRequestWithRouteError<MatchSessionsResponse>(nextSession, '/match/sessions', 'Match history refresh'),
+    safeAuthorizedRequest<SessionState | null>(nextSession, '/auth/session', 'Auth session refresh', null),
+    safeAuthorizedRequest<ProfileRecord | null>(nextSession, '/profiles/me', 'Profile refresh', null),
+    safeAuthorizedRequest<UserInterestRecord[]>(nextSession, '/interests/me', 'Interest refresh', []),
+    safeAuthorizedRequest<QueueStatusResponse>(
+      nextSession,
+      '/match/queue',
+      'Queue status refresh',
+      {
+        queue_entry: null,
+        queue_position: null,
+        queue_size: 0,
+        members_ahead: null,
+        recommended_pool: null,
+      },
+    ),
+    safeAuthorizedRequest<MatchSessionsResponse>(
+      nextSession,
+      '/match/sessions',
+      'Match history refresh',
+      { sessions: [] },
+    ),
     loadPresence(nextSession),
   ]);
 
@@ -394,7 +421,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshData = useCallback(
-    async (nextSession = session) => {
+    async (nextSession = session, options?: { silent?: boolean }) => {
       const now = Date.now();
       if (now - lastRefreshAtRef.current < 2500) {
         return;
@@ -419,7 +446,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastRefreshAtRef.current = Date.now();
         setLastSyncedAt(new Date().toISOString());
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'Unable to refresh account data.');
+        if (!options?.silent) {
+          setMessage(error instanceof Error ? error.message : 'Unable to refresh account data.');
+        }
       }
     },
     [loadMatchPreview, session],
@@ -668,7 +697,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMessage(null);
 
     try {
-      await authorizedRequestWithRouteError<ProfileRecord>(session, '/profiles/me', 'Profile save', {
+      const savedProfile = await authorizedRequestWithRouteError<ProfileRecord>(session, '/profiles/me', 'Profile save', {
         method: 'PUT',
         body: JSON.stringify({
           age_verified_status: payload.age_verified_status ?? 'self_attested',
@@ -681,8 +710,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }),
       });
 
-      await refreshData(session);
       setMessage('Profile saved. Match signals refreshed.');
+      setProfile(savedProfile);
+      void refreshData(session, { silent: true });
     } finally {
       setLoading(false);
     }
@@ -697,23 +727,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMessage(null);
 
     try {
-      await authorizedRequestWithRouteError<UserInterestRecord[]>(session, '/interests/me', 'Interest save', {
+      const savedInterests = await authorizedRequestWithRouteError<UserInterestRecord[]>(session, '/interests/me', 'Interest save', {
         method: 'PUT',
         body: JSON.stringify({ interest_ids: interestIds }),
       });
 
+      setInterests(savedInterests.map((item) => item.interest_id));
+
       if (profile && interestIds.length > 0 && !profile.onboarding_completed_at) {
-        await authorizedRequestWithRouteError<ProfileRecord>(session, '/profiles/me', 'Onboarding completion save', {
+        const updatedProfile = await authorizedRequestWithRouteError<ProfileRecord>(session, '/profiles/me', 'Onboarding completion save', {
           method: 'PATCH',
           body: JSON.stringify({
             onboarding_completed_at: new Date().toISOString(),
             profile_status: 'active',
           }),
         });
+
+        setProfile(updatedProfile);
       }
 
-      await refreshData(session);
       setMessage('Interests saved. Match signals refreshed.');
+      void refreshData(session, { silent: true });
     } finally {
       setLoading(false);
     }

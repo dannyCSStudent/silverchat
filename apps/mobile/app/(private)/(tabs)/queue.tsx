@@ -177,6 +177,13 @@ export default function QueueScreen() {
     matchPreview,
     profile,
   });
+  const activeMatchSession =
+    matchedSessionDetail ??
+    recentMatches.find((item) => item.ended_at == null && item.status !== 'ended' && item.other_profile) ??
+    null;
+  const activeMatchProfile = activeMatchSession?.other_profile ?? matchedProfile;
+  const displayMatchProfile = activeMatchProfile ?? matchedProfile;
+  const activeMatchSessionId = activeMatchSession?.id ?? matchedSessionId;
   const matchPoolLabel =
     matchPreview?.recommended_pool === 'preferred'
       ? 'Preferred pool'
@@ -443,45 +450,45 @@ export default function QueueScreen() {
         </ThemedView>
       ) : null}
 
-      {matchedProfile ? (
+      {activeMatchProfile ? (
         <ThemedView style={styles.card}>
-          {matchedSessionDetail ? (
+          {activeMatchSession ? (
             <SessionOutcomeCard
               title="Latest match"
-              sessionId={matchedSessionDetail.id}
-              status={matchedSessionDetail.status}
-              currentUserRole={matchedSessionDetail.current_user_role ?? 'initiator'}
-              createdAt={matchedSessionDetail.created_at ?? null}
-              endedAt={matchedSessionDetail.ended_at ?? null}
+              sessionId={activeMatchSession.id}
+              status={activeMatchSession.status}
+              currentUserRole={activeMatchSession.current_user_role ?? 'initiator'}
+              createdAt={activeMatchSession.created_at ?? null}
+              endedAt={activeMatchSession.ended_at ?? null}
               actions={
                 <SessionCardActions
-                  sessionId={matchedSessionDetail.id}
-                  callHref={matchedSessionDetail.status !== 'ended' ? `/(private)/sessions/${matchedSessionDetail.id}/call` : null}
+                  sessionId={activeMatchSession.id}
+                  callHref={activeMatchSession.status !== 'ended' ? `/(private)/sessions/${activeMatchSession.id}/call` : null}
                 />
               }
               otherMember={{
-                user_id: matchedSessionDetail.other_profile?.user_id ?? matchedProfile.user_id,
+                user_id: activeMatchSession.other_profile?.user_id ?? activeMatchProfile.user_id,
                 display_name:
-                  matchedSessionDetail.other_profile?.display_name ?? matchedProfile.display_name,
+                  activeMatchSession.other_profile?.display_name ?? activeMatchProfile.display_name,
                 avatar_url:
-                  matchedSessionDetail.other_profile?.avatar_url ?? matchedProfile.avatar_url ?? null,
+                  activeMatchSession.other_profile?.avatar_url ?? activeMatchProfile.avatar_url ?? null,
                 country_code:
-                  matchedSessionDetail.other_profile?.country_code ??
-                  matchedProfile.country_code ??
+                  activeMatchSession.other_profile?.country_code ??
+                  activeMatchProfile.country_code ??
                   'Country not set',
               }}
             />
           ) : (
             <SessionMemberCard
               title="Latest match"
-              member={matchedProfile}
+              member={activeMatchProfile}
               leading={
-                matchedProfile.avatar_url ? (
-                  <Image source={{ uri: matchedProfile.avatar_url }} style={styles.avatar} contentFit="cover" />
+                activeMatchProfile.avatar_url ? (
+                  <Image source={{ uri: activeMatchProfile.avatar_url }} style={styles.avatar} contentFit="cover" />
                 ) : (
                   <View style={styles.avatarFallback}>
                     <ThemedText style={styles.avatarFallbackText}>
-                      {matchedProfile.display_name.slice(0, 1).toUpperCase()}
+                      {activeMatchProfile.display_name.slice(0, 1).toUpperCase()}
                     </ThemedText>
                   </View>
                 )
@@ -489,10 +496,10 @@ export default function QueueScreen() {
               footer={
                 <View style={styles.matchFooter}>
                   <ThemedText style={styles.cardCopy}>Matched just now in the active queue.</ThemedText>
-                  {matchedSessionId ? (
+                  {activeMatchSessionId ? (
                     <SessionCardActions
-                      sessionId={matchedSessionId}
-                      callHref={`/(private)/sessions/${matchedSessionId}/call`}
+                      sessionId={activeMatchSessionId}
+                      callHref={`/(private)/sessions/${activeMatchSessionId}/call`}
                     />
                   ) : null}
                 </View>
@@ -521,12 +528,8 @@ export default function QueueScreen() {
           {matchContext ? (
             <ConversationStarterCard
               contextHint="Use one of these openers if you want to keep the conversation going."
-              countryCode={
-                matchedSessionDetail?.other_profile?.country_code ?? matchedProfile.country_code ?? null
-              }
-              memberName={
-                matchedSessionDetail?.other_profile?.display_name ?? matchedProfile.display_name
-              }
+              countryCode={activeMatchSession?.other_profile?.country_code ?? displayMatchProfile?.country_code ?? null}
+              memberName={activeMatchSession?.other_profile?.display_name ?? displayMatchProfile?.display_name ?? ''}
               pool={matchContext.pool}
               sharedTopics={matchContext.shared_interests}
               topSharedCategory={matchContext.top_shared_category ?? null}
