@@ -33,7 +33,7 @@ EXPO_PUBLIC_SUPABASE_AVATAR_BUCKET=avatars
 For a physical phone, use your machine's LAN IP instead:
 
 ```bash
-EXPO_PUBLIC_API_URL=http://192.168.1.25:8001
+EXPO_PUBLIC_API_BASE_URL=http://192.168.1.25:8001
 ```
 
 Then start the backend so it is reachable from your device:

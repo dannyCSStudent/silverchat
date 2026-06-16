@@ -19,6 +19,10 @@ const apiBaseUrl =
       : 'http://127.0.0.1:8001');
 const avatarBucket = process.env.EXPO_PUBLIC_SUPABASE_AVATAR_BUCKET?.trim() ?? 'avatars';
 
+console.log('Platform:', Platform.OS);
+console.log('API URL:', apiBaseUrl);
+
+
 export const mobileEnv = {
   apiBaseUrl,
   avatarBucket,
