@@ -6,6 +6,57 @@ export type ApiErrorPayload = {
   message?: string;
 };
 
+export type ApiConnectivityResult = {
+  ok: boolean;
+  status: number | null;
+  detail: string;
+};
+
+export async function checkApiConnectivity(apiBaseUrl = mobileEnv.apiBaseUrl): Promise<ApiConnectivityResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4000);
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/health`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    if (response.ok) {
+      return {
+        ok: true,
+        status: response.status,
+        detail: 'Backend health check succeeded.',
+      };
+    }
+
+    let detail = `Health check failed with ${response.status}`;
+    try {
+      const payload = (await response.json()) as ApiErrorPayload;
+      detail = payload.detail ?? payload.message ?? detail;
+    } catch {
+      // Keep the status-based fallback.
+    }
+
+    return {
+      ok: false,
+      status: response.status,
+      detail,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: null,
+      detail: error instanceof Error ? error.message : 'Network request failed',
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},

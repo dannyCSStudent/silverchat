@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ApiConnectivityCard } from '@/components/api-connectivity-card';
 import { OnboardingPathPreview } from '@/components/onboarding-path-preview';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -48,6 +49,8 @@ export default function ForgotPasswordScreen() {
         steps={['Send reset email', 'Sign in again', ...ONBOARDING_PATH_STEPS.slice(1)]}
         title="Where reset fits"
       />
+
+      <ApiConnectivityCard />
 
       <ThemedView style={styles.card}>
         <TextInput

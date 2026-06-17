@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ApiConnectivityCard } from '@/components/api-connectivity-card';
 import { OnboardingChecklistSummary } from '@/components/onboarding-checklist-summary';
 import { OnboardingPathPreview } from '@/components/onboarding-path-preview';
 import { OnboardingNextStepCard } from '@/components/onboarding-next-step-card';
@@ -70,6 +71,8 @@ export default function VerifyEmailScreen() {
         steps={ONBOARDING_PATH_STEPS}
         title="Your onboarding path"
       />
+
+      <ApiConnectivityCard />
 
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Current status</ThemedText>

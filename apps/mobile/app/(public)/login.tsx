@@ -4,11 +4,11 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ApiConnectivityCard } from '@/components/api-connectivity-card';
 import { OnboardingPathPreview } from '@/components/onboarding-path-preview';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/lib/auth';
-import { mobileEnv } from '@/lib/env';
 import { ONBOARDING_PATH_STEPS } from '@/lib/onboarding';
 
 export default function LoginScreen() {
@@ -51,11 +51,9 @@ export default function LoginScreen() {
         title="Your onboarding path"
       />
 
-      <ThemedView style={styles.card}>
-        <ThemedText style={styles.cardLabel}>Connection</ThemedText>
-        <ThemedText style={styles.cardCopy}>API: {mobileEnv.apiBaseUrl}</ThemedText>
-        {envError ? <ThemedText style={styles.errorText}>{envError}</ThemedText> : null}
-      </ThemedView>
+      <ApiConnectivityCard />
+
+      {envError ? <ThemedText style={styles.errorText}>{envError}</ThemedText> : null}
 
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Welcome back</ThemedText>

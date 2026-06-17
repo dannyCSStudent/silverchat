@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ApiConnectivityCard } from '@/components/api-connectivity-card';
 import { OnboardingPathPreview } from '@/components/onboarding-path-preview';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -64,6 +65,8 @@ export default function SignUpScreen() {
         steps={ONBOARDING_PATH_STEPS}
         title="What happens next"
       />
+
+      <ApiConnectivityCard />
 
       <ThemedView style={styles.card}>
         <TextInput
