@@ -29,6 +29,8 @@ type SignalMessage = {
   payload?: unknown;
 };
 
+type MediaSignalMessage = Extract<SignalingMessage, { type: 'offer' | 'answer' | 'ice-candidate' }>;
+
 type NativeIceCandidateInit = {
   candidate?: string;
   sdpMLineIndex?: number | null;
@@ -64,6 +66,8 @@ export default function MatchSessionCallScreen() {
   const socketRef = useRef<WebSocket | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const pendingSignalsRef = useRef<string[]>([]);
+  const pendingInboundSignalsRef = useRef<MediaSignalMessage[]>([]);
+  const pendingIceCandidatesRef = useRef<NativeIceCandidateInit[]>([]);
   const localStreamRef = useRef<MediaStreamLike | null>(null);
   const isInitiatorRef = useRef(true);
 
@@ -109,6 +113,143 @@ export default function MatchSessionCallScreen() {
     pendingSignalsRef.current = [];
     queued.forEach((payload) => socket.send(payload));
   }, []);
+
+  const toNativeSessionDescriptionInit = useCallback(
+    (payload: unknown): NativeRTCSessionDescriptionInit | null => {
+      if (!payload || typeof payload !== 'object') {
+        return null;
+      }
+
+      const candidate = payload as { sdp?: unknown; type?: unknown };
+      if (typeof candidate.sdp !== 'string' || typeof candidate.type !== 'string') {
+        return null;
+      }
+
+      return {
+        sdp: candidate.sdp,
+        type: candidate.type,
+      };
+    },
+    [],
+  );
+
+  const serializeSessionDescription = useCallback((description: unknown) => {
+    const candidate = description as { type?: unknown; sdp?: unknown } | null;
+    if (!candidate || typeof candidate.type !== 'string' || typeof candidate.sdp !== 'string') {
+      return null;
+    }
+
+    return {
+      type: candidate.type,
+      sdp: candidate.sdp,
+    };
+  }, []);
+
+  const flushPendingIceCandidates = useCallback((peer: RTCPeerConnection) => {
+    if (pendingIceCandidatesRef.current.length === 0) {
+      return;
+    }
+
+    const queued = [...pendingIceCandidatesRef.current];
+    pendingIceCandidatesRef.current = [];
+    queued.forEach((candidate) => {
+      void peer.addIceCandidate(new RTCIceCandidate(candidate)).catch((signalError: unknown) => {
+        const message =
+          signalError instanceof Error ? signalError.message : 'Unable to apply queued ICE candidate.';
+        setError(message);
+        setCallState('error');
+        pushEvent(`Queued ICE handling failed: ${message}`);
+      });
+    });
+  }, [pushEvent]);
+
+  const handleInboundSignal = useCallback(
+    (payload: MediaSignalMessage) => {
+      const peer = peerRef.current;
+      if (!peer) {
+        pendingInboundSignalsRef.current.push(payload);
+        pushEvent(`Queued signal until peer is ready: ${payload.type}`);
+        return;
+      }
+
+      if (payload.type === 'offer' && payload.payload) {
+        void (async () => {
+          const description = toNativeSessionDescriptionInit(payload.payload);
+          if (!description) {
+            return;
+          }
+
+          await peer.setRemoteDescription(new RTCSessionDescription(description));
+          flushPendingIceCandidates(peer);
+          const answer = await peer.createAnswer();
+          await peer.setLocalDescription(answer);
+          const serializedAnswer = serializeSessionDescription(answer);
+          if (!serializedAnswer) {
+            throw new Error('Unable to serialize signaling answer.');
+          }
+
+          sendSignal({ type: 'answer', payload: serializedAnswer });
+        })().catch((signalError: unknown) => {
+          const message =
+            signalError instanceof Error ? signalError.message : 'Unable to answer signaling offer.';
+          setError(message);
+          setCallState('error');
+          pushEvent(`Offer handling failed: ${message}`);
+        });
+        return;
+      }
+
+      if (payload.type === 'answer' && payload.payload) {
+        const description = toNativeSessionDescriptionInit(payload.payload);
+        if (!description) {
+          return;
+        }
+
+        void peer
+          .setRemoteDescription(new RTCSessionDescription(description))
+          .then(() => {
+            flushPendingIceCandidates(peer);
+          })
+          .catch((signalError: unknown) => {
+            const message =
+              signalError instanceof Error ? signalError.message : 'Unable to apply signaling answer.';
+            setError(message);
+            setCallState('error');
+            pushEvent(`Answer handling failed: ${message}`);
+          });
+        return;
+      }
+
+      if (payload.type === 'ice-candidate' && payload.payload) {
+        if (!peer.remoteDescription) {
+          pendingIceCandidatesRef.current.push(payload.payload as NativeIceCandidateInit);
+          pushEvent('Queued ICE candidate until remote description is ready.');
+          return;
+        }
+
+        void peer.addIceCandidate(new RTCIceCandidate(payload.payload as NativeIceCandidateInit)).catch(
+          (signalError: unknown) => {
+            const message =
+              signalError instanceof Error ? signalError.message : 'Unable to apply ICE candidate.';
+            setError(message);
+            setCallState('error');
+            pushEvent(`ICE handling failed: ${message}`);
+          },
+        );
+      }
+    },
+    [flushPendingIceCandidates, pushEvent, sendSignal, toNativeSessionDescriptionInit],
+  );
+
+  const flushPendingInboundSignals = useCallback(() => {
+    if (!peerRef.current || pendingInboundSignalsRef.current.length === 0) {
+      return;
+    }
+
+    const queued = [...pendingInboundSignalsRef.current];
+    pendingInboundSignalsRef.current = [];
+    queued.forEach((payload) => handleInboundSignal(payload));
+  }, [handleInboundSignal]);
 
   const closeSocket = useCallback(() => {
     const socket = socketRef.current;
@@ -169,25 +310,6 @@ export default function MatchSessionCallScreen() {
     setRestartNonce((current) => current + 1);
     pushEvent('Restarting call room...');
   }, [pushEvent, resetCallSession]);
-
-  const toNativeSessionDescriptionInit = useCallback(
-    (payload: unknown): NativeRTCSessionDescriptionInit | null => {
-      if (!payload || typeof payload !== 'object') {
-        return null;
-      }
-
-      const candidate = payload as { sdp?: unknown; type?: unknown };
-      if (typeof candidate.sdp !== 'string' || typeof candidate.type !== 'string') {
-        return null;
-      }
-
-      return {
-        sdp: candidate.sdp,
-        type: candidate.type,
-      };
-    },
-    [],
-  );
 
   const loadDetail = useCallback(async () => {
     if (!session || !resolvedSessionId) {
@@ -309,63 +431,8 @@ export default function MatchSessionCallScreen() {
           return;
         }
 
-        if (!peerRef.current) {
-          return;
-        }
-
-        if (payload.type === 'offer' && payload.payload) {
-          void (async () => {
-            const description = toNativeSessionDescriptionInit(payload.payload);
-            if (!description) {
-              return;
-            }
-
-            await peerRef.current?.setRemoteDescription(new RTCSessionDescription(description));
-            const answer = await peerRef.current?.createAnswer();
-            if (!answer) {
-              return;
-            }
-
-            await peerRef.current?.setLocalDescription(answer);
-            sendSignal({ type: 'answer', payload: answer.toJSON() });
-          })().catch((signalError: unknown) => {
-            const message =
-              signalError instanceof Error ? signalError.message : 'Unable to answer signaling offer.';
-            setError(message);
-            setCallState('error');
-            pushEvent(`Offer handling failed: ${message}`);
-          });
-          return;
-        }
-
-        if (payload.type === 'answer' && payload.payload) {
-          const description = toNativeSessionDescriptionInit(payload.payload);
-          if (!description) {
-            return;
-          }
-
-          void peerRef.current
-            ?.setRemoteDescription(new RTCSessionDescription(description))
-            .catch((signalError: unknown) => {
-              const message =
-                signalError instanceof Error ? signalError.message : 'Unable to apply signaling answer.';
-              setError(message);
-              setCallState('error');
-              pushEvent(`Answer handling failed: ${message}`);
-            });
-          return;
-        }
-
-        if (payload.type === 'ice-candidate' && payload.payload) {
-          void peerRef.current
-            ?.addIceCandidate(new RTCIceCandidate(payload.payload as NativeIceCandidateInit))
-            .catch((signalError: unknown) => {
-              const message =
-                signalError instanceof Error ? signalError.message : 'Unable to apply ICE candidate.';
-              setError(message);
-              setCallState('error');
-              pushEvent(`ICE handling failed: ${message}`);
-            });
+        if (payload.type === 'offer' || payload.type === 'answer' || payload.type === 'ice-candidate') {
+          handleInboundSignal(payload as MediaSignalMessage);
         }
       } catch {
         pushEvent('Received a signaling event.');
@@ -438,7 +505,12 @@ export default function MatchSessionCallScreen() {
       void (async () => {
         const offer = await peer.createOffer();
         await peer.setLocalDescription(offer);
-        sendSignal({ type: 'offer', payload: offer.toJSON() });
+        const serializedOffer = serializeSessionDescription(offer);
+        if (!serializedOffer) {
+          throw new Error('Unable to serialize signaling offer.');
+        }
+
+        sendSignal({ type: 'offer', payload: serializedOffer });
         pushEvent('Sent offer.');
       })().catch((signalError: unknown) => {
         const message =
@@ -449,10 +521,22 @@ export default function MatchSessionCallScreen() {
       });
     }
 
+    flushPendingInboundSignals();
+
     return () => {
       closePeer();
     };
-  }, [closePeer, isInitiator, localStream, pushEvent, restartNonce, resolvedSessionId, sendSignal, session]);
+  }, [
+    closePeer,
+    flushPendingInboundSignals,
+    isInitiator,
+    localStream,
+    pushEvent,
+    restartNonce,
+    resolvedSessionId,
+    sendSignal,
+    session,
+  ]);
 
   useEffect(() => {
     if (!session || !resolvedSessionId) {
@@ -642,7 +726,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'rgba(24,33,43,0.08)',
   },
-  remoteVideo: { width: '100%', height: '100%' },
+  remoteVideo: { width: '100%', aspectRatio: 3 / 4 },
   localPreviewRow: { gap: 10 },
   localPreviewLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   smallStatus: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.9, opacity: 0.62 },
@@ -652,7 +736,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'rgba(24,33,43,0.08)',
   },
-  localVideo: { width: '100%', height: '100%' },
+  localVideo: { width: '100%', aspectRatio: 3 / 4 },
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18 },
   placeholderText: { fontSize: 14, lineHeight: 20, textAlign: 'center', opacity: 0.62 },
   logList: { gap: 6 },
