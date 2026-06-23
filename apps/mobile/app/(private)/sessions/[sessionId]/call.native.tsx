@@ -1,4 +1,4 @@
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import {
@@ -20,7 +20,7 @@ import type { MatchSessionDetailResponse } from '@/lib/match-sessions';
 import { buildSignalingUrl, type SignalingMessage } from '@/lib/signaling';
 
 type MediaStreamLike = {
-  getTracks: () => Array<{ stop: () => void }>;
+  getTracks: () => Array<{ stop: () => void; kind?: string; enabled?: boolean }>;
   toURL: () => string;
 };
 
@@ -49,6 +49,7 @@ const rtcConfiguration = {
 };
 
 export default function MatchSessionCallScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { session, recentMatches } = useAuth();
@@ -63,6 +64,9 @@ export default function MatchSessionCallScreen() {
   const [localStream, setLocalStream] = useState<MediaStreamLike | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStreamLike | null>(null);
   const [restartNonce, setRestartNonce] = useState(0);
+  const [micEnabled, setMicEnabled] = useState(true);
+  const [cameraEnabled, setCameraEnabled] = useState(true);
+  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('user');
   const socketRef = useRef<WebSocket | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const pendingSignalsRef = useRef<string[]>([]);
@@ -285,6 +289,8 @@ export default function MatchSessionCallScreen() {
     localStreamRef.current = null;
     setLocalStream(null);
     setRemoteStream(null);
+    setMicEnabled(true);
+    setCameraEnabled(true);
 
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
@@ -310,6 +316,55 @@ export default function MatchSessionCallScreen() {
     setRestartNonce((current) => current + 1);
     pushEvent('Restarting call room...');
   }, [pushEvent, resetCallSession]);
+
+  const toggleMicrophone = useCallback(() => {
+    const stream = localStreamRef.current;
+    if (!stream) {
+      return;
+    }
+
+    const nextEnabled = !micEnabled;
+    stream.getTracks().forEach((track) => {
+      if ('kind' in track && track.kind === 'audio') {
+        track.enabled = nextEnabled;
+      }
+    });
+    setMicEnabled(nextEnabled);
+    pushEvent(nextEnabled ? 'Microphone unmuted.' : 'Microphone muted.');
+  }, [micEnabled, pushEvent]);
+
+  const toggleCamera = useCallback(() => {
+    const stream = localStreamRef.current;
+    if (!stream) {
+      return;
+    }
+
+    const nextEnabled = !cameraEnabled;
+    stream.getTracks().forEach((track) => {
+      if ('kind' in track && track.kind === 'video') {
+        track.enabled = nextEnabled;
+      }
+    });
+    setCameraEnabled(nextEnabled);
+    pushEvent(nextEnabled ? 'Camera enabled.' : 'Camera disabled.');
+  }, [cameraEnabled, pushEvent]);
+
+  const switchCamera = useCallback(() => {
+    setCameraFacing((current) => (current === 'user' ? 'environment' : 'user'));
+    setRestartNonce((current) => current + 1);
+    pushEvent('Switching camera...');
+  }, [pushEvent]);
+
+  const endCall = useCallback(() => {
+    try {
+      sendSignal({ type: 'leave' });
+    } catch {
+      // Ignore signaling failures during teardown.
+    }
+
+    resetCallSession();
+    router.replace(summary ? `/(private)/sessions/${summary.id}` : '/(private)/(tabs)/queue');
+  }, [resetCallSession, router, sendSignal, summary]);
 
   const loadDetail = useCallback(async () => {
     if (!session || !resolvedSessionId) {
@@ -357,7 +412,9 @@ export default function MatchSessionCallScreen() {
     void mediaDevices
       .getUserMedia({
         audio: true,
-        video: true,
+        video: {
+          facingMode: cameraFacing,
+        } as any,
       })
       .then((stream) => {
         if (!active) {
@@ -381,7 +438,7 @@ export default function MatchSessionCallScreen() {
       active = false;
       stopMedia();
     };
-  }, [pushEvent, restartNonce, resolvedSessionId, session, stopMedia]);
+  }, [cameraFacing, pushEvent, restartNonce, resolvedSessionId, session, stopMedia]);
 
   useEffect(() => {
     if (!session || !resolvedSessionId) {
@@ -396,7 +453,7 @@ export default function MatchSessionCallScreen() {
     socket.onopen = () => {
       flushPendingSignals();
       setCallState((current) => (current === 'error' ? current : 'connected'));
-      pushEvent('Signaling socket connected.');
+          pushEvent('Signaling connected.');
     };
 
     socket.onmessage = (event) => {
@@ -611,13 +668,37 @@ export default function MatchSessionCallScreen() {
             <ThemedText style={styles.secondaryButtonText}>Retry call</ThemedText>
           </Pressable>
           <Pressable
-            onPress={() => {
-              sendSignal({ type: 'leave' });
-              pushEvent('Requested leave.');
-            }}
+            onPress={() => void endCall()}
             style={styles.secondaryButton}
           >
-            <ThemedText style={styles.secondaryButtonText}>Leave room</ThemedText>
+            <ThemedText style={styles.secondaryButtonText}>End call</ThemedText>
+          </Pressable>
+        </View>
+        <View style={styles.buttonRow}>
+          <Pressable
+            onPress={() => void toggleMicrophone()}
+            disabled={!localStream}
+            style={[styles.secondaryButton, !localStream && styles.secondaryButtonDisabled]}
+          >
+            <ThemedText style={styles.secondaryButtonText}>
+              {micEnabled ? 'Mute mic' : 'Unmute mic'}
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={() => void toggleCamera()}
+            disabled={!localStream}
+            style={[styles.secondaryButton, !localStream && styles.secondaryButtonDisabled]}
+          >
+            <ThemedText style={styles.secondaryButtonText}>
+              {cameraEnabled ? 'Turn camera off' : 'Turn camera on'}
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={() => void switchCamera()}
+            disabled={!localStream}
+            style={[styles.secondaryButton, !localStream && styles.secondaryButtonDisabled]}
+          >
+            <ThemedText style={styles.secondaryButtonText}>Switch camera</ThemedText>
           </Pressable>
         </View>
       </ThemedView>
@@ -720,13 +801,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryButtonText: { color: '#27566B', fontWeight: '700' },
+  secondaryButtonDisabled: { opacity: 0.5 },
   videoFrame: {
     borderRadius: 24,
     minHeight: 260,
     overflow: 'hidden',
     backgroundColor: 'rgba(24,33,43,0.08)',
   },
-  remoteVideo: { width: '100%', aspectRatio: 3 / 4 },
+  remoteVideo: { width: '100%', height: '100%' },
   localPreviewRow: { gap: 10 },
   localPreviewLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   smallStatus: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.9, opacity: 0.62 },
@@ -736,7 +818,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'rgba(24,33,43,0.08)',
   },
-  localVideo: { width: '100%', aspectRatio: 3 / 4 },
+  localVideo: { width: '100%', height: '100%' },
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18 },
   placeholderText: { fontSize: 14, lineHeight: 20, textAlign: 'center', opacity: 0.62 },
   logList: { gap: 6 },
