@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import {
   mediaDevices,
+  MediaStream as RTCMediaStream,
   RTCIceCandidate,
   RTCPeerConnection,
   RTCSessionDescription,
@@ -527,11 +528,31 @@ export default function MatchSessionCallScreen() {
 
     localStream.getTracks().forEach((track) => peer.addTrack(track as any, localStream as any));
 
-    (peer as any).ontrack = (event: { streams?: MediaStreamLike[] }) => {
+    (peer as any).ontrack = (event: { streams?: MediaStreamLike[]; track?: { kind?: string } }) => {
       const [stream] = event.streams ?? [];
       if (stream) {
         setRemoteStream(stream as MediaStreamLike);
         pushEvent('Remote media stream attached.');
+        return;
+      }
+
+      if (event.track) {
+        try {
+          const fallbackStream = new RTCMediaStream();
+          fallbackStream.addTrack(event.track as any);
+          setRemoteStream(fallbackStream);
+          pushEvent('Remote media stream attached from track.');
+        } catch {
+          pushEvent('Remote track received without stream container.');
+        }
+      }
+    };
+
+    (peer as any).onaddstream = (event: { stream?: MediaStreamLike; mediaStream?: MediaStreamLike }) => {
+      const stream = event.stream ?? event.mediaStream ?? null;
+      if (stream) {
+        setRemoteStream(stream);
+        pushEvent('Remote media stream attached via addstream.');
       }
     };
 
@@ -714,9 +735,10 @@ export default function MatchSessionCallScreen() {
             </View>
           )}
         </View>
-        <View style={styles.localPreviewRow}>
+
+        <View style={styles.localPreviewCard}>
           <View style={styles.localPreviewLabelRow}>
-            <ThemedText style={styles.cardCopy}>Local preview</ThemedText>
+            <ThemedText style={styles.localPreviewLabel}>Self</ThemedText>
             <ThemedText style={styles.smallStatus}>{localStream ? 'Live' : 'Waiting'}</ThemedText>
           </View>
           <View style={styles.localPreviewFrame}>
@@ -779,7 +801,7 @@ const styles = StyleSheet.create({
   inlineLink: { alignSelf: 'flex-start' },
   inlineLinkText: { color: '#27566B', fontWeight: '700' },
   card: { borderRadius: 24, padding: 18, gap: 10 },
-  mediaCard: { borderRadius: 24, padding: 18, gap: 12 },
+  mediaCard: { borderRadius: 24, padding: 18, gap: 12, overflow: 'hidden' },
   cardLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, opacity: 0.62 },
   cardCopy: { fontSize: 15, lineHeight: 22, opacity: 0.8 },
   errorText: { color: '#B74444', fontSize: 14, lineHeight: 20 },
@@ -804,21 +826,31 @@ const styles = StyleSheet.create({
   secondaryButtonDisabled: { opacity: 0.5 },
   videoFrame: {
     borderRadius: 24,
-    minHeight: 260,
+    minHeight: 250,
+    aspectRatio: 16 / 9,
     overflow: 'hidden',
     backgroundColor: 'rgba(24,33,43,0.08)',
   },
   remoteVideo: { width: '100%', height: '100%' },
-  localPreviewRow: { gap: 10 },
+  localPreviewCard: {
+    gap: 8,
+    borderRadius: 20,
+    padding: 10,
+    backgroundColor: '#0A121A',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
   localPreviewLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  smallStatus: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.9, opacity: 0.62 },
+  localPreviewLabel: { color: '#F9FAFB', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  smallStatus: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.9, opacity: 0.78, color: '#F9FAFB' },
   localPreviewFrame: {
     borderRadius: 18,
-    minHeight: 160,
+    width: '100%',
+    height: 168,
     overflow: 'hidden',
-    backgroundColor: 'rgba(24,33,43,0.08)',
+    backgroundColor: '#000000',
   },
-  localVideo: { width: '100%', height: '100%' },
+  localVideo: { width: '100%', height: '100%', opacity: 1, backgroundColor: '#000000' },
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18 },
   placeholderText: { fontSize: 14, lineHeight: 20, textAlign: 'center', opacity: 0.62 },
   logList: { gap: 6 },
